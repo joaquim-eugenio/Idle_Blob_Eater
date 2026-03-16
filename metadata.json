@@ -1,0 +1,5 @@
+{
+  "name": "Idle Blob Eater",
+  "description": "An idle simulation game where a cute blob eats shapes to grow and level up.",
+  "requestFramePermissions": []
+}

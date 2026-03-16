@@ -5,10 +5,10 @@ import { PlaySquare } from 'lucide-react';
 export function HUD() {
   const { level, hunger, foodEaten, money, upgrades, boostActive, activateBoost } = useGameStore();
   
-  const maxTier = Math.floor((level - 1) / 5) + 1;
+  const maxTier = Math.floor((level - 1) / 3) + 1;
   const hungerSyn = 1 + (upgrades.hungerSynergy || 0) * 0.5;
-  const maxHunger = (BASE_MAX_HUNGER + (upgrades.hungerMax || 0) * 20) * hungerSyn;
-  const foodToNextLevel = 100 * Math.pow(1.5, level - 1);
+  const maxHunger = (BASE_MAX_HUNGER + (upgrades.hungerMax || 0) * 30) * hungerSyn;
+  const foodToNextLevel = 40 * level;
   
   const hungerPercent = Math.max(0, Math.min(100, (hunger / maxHunger) * 100));
   const levelPercent = Math.max(0, Math.min(100, (foodEaten / foodToNextLevel) * 100));

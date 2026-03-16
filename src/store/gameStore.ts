@@ -138,7 +138,7 @@ export const useGameStore = create<GameState>()(
         return state;
       }),
 
-      activateBoost: () => set({ boostActive: true, boostTimer: 30 }),
+      activateBoost: () => set({ boostActive: true, boostTimer: 10 }),
       activateStarBoost: () => set({ starBoostActive: true, starBoostTimer: 5 }),
 
       resetGame: () => set({
@@ -168,26 +168,25 @@ export const useGameStore = create<GameState>()(
       }),
 
       tick: (delta, width, height) => set((state) => {
-        const blobScale = 1 + (state.level - 1) * 0.2;
-        const maxTier = Math.floor((state.level - 1) / 5) + 1;
+        const blobScale = 1 + (state.level - 1) * 0.08;
+        const maxTier = Math.floor((state.level - 1) / 3) + 1;
 
         const hungerSyn = 1 + (state.upgrades.hungerSynergy || 0) * 0.5;
-        const maxHunger = (BASE_MAX_HUNGER + (state.upgrades.hungerMax || 0) * 20) * hungerSyn;
-        const baseDrain = Math.max(1, BASE_HUNGER_DRAIN - (state.upgrades.hungerDrain || 0) * 0.5 + state.level * 0.5) / hungerSyn;
+        const maxHunger = (BASE_MAX_HUNGER + (state.upgrades.hungerMax || 0) * 30) * hungerSyn;
+        const levelFactor = 1 + (state.level - 1) * 0.5;
+        const rawDrain = BASE_HUNGER_DRAIN * levelFactor;
+        const baseDrain = Math.max(0.5, rawDrain * Math.pow(0.93, state.upgrades.hungerDrain || 0)) / hungerSyn;
         
-        // Dynamic drain: higher when full, lower when starving.
-        // This creates an equilibrium where the blob maintains its hunger
-        // but needs upgrades to actually fill the bar and overflow to level up.
-        const dynamicDrain = baseDrain * (state.hunger / (maxHunger * 0.4));
+        const dynamicDrain = baseDrain * (state.hunger / (maxHunger * 0.65));
         
         const speedSyn = 1 + (state.upgrades.speedSynergy || 0) * 0.5;
         const adBoostMultiplier = state.boostActive ? 3 : 1;
         const starSpeedMultiplier = state.starBoostActive ? 1.5 : 1;
-        const speed = (BASE_SPEED + (state.upgrades.speed || 0) * 20) * adBoostMultiplier * starSpeedMultiplier * speedSyn * blobScale;
+        const speed = (BASE_SPEED + (state.upgrades.speed || 0) * 30) * adBoostMultiplier * starSpeedMultiplier * speedSyn * blobScale;
         
         const suctionSyn = 1 + (state.upgrades.suctionSynergy || 0) * 0.5;
-        const suction = (BASE_SUCTION + (state.upgrades.suction || 0) * 15) * suctionSyn * blobScale;
-        const suctionStrength = (1 + (state.upgrades.suctionStrength || 0) * 0.5) * suctionSyn;
+        const suction = (BASE_SUCTION + (state.upgrades.suction || 0) * 25) * suctionSyn * blobScale;
+        const suctionStrength = (1 + (state.upgrades.suctionStrength || 0) * 0.7) * suctionSyn;
         
         let newHunger = state.hunger - dynamicDrain * delta;
         if (newHunger < 1) newHunger = 1; // Never truly hits 0
@@ -280,41 +279,43 @@ export const useGameStore = create<GameState>()(
         let newLevel = state.level;
         let newMoney = state.money + moneyGained;
 
-        // Apply food
         if (foodGained > 0) {
           const hungerDeficit = maxHunger - newHunger;
           if (foodGained <= hungerDeficit) {
             newHunger += foodGained;
           } else {
             newHunger = maxHunger;
-            // Only excess food goes to level progress
             newFoodEaten += (foodGained - hungerDeficit);
           }
         }
 
-        // Level up check
-        const foodToNextLevel = 100 * Math.pow(1.5, state.level - 1);
+        const sizeDecayRate = rawDrain * 0.15;
+        newFoodEaten = Math.max(0, newFoodEaten - sizeDecayRate * delta);
+
+        const foodToNextLevel = 40 * state.level;
         if (newFoodEaten >= foodToNextLevel) {
           newLevel += 1;
           newFoodEaten -= foodToNextLevel;
         }
 
-        // Spawn items (cap scales with blob size to maintain density, but capped to prevent lag)
         let newSpawnTimer = state.spawnTimer - delta;
-        const itemCap = Math.min(200, Math.floor(50 * blobScale));
-        
-        if (newSpawnTimer <= 0 && remainingItems.length < itemCap) {
-          const spawnSyn = 1 + (state.upgrades.spawnSynergy || 0) * 0.5;
-          // Spawn rate increases slightly with blob scale to maintain density
-          const spawnRate = Math.max(0.01, (BASE_SPAWN_RATE / 1000) * Math.pow(0.85, state.upgrades.spawnRate || 0) / (spawnSyn * Math.sqrt(blobScale)));
-          newSpawnTimer = spawnRate;
-          
-          // Determine tier (spawn mostly around maxTier, up to maxTier + 1 to tease)
-          let tier = Math.max(1, maxTier - 2);
-          const targetTier = Math.min(maxTier + 1, 10); // Cap at tier 10
-          for (let i = tier; i < targetTier; i++) {
+        const itemCap = Math.min(300, Math.floor(60 * blobScale));
+        const spawnSyn = 1 + (state.upgrades.spawnSynergy || 0) * 0.5;
+        const spawnInterval = Math.max(0.01, (BASE_SPAWN_RATE / 1000) * Math.pow(0.80, state.upgrades.spawnRate || 0) / (spawnSyn * Math.sqrt(blobScale)));
+
+        const eatableCount = remainingItems.filter(item => item.tier <= maxTier || item.type === 'star').length;
+        let spawnsThisTick = 0;
+        const maxSpawnsPerTick = 6;
+        while (newSpawnTimer <= 0 && eatableCount + spawnsThisTick < itemCap && spawnsThisTick < maxSpawnsPerTick) {
+          newSpawnTimer += spawnInterval;
+
+          let tier = Math.max(1, maxTier - 1);
+          for (let i = tier; i < maxTier; i++) {
             if (Math.random() > 0.4) tier++;
             else break;
+          }
+          if (Math.random() < 0.08) {
+            tier = maxTier + 1;
           }
           
           const typeRand = Math.random();
@@ -323,15 +324,13 @@ export const useGameStore = create<GameState>()(
           if (typeRand > 0.9) { type = 'hexagon'; baseVal = 4; }
           else if (typeRand > 0.6) { type = 'square'; baseVal = 2; }
 
-          // Scale value by tier
-          baseVal *= Math.pow(5, tier - 1);
-
-          const value = baseVal * Math.pow(1.2, state.upgrades.spawnValue || 0) * spawnSyn;
+          baseVal *= Math.sqrt(tier);
+          const value = baseVal * (1 + (state.upgrades.spawnValue || 0) * 0.15) * spawnSyn;
 
           remainingItems.push({
             id: Math.random().toString(36).substr(2, 9),
-            x: x + (Math.random() - 0.5) * width * 1.5 * blobScale,
-            y: y + (Math.random() - 0.5) * height * 1.5 * blobScale,
+            x: x + (Math.random() - 0.5) * width * 1.6 * blobScale,
+            y: y + (Math.random() - 0.5) * height * 1.6 * blobScale,
             vx: (Math.random() - 0.5) * 20,
             vy: (Math.random() - 0.5) * 20,
             rotation: Math.random() * Math.PI * 2,
@@ -340,6 +339,8 @@ export const useGameStore = create<GameState>()(
             value,
             tier
           });
+
+          spawnsThisTick++;
         }
 
         // Spawn stars
@@ -352,8 +353,8 @@ export const useGameStore = create<GameState>()(
           
           remainingItems.push({
             id: Math.random().toString(36).substr(2, 9),
-            x: x + (Math.random() - 0.5) * width * 1.5 * blobScale,
-            y: y + (Math.random() - 0.5) * height * 1.5 * blobScale,
+            x: x + (Math.random() - 0.5) * width * 1.6 * blobScale,
+            y: y + (Math.random() - 0.5) * height * 1.6 * blobScale,
             vx: (Math.random() - 0.5) * 30,
             vy: (Math.random() - 0.5) * 30,
             rotation: Math.random() * Math.PI * 2,

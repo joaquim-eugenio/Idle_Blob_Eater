@@ -7,8 +7,8 @@ import {
   DAILY_REWARDS, STREAK_MULTIPLIERS, GEM_SHOP_ITEMS, BLOB_SKINS, SKILL_TREE_NODES,
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
 } from '../lib/constants';
-import { getLevel, getWorldForLevel, type WorldDef } from '../lib/levels';
-import { ITEM_LOOKUP } from '../lib/itemCatalog';
+import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
+import { ITEM_LOOKUP, getItemsForWorld } from '../lib/itemCatalog';
 
 export interface Item {
   id: string;
@@ -22,6 +22,7 @@ export interface Item {
   value: number;
   weight: number;
   isTapFood?: boolean;
+  isLegacy?: boolean;
 }
 
 export interface Upgrades {
@@ -312,6 +313,33 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
       value: catalogItem.baseValue * (1 + (levelNum - 1) * 0.08),
       weight: catalogItem.weight,
     });
+  }
+
+  const worldIdx = WORLDS.indexOf(world);
+  if (worldIdx > 0) {
+    const prevWorld = WORLDS[worldIdx - 1];
+    const prevPool = getItemsForWorld(prevWorld.id);
+    if (prevPool.length > 0) {
+      const legacyCount = 3 + Math.floor(Math.random() * 3);
+      for (let li = 0; li < legacyCount; li++) {
+        const pick = prevPool[Math.floor(Math.random() * prevPool.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = minDist * 0.5 + Math.random() * spacing * 1.5;
+        items.push({
+          id: Math.random().toString(36).substr(2, 9),
+          x: blobX + Math.cos(angle) * dist,
+          y: blobY + Math.sin(angle) * dist,
+          vx: (Math.random() - 0.5) * 2,
+          vy: (Math.random() - 0.5) * 2,
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 1,
+          type: pick.id,
+          value: pick.baseValue * 0.5,
+          weight: pick.weight * 0.3,
+          isLegacy: true,
+        });
+      }
+    }
   }
 
   return items;
@@ -1040,7 +1068,7 @@ export const useGameStore = create<GameState>()(
 
         // --- Level completion detection ---
         const newLevelItemsEaten = state.levelItemsEaten + itemsEaten;
-        const nonStarItems = remainingItems.filter(i => i.type !== 'star' && !i.isTapFood);
+        const nonStarItems = remainingItems.filter(i => i.type !== 'star' && !i.isTapFood && !i.isLegacy);
         let newLevelComplete = state.levelComplete;
         if (nonStarItems.length === 0 && newLevelItemsEaten >= state.levelItemsTotal && state.levelItemsTotal > 0) {
           newLevelComplete = true;

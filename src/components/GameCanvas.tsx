@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useCallback } from 'react';
 import { useGameStore, Item, getCurrentWorld } from '../store/gameStore';
 import { BASE_SUCTION, BLOB_SKINS } from '../lib/constants';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
-import { getWorldForLevel } from '../lib/levels';
+import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
 
 const LEVEL_COLORS = [
   '#0088ff', '#22c55e', '#f97316', '#ef4444',
@@ -114,7 +114,7 @@ export function GameCanvas() {
     const state = useGameStore.getState();
     const world = getWorldForLevel(state.currentLevel);
     const blobVisScale = world.blobScale;
-    const zoom = 1 / (blobVisScale * (1 + 0.05 * Math.log(1 + (state.blobGrowth || 0) * 10)));
+    const zoom = 2.5 / blobVisScale;
 
     const worldX = camPosRef.current.x + (screenX - canvas.width / 2) / zoom;
     const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
@@ -145,7 +145,10 @@ export function GameCanvas() {
       const world = getWorldForLevel(currentLevel);
       const blobVisualScale = world.blobScale;
       const growFactor = 1 + 0.3 * Math.log(1 + (blobGrowth || 0) * 10);
-      const totalBlobScale = blobVisualScale * growFactor;
+      const levelInWorld = currentLevel - world.levelRange[0];
+      const worldLevelCount = (world.levelRange[1] === Infinity ? 30 : world.levelRange[1]) - world.levelRange[0] + 1;
+      const worldProgress = Math.min(1, levelInWorld / Math.max(1, worldLevelCount));
+      const blobSizeScale = (0.3 + 0.7 * worldProgress) * blobVisualScale * 0.5;
 
       ctx.fillStyle = world.bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -162,7 +165,7 @@ export function GameCanvas() {
         camPosRef.current.y += (targetCamY - camPosRef.current.y) * 0.1;
       }
 
-      const zoom = 1 / (blobVisualScale * (1 + 0.05 * Math.log(1 + (blobGrowth || 0) * 10)));
+      const zoom = 2.5 / blobVisualScale;
 
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(zoom, zoom);
@@ -182,7 +185,7 @@ export function GameCanvas() {
       ctx.stroke();
 
       // Suction radius
-      const gameBlobScale = totalBlobScale;
+      const gameBlobScale = blobVisualScale;
       const suctionSyn = 1 + (upgrades.suctionSynergy || 0) * 0.5;
       const suctionRadius = (BASE_SUCTION + (upgrades.suction || 0) * 15) * suctionSyn * Math.sqrt(gameBlobScale);
       const hasSuctionCone = unlockedSkillNodes.includes('hunt_suction_cone');
@@ -247,16 +250,31 @@ export function GameCanvas() {
         ctx.rotate(item.rotation || 0);
 
         if (item.type === 'star') {
+          const worldIdx = Math.max(0, WORLDS.indexOf(world));
+          const starSizeTier = worldIdx + 1;
+          const starScale = (6 + starSizeTier * 4) * world.blobScale / 18;
+          ctx.scale(starScale, starScale);
           drawStarItem(ctx, item);
         } else if (item.isTapFood) {
-          const tapScale = 1 + (currentLevel - 1) * 0.04;
+          const worldIdx = Math.max(0, WORLDS.indexOf(world));
+          const tapSizeTier = worldIdx + 1;
+          const tapSize = (6 + tapSizeTier * 4) * world.blobScale;
+          const tapScale = tapSize / 20;
           ctx.scale(tapScale, tapScale);
           drawTapFood(ctx);
         } else {
           const catalogItem = ITEM_LOOKUP[item.type];
           if (catalogItem) {
-            const sizeBase = (6 + catalogItem.sizeTier * 4) * world.blobScale;
-            catalogItem.draw(ctx, sizeBase, world.palette);
+            const itemWorld = item.isLegacy ? WORLD_LOOKUP[catalogItem.world] : world;
+            const itemPalette = item.isLegacy ? itemWorld.palette : world.palette;
+            const sizeBase = (6 + catalogItem.sizeTier * 4) * itemWorld.blobScale;
+            if (item.isLegacy) {
+              ctx.globalAlpha = 0.7;
+            }
+            catalogItem.draw(ctx, sizeBase, itemPalette);
+            if (item.isLegacy) {
+              ctx.globalAlpha = 1;
+            }
           } else {
             ctx.fillStyle = world.palette[0];
             ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
@@ -266,7 +284,7 @@ export function GameCanvas() {
       });
 
       // Blob
-      const baseSize = 60 * totalBlobScale;
+      const baseSize = 60 * blobSizeScale * growFactor;
       const time = performance.now() / 1000;
       const breath = Math.sin(time * 2) * (baseSize * 0.05);
       eatPopRef.current *= 0.88;

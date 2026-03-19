@@ -1,13 +1,12 @@
 import { useGameStore } from '../store/gameStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { useEffect } from 'react';
 
 const STEPS = [
-  { text: "This is your Blob! It eats food to grow.", position: 'center' as const, autoAdvance: 3000 },
-  { text: "Tap the screen to drop food for your Blob!", position: 'center' as const },
+  { text: "This is your Blob! It eats all items to clear each level.", position: 'center' as const },
+  { text: "Tap the screen to drop extra items for your Blob!", position: 'center' as const },
   { text: "Earn money by eating. Open the Skill Tree to power up!", position: 'bottom-right' as const },
-  { text: "Buy an upgrade to make your Blob stronger!", position: 'center' as const },
-  { text: "Keep growing and evolving to unlock new worlds!", position: 'center' as const, autoAdvance: 3000 },
+  { text: "Buy upgrades to clear levels faster!", position: 'center' as const },
+  { text: "Clear levels to discover new worlds with bigger items!", position: 'center' as const },
 ];
 
 export function Tutorial() {
@@ -18,12 +17,6 @@ export function Tutorial() {
 
   const step = STEPS[tutorialStep];
   const isVisible = !tutorialComplete && tutorialStep < STEPS.length;
-
-  useEffect(() => {
-    if (!isVisible || !step?.autoAdvance) return;
-    const timer = setTimeout(advanceTutorial, step.autoAdvance);
-    return () => clearTimeout(timer);
-  }, [tutorialStep, isVisible]);
 
   if (!isVisible) return null;
 
@@ -49,14 +42,12 @@ export function Tutorial() {
           >
             <div className="text-lg font-bold text-slate-800 mb-3">{step.text}</div>
             <div className="flex gap-2 justify-center">
-              {!step.autoAdvance && (
-                <button
-                  onClick={advanceTutorial}
-                  className="px-5 py-2 bg-blue-500 text-white rounded-xl font-bold text-sm hover:bg-blue-600 active:scale-95 transition-all"
-                >
-                  {tutorialStep === STEPS.length - 1 ? "Let's Go!" : 'Got it'}
-                </button>
-              )}
+              <button
+                onClick={advanceTutorial}
+                className="px-5 py-2 bg-blue-500 text-white rounded-xl font-bold text-sm hover:bg-blue-600 active:scale-95 transition-all"
+              >
+                {tutorialStep === STEPS.length - 1 ? "Let's Go!" : 'Got it'}
+              </button>
               <button
                 onClick={completeTutorial}
                 className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all"

@@ -7,6 +7,7 @@ import { AchievementToast } from './components/AchievementToast';
 import { Tutorial } from './components/Tutorial';
 import { WelcomeBackModal } from './components/WelcomeBackModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
+import { LevelCompleteModal } from './components/LevelCompleteModal';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useOfflineProgress } from './hooks/useOfflineProgress';
 import { useGameStore } from './store/gameStore';
@@ -40,6 +41,7 @@ export default function App() {
       <HUD />
       <SkillTree />
       <EvolutionPanel />
+      <LevelCompleteModal />
       <AchievementToast />
       <Tutorial />
 

@@ -4,7 +4,8 @@ import { PlaySquare, Sparkles } from 'lucide-react';
 import { AchievementPanel } from './AchievementPanel';
 import { StatsPanel } from './StatsPanel';
 import { GemShop } from './GemShop';
-import { BiomeSelector } from './BiomeSelector';
+import { WorldViewer } from './BiomeSelector';
+import { getWorldForLevel } from '../lib/levels';
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -13,15 +14,21 @@ function fmt(n: number): string {
 }
 
 export function HUD() {
-  const { level, hunger, foodEaten, money, upgrades, boostActive, activateBoost,
-    moneyPerSecond, essence, comboCount, unlockedSkillNodes, skillFlashEvents, dismissSkillFlashEvent } = useGameStore();
+  const { currentLevel, hunger, levelItemsEaten, levelItemsTotal, money, upgrades, boostActive, activateBoost,
+    moneyPerSecond, essence, comboCount, unlockedSkillNodes, skillFlashEvents, dismissSkillFlashEvent,
+    levelComplete, levelFailed } = useGameStore();
+
+  const world = getWorldForLevel(currentLevel);
 
   const hungerSyn = 1 + (upgrades.hungerSynergy || 0) * 0.5;
   const maxHunger = (BASE_MAX_HUNGER + softCap(upgrades.hungerMax || 0) * 20) * hungerSyn;
-  const foodToNextLevel = 25 * Math.pow(2.2, level - 1);
 
   const hungerPercent = Math.max(0, Math.min(100, (hunger / maxHunger) * 100));
-  const levelPercent = Math.max(0, Math.min(100, (foodEaten / foodToNextLevel) * 100));
+  const hungerLow = hungerPercent < 20;
+  const itemsPercent = levelItemsTotal > 0
+    ? Math.max(0, Math.min(100, (levelItemsEaten / levelItemsTotal) * 100))
+    : 0;
+
   const activeTraitTags = [
     unlockedSkillNodes.includes('hunt_dash_on_star') ? 'Star Dash' : null,
     unlockedSkillNodes.includes('feast_overkill') ? 'Overkill Cash' : null,
@@ -35,7 +42,10 @@ export function HUD() {
       <div className="flex justify-between items-start relative">
         <div className="flex flex-col">
           <div className="text-2xl font-bold text-slate-800 drop-shadow-sm">
-            Level {level}
+            Level {currentLevel}
+          </div>
+          <div className="text-xs font-semibold text-slate-500 -mt-0.5">
+            {world.name}
           </div>
           {essence > 0 && (
             <div className="flex items-center gap-1 text-purple-500 text-xs font-bold mt-0.5">
@@ -45,7 +55,6 @@ export function HUD() {
           )}
         </div>
 
-        {/* Combo indicator - Top Center */}
         {comboCount >= 3 && (
           <div className="absolute left-1/2 -translate-x-1/2 top-1 pointer-events-none z-50">
             <span className={`inline-block text-white font-black text-base px-4 py-1 rounded-full shadow-lg animate-pulse ${
@@ -79,9 +88,9 @@ export function HUD() {
       )}
 
       {/* Hunger Bar */}
-      <div className="w-full bg-slate-200 rounded-full h-4 shadow-inner overflow-hidden relative">
+      <div className={`w-full bg-slate-200 rounded-full h-4 shadow-inner overflow-hidden relative ${hungerLow ? 'animate-pulse' : ''}`}>
         <div
-          className="bg-rose-500 h-full transition-all duration-200 ease-out"
+          className={`h-full transition-all duration-200 ease-out ${hungerLow ? 'bg-red-600' : 'bg-rose-500'}`}
           style={{ width: `${hungerPercent}%` }}
         />
         <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">
@@ -89,14 +98,16 @@ export function HUD() {
         </span>
       </div>
 
-      {/* Level Bar */}
+      {/* Items Progress Bar */}
       <div className="w-full bg-slate-200 rounded-full h-3 shadow-inner overflow-hidden relative mt-1">
         <div
-          className="bg-blue-500 h-full transition-all duration-200 ease-out"
-          style={{ width: `${levelPercent}%` }}
+          className={`h-full transition-all duration-200 ease-out ${
+            levelComplete ? 'bg-emerald-500' : levelFailed ? 'bg-red-500' : 'bg-blue-500'
+          }`}
+          style={{ width: `${levelComplete ? 100 : itemsPercent}%` }}
         />
         <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow-md">
-          LEVEL
+          {levelComplete ? 'LEVEL CLEAR!' : levelFailed ? 'STARVED!' : `ITEMS ${levelItemsEaten} / ${levelItemsTotal}`}
         </span>
       </div>
 
@@ -106,7 +117,7 @@ export function HUD() {
           <AchievementPanel />
           <StatsPanel />
           <GemShop />
-          <BiomeSelector />
+          <WorldViewer />
         </div>
         <button
           onClick={activateBoost}

@@ -9,7 +9,7 @@ export function EvolutionPanel() {
   const essence = useGameStore(s => s.essence);
   const currentRunMoney = useGameStore(s => s.currentRunMoney);
   const evo = useGameStore(s => s.evolutionUpgrades);
-  const level = useGameStore(s => s.level);
+  const level = useGameStore(s => s.currentLevel);
   const prestige = useGameStore(s => s.prestige);
   const buyEvolutionUpgrade = useGameStore(s => s.buyEvolutionUpgrade);
 
@@ -65,7 +65,7 @@ export function EvolutionPanel() {
                 <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-4 border border-purple-200">
                   <div className="flex items-center gap-2 text-purple-700 font-bold text-sm mb-2">
                     <AlertTriangle size={16} />
-                    Evolving resets your money, level, and upgrades
+                    Evolving resets your money, level progress, and upgrades
                   </div>
                   <div className="text-center mb-3">
                     <div className="text-3xl font-black text-purple-600">+{essenceToGain}</div>
@@ -80,7 +80,7 @@ export function EvolutionPanel() {
                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                     }`}
                   >
-                    {canPrestige ? 'Evolve Now' : `Reach Level 5 to Evolve`}
+                    {canPrestige ? 'Evolve Now' : `Clear Level 5 to Evolve`}
                   </button>
                 </div>
 

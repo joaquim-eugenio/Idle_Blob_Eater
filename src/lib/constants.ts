@@ -1,7 +1,7 @@
 export const FPS = 60;
-export const BASE_SPEED = 150;
-export const BASE_SUCTION = 100;
-export const BASE_HUNGER_DRAIN = 2.0;
+export const BASE_SPEED = 30;
+export const BASE_SUCTION = 22;
+export const BASE_HUNGER_DRAIN = 3.0;
 export const BASE_MAX_HUNGER = 100;
 export const BASE_SPAWN_RATE = 800;
 export const BASE_SPAWN_VALUE = 1;
@@ -9,8 +9,6 @@ export const BASE_SPAWN_VALUE = 1;
 export const UPGRADE_SOFT_CAP = 30;
 export const BASE_TAP_COOLDOWN = 0.5;
 export const BASE_TAP_VALUE_MULT = 1.5;
-export const TAP_FOOD_LEVEL_RATIO = 0.5;
-export const NATURAL_FOOD_LEVEL_RATIO = 1.0;
 export const OFFLINE_BASE_EFFICIENCY = 0.1;
 export const OFFLINE_MAX_HOURS = 8;
 
@@ -43,10 +41,10 @@ export const EVOLUTION_UPGRADES: Record<string, { name: string; desc: string; ma
   globalSpeed: { name: 'Swift Evolution', desc: '+10% speed per level', maxLevel: 20, cost: (l) => Math.floor(3 * Math.pow(1.5, l)) },
   globalSuction: { name: 'Magnetic Pull', desc: '+10% suction per level', maxLevel: 20, cost: (l) => Math.floor(3 * Math.pow(1.5, l)) },
   hungerResist: { name: 'Efficient Digestion', desc: '-5% hunger drain per level', maxLevel: 15, cost: (l) => Math.floor(4 * Math.pow(1.6, l)) },
-  spawnValueMult: { name: 'Rich Feast', desc: '+15% food value per level', maxLevel: 20, cost: (l) => Math.floor(3 * Math.pow(1.5, l)) },
+  spawnValueMult: { name: 'Rich Feast', desc: '+15% item value per level', maxLevel: 20, cost: (l) => Math.floor(3 * Math.pow(1.5, l)) },
   tapMastery: { name: 'Tap Mastery', desc: '+20% tap value per level', maxLevel: 10, cost: (l) => Math.floor(5 * Math.pow(2, l)) },
   offlineRate: { name: 'Idle Earnings', desc: '+10% offline efficiency per level', maxLevel: 5, cost: (l) => Math.floor(10 * Math.pow(2, l)) },
-  startingLevel: { name: 'Head Start', desc: 'Start at a higher level', maxLevel: 5, cost: (l) => Math.floor(15 * Math.pow(2.5, l)) },
+  startingLevel: { name: 'Head Start', desc: 'Start at a higher level after prestige', maxLevel: 5, cost: (l) => Math.floor(15 * Math.pow(2.5, l)) },
 };
 
 export interface AchievementDef {
@@ -70,11 +68,15 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'rich_blob', name: 'Rich Blob', desc: 'Earn $10,000 total', category: 'money', stat: 'totalMoneyEarned', threshold: 10000, reward: { type: 'gems', value: 3 } },
   { id: 'wealthy', name: 'Wealthy', desc: 'Earn $100,000 total', category: 'money', stat: 'totalMoneyEarned', threshold: 100000, reward: { type: 'gems', value: 5 } },
   { id: 'blob_billionaire', name: 'Blob Billionaire', desc: 'Earn $1,000,000 total', category: 'money', stat: 'totalMoneyEarned', threshold: 1000000, reward: { type: 'gems', value: 10 } },
-  { id: 'growing_up', name: 'Growing Up', desc: 'Reach level 5', category: 'levels', stat: 'highestLevel', threshold: 5, reward: { type: 'money_mult', value: 0.02 } },
-  { id: 'big_blob', name: 'Big Blob', desc: 'Reach level 10', category: 'levels', stat: 'highestLevel', threshold: 10, reward: { type: 'gems', value: 2 } },
-  { id: 'mega_blob', name: 'Mega Blob', desc: 'Reach level 20', category: 'levels', stat: 'highestLevel', threshold: 20, reward: { type: 'gems', value: 5 } },
-  { id: 'giga_blob', name: 'Giga Blob', desc: 'Reach level 35', category: 'levels', stat: 'highestLevel', threshold: 35, reward: { type: 'gems', value: 8 } },
-  { id: 'cosmic_blob', name: 'Cosmic Blob', desc: 'Reach level 50', category: 'levels', stat: 'highestLevel', threshold: 50, reward: { type: 'gems', value: 15 } },
+  { id: 'growing_up', name: 'Growing Up', desc: 'Clear level 5', category: 'levels', stat: 'highestLevel', threshold: 5, reward: { type: 'money_mult', value: 0.02 } },
+  { id: 'big_blob', name: 'Big Blob', desc: 'Clear level 10', category: 'levels', stat: 'highestLevel', threshold: 10, reward: { type: 'gems', value: 2 } },
+  { id: 'mega_blob', name: 'Mega Blob', desc: 'Clear level 20', category: 'levels', stat: 'highestLevel', threshold: 20, reward: { type: 'gems', value: 5 } },
+  { id: 'giga_blob', name: 'Giga Blob', desc: 'Clear level 35', category: 'levels', stat: 'highestLevel', threshold: 35, reward: { type: 'gems', value: 8 } },
+  { id: 'cosmic_blob', name: 'Cosmic Blob', desc: 'Clear level 50', category: 'levels', stat: 'highestLevel', threshold: 50, reward: { type: 'gems', value: 15 } },
+  { id: 'world_explorer', name: 'World Explorer', desc: 'Clear 25 levels total', category: 'levels', stat: 'totalLevelsCompleted', threshold: 25, reward: { type: 'money_mult', value: 0.03 } },
+  { id: 'level_grinder', name: 'Level Grinder', desc: 'Clear 100 levels total', category: 'levels', stat: 'totalLevelsCompleted', threshold: 100, reward: { type: 'gems', value: 10 } },
+  { id: 'star_performer', name: 'Star Performer', desc: 'Earn 50 stars total', category: 'levels', stat: 'totalStarsEarned', threshold: 50, reward: { type: 'gems', value: 5 } },
+  { id: 'perfectionist', name: 'Perfectionist', desc: 'Earn 150 stars total', category: 'levels', stat: 'totalStarsEarned', threshold: 150, reward: { type: 'gems', value: 10 } },
   { id: 'first_upgrade', name: 'First Upgrade', desc: 'Buy your first upgrade', category: 'upgrades', stat: 'totalUpgradesBought', threshold: 1, reward: { type: 'money_mult', value: 0.01 } },
   { id: 'upgrade_addict', name: 'Upgrade Addict', desc: 'Buy 25 upgrades', category: 'upgrades', stat: 'totalUpgradesBought', threshold: 25, reward: { type: 'money_mult', value: 0.03 } },
   { id: 'synergy_master', name: 'Synergy Master', desc: 'Buy a synergy upgrade', category: 'upgrades', stat: 'totalSynergiesBought', threshold: 1, reward: { type: 'gems', value: 3 } },
@@ -142,10 +144,10 @@ export const BLOB_SKINS: BlobSkinDef[] = [
 export const GEM_SHOP_ITEMS = [
   { id: 'double_money', name: '2x Money', desc: 'Permanent 2x money multiplier', cost: 50, type: 'permanent' as const },
   { id: 'time_warp', name: 'Time Warp', desc: 'Earn 2 hours of offline income', cost: 10, type: 'consumable' as const },
-  { id: 'instant_level', name: 'Instant Level', desc: 'Instantly gain a level', cost: 15, type: 'consumable' as const },
+  { id: 'instant_level', name: 'Skip Level', desc: 'Skip current level (1-star rewards)', cost: 15, type: 'consumable' as const },
 ];
 
-export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 40, 50];
+export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 40, 50, 75, 100];
 
 export type SkillBranchId = 'hunt' | 'feast' | 'survival' | 'automation' | 'evolution';
 export type SkillNodeType = 'minor' | 'trait' | 'mechanic' | 'conditional' | 'choice' | 'keystone' | 'gate';

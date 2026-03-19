@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { useGameStore, Item } from '../store/gameStore';
-import { BASE_SUCTION, BIOMES, BLOB_SKINS } from '../lib/constants';
+import { useGameStore, Item, getCurrentWorld } from '../store/gameStore';
+import { BASE_SUCTION, BLOB_SKINS } from '../lib/constants';
+import { ITEM_LOOKUP } from '../lib/itemCatalog';
+import { getWorldForLevel } from '../lib/levels';
 
 const LEVEL_COLORS = [
   '#0088ff', '#22c55e', '#f97316', '#ef4444',
@@ -35,6 +37,53 @@ class BlobNode {
   }
 }
 
+function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
+  const time = performance.now() / 1000;
+  ctx.shadowBlur = 40; ctx.shadowColor = '#e9d5ff';
+  const pulse = 1 + Math.sin(time * 8 + item.x) * 0.15;
+  ctx.scale(pulse, pulse);
+  ctx.fillStyle = '#d8b4fe';
+  ctx.beginPath();
+  for (let si = 0; si < 10; si++) {
+    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
+    const sr = si % 2 === 0 ? 18 : 7;
+    if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+    else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+  }
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  for (let si = 0; si < 10; si++) {
+    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
+    const sr = si % 2 === 0 ? 8 : 3;
+    if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+    else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+  }
+  ctx.fill();
+  ctx.shadowBlur = 10; ctx.shadowColor = '#ffffff';
+  for (let si = 0; si < 12; si++) {
+    const sp = si % 2 === 0 ? 4 : -3;
+    const sparkA = time * sp + (si * Math.PI * 2) / 12;
+    const sparkD = 25 + Math.sin(time * 5 + si * 2) * 15;
+    const sparkSize = Math.max(0, 2.5 + Math.sin(time * 10 + si));
+    if (sparkSize > 0) {
+      ctx.fillStyle = si % 3 === 0 ? '#f3e8ff' : '#ffffff';
+      ctx.beginPath();
+      ctx.arc(Math.cos(sparkA) * sparkD, Math.sin(sparkA) * sparkD, sparkSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.shadowBlur = 0;
+}
+
+function drawTapFood(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = '#60a5fa';
+  ctx.fillRect(-10, -10, 20, 20);
+  ctx.strokeStyle = '#93c5fd';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-10, -10, 20, 20);
+}
+
 export function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<BlobNode[]>([]);
@@ -42,6 +91,7 @@ export function GameCanvas() {
   const camPosRef = useRef({ x: 200, y: 300 });
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const ripplesRef = useRef<Ripple[]>([]);
+  const eatPopRef = useRef(0);
 
   const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -62,8 +112,9 @@ export function GameCanvas() {
     const screenY = clientY - rect.top;
 
     const state = useGameStore.getState();
-    const blobScale = 1 + (state.level - 1) * 0.35;
-    const zoom = 1 / blobScale;
+    const world = getWorldForLevel(state.currentLevel);
+    const blobVisScale = world.blobScale;
+    const zoom = 1 / (blobVisScale * (1 + 0.05 * Math.log(1 + (state.blobGrowth || 0) * 10)));
 
     const worldX = camPosRef.current.x + (screenX - canvas.width / 2) / zoom;
     const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
@@ -88,19 +139,19 @@ export function GameCanvas() {
       }
 
       const state = useGameStore.getState();
-      const { blobPosition, items, level, upgrades, starBoostActive, boostActive,
-        currentBiome, currentSkin, comboCount, hunger, unlockedSkillNodes } = state;
+      const { blobPosition, items, currentLevel, upgrades, starBoostActive, boostActive,
+        currentSkin, comboCount, hunger, unlockedSkillNodes, levelComplete, blobGrowth } = state;
 
-      const biome = BIOMES.find(b => b.id === currentBiome) || BIOMES[0];
-      const blobVisualScale = 1 + (level - 1) * 0.35;
+      const world = getWorldForLevel(currentLevel);
+      const blobVisualScale = world.blobScale;
+      const growFactor = 1 + 0.3 * Math.log(1 + (blobGrowth || 0) * 10);
+      const totalBlobScale = blobVisualScale * growFactor;
 
-      // Clear with biome background
-      ctx.fillStyle = biome.bgColor;
+      ctx.fillStyle = world.bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
 
-      // Camera
       const targetCamX = blobPosition.x;
       const targetCamY = blobPosition.y;
       if (Math.hypot(camPosRef.current.x - targetCamX, camPosRef.current.y - targetCamY) > 1000) {
@@ -111,15 +162,14 @@ export function GameCanvas() {
         camPosRef.current.y += (targetCamY - camPosRef.current.y) * 0.1;
       }
 
-      const zoom = 1 / blobVisualScale;
-      const maxTier = level;
+      const zoom = 1 / (blobVisualScale * (1 + 0.05 * Math.log(1 + (blobGrowth || 0) * 10)));
 
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(zoom, zoom);
       ctx.translate(-camPosRef.current.x, -camPosRef.current.y);
 
       // Grid
-      ctx.strokeStyle = biome.gridColor;
+      ctx.strokeStyle = world.gridColor;
       ctx.lineWidth = 1 / zoom;
       const gridSize = 100;
       const startX = Math.floor((camPosRef.current.x - canvas.width / 2 / zoom) / gridSize) * gridSize;
@@ -131,28 +181,14 @@ export function GameCanvas() {
       for (let gy = startY; gy <= endY; gy += gridSize) { ctx.moveTo(startX, gy); ctx.lineTo(endX, gy); }
       ctx.stroke();
 
-      // Ambient particles for space biome
-      if (currentBiome === 'space') {
-        const time = performance.now() / 1000;
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        for (let i = 0; i < 30; i++) {
-          const sx = camPosRef.current.x + Math.sin(i * 73.7 + time * 0.1) * canvas.width / zoom;
-          const sy = camPosRef.current.y + Math.cos(i * 91.3 + time * 0.07) * canvas.height / zoom;
-          ctx.beginPath();
-          ctx.arc(sx, sy, 1.5 / zoom, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
       // Suction radius
-      const gameBlobScale = 1 + (level - 1) * 0.15;
+      const gameBlobScale = totalBlobScale;
       const suctionSyn = 1 + (upgrades.suctionSynergy || 0) * 0.5;
       const suctionRadius = (BASE_SUCTION + (upgrades.suction || 0) * 15) * suctionSyn * Math.sqrt(gameBlobScale);
       const hasSuctionCone = unlockedSkillNodes.includes('hunt_suction_cone');
       const hasFrenzy = unlockedSkillNodes.includes('survival_frenzy');
       const hasDash = unlockedSkillNodes.includes('hunt_dash_on_star');
 
-      // Vortex effect when suction is high
       if (suctionRadius > 120) {
         const time = performance.now() / 1000;
         const vortexAlpha = Math.min(0.3, (suctionRadius - 120) / 300);
@@ -205,83 +241,37 @@ export function GameCanvas() {
       }
 
       // Items
-      const baseItemScale = 1 + (upgrades.spawnValue || 0) * 0.15;
       items.forEach(item => {
         ctx.save();
         ctx.translate(item.x, item.y);
         ctx.rotate(item.rotation || 0);
-        const tierScale = Math.pow(1.18, item.tier - 1);
-        const itemScale = baseItemScale * tierScale * (item.isTapFood ? 1.2 : 1);
-        ctx.scale(itemScale, itemScale);
-        const canEat = item.tier <= maxTier || item.type === 'star';
-        if (!canEat) ctx.globalAlpha = 0.4;
 
-        if (item.type === 'triangle') {
-          ctx.fillStyle = biome.foodColors.triangle;
-          ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(10, 10); ctx.lineTo(-10, 10); ctx.fill();
-        } else if (item.type === 'square') {
-          ctx.fillStyle = item.isTapFood ? '#60a5fa' : biome.foodColors.square;
-          ctx.fillRect(-10, -10, 20, 20);
-          if (item.isTapFood) {
-            ctx.strokeStyle = '#93c5fd';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(-10, -10, 20, 20);
+        if (item.type === 'star') {
+          drawStarItem(ctx, item);
+        } else if (item.isTapFood) {
+          const tapScale = 1 + (currentLevel - 1) * 0.04;
+          ctx.scale(tapScale, tapScale);
+          drawTapFood(ctx);
+        } else {
+          const catalogItem = ITEM_LOOKUP[item.type];
+          if (catalogItem) {
+            const sizeBase = (6 + catalogItem.sizeTier * 4) * world.blobScale;
+            catalogItem.draw(ctx, sizeBase, world.palette);
+          } else {
+            ctx.fillStyle = world.palette[0];
+            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
           }
-        } else if (item.type === 'hexagon') {
-          ctx.fillStyle = biome.foodColors.hexagon;
-          ctx.beginPath();
-          for (let hi = 0; hi < 6; hi++) {
-            const ha = (hi / 6) * Math.PI * 2;
-            const px = Math.cos(ha) * 12, py = Math.sin(ha) * 12;
-            if (hi === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          }
-          ctx.fill();
-        } else if (item.type === 'star') {
-          const time = performance.now() / 1000;
-          ctx.shadowBlur = 40; ctx.shadowColor = '#e9d5ff';
-          const pulse = 1 + Math.sin(time * 8 + item.x) * 0.15;
-          ctx.scale(pulse, pulse);
-          ctx.fillStyle = '#d8b4fe';
-          ctx.beginPath();
-          for (let si = 0; si < 10; si++) {
-            const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-            const sr = si % 2 === 0 ? 18 : 7;
-            if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-            else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-          }
-          ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath();
-          for (let si = 0; si < 10; si++) {
-            const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-            const sr = si % 2 === 0 ? 8 : 3;
-            if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-            else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-          }
-          ctx.fill();
-          ctx.shadowBlur = 10; ctx.shadowColor = '#ffffff';
-          for (let si = 0; si < 12; si++) {
-            const sp = si % 2 === 0 ? 4 : -3;
-            const sparkA = time * sp + (si * Math.PI * 2) / 12;
-            const sparkD = 25 + Math.sin(time * 5 + si * 2) * 15;
-            const sparkSize = Math.max(0, 2.5 + Math.sin(time * 10 + si));
-            if (sparkSize > 0) {
-              ctx.fillStyle = si % 3 === 0 ? '#f3e8ff' : '#ffffff';
-              ctx.beginPath();
-              ctx.arc(Math.cos(sparkA) * sparkD, Math.sin(sparkA) * sparkD, sparkSize, 0, Math.PI * 2);
-              ctx.fill();
-            }
-          }
-          ctx.shadowBlur = 0;
         }
         ctx.restore();
       });
 
       // Blob
-      const baseSize = 60 * blobVisualScale;
+      const baseSize = 60 * totalBlobScale;
       const time = performance.now() / 1000;
       const breath = Math.sin(time * 2) * (baseSize * 0.05);
-      const radius = (baseSize + breath) / 2;
+      eatPopRef.current *= 0.88;
+      if (eatPopRef.current < 0.001) eatPopRef.current = 0;
+      const radius = ((baseSize + breath) / 2) * (1 + eatPopRef.current);
       const nodes = nodesRef.current;
       const hungerSyn = 1 + (upgrades.hungerSynergy || 0) * 0.5;
       const maxHunger = (100 + (upgrades.hungerMax || 0) * 40) * hungerSyn;
@@ -301,6 +291,9 @@ export function GameCanvas() {
       if (prevItems.length > 0) {
         const currentItemIds = new Set(currentItems.map(i => i.id));
         const eatenItems = prevItems.filter(i => !currentItemIds.has(i.id));
+        if (eatenItems.length > 0) {
+          eatPopRef.current = Math.min(0.3, eatPopRef.current + eatenItems.length * 0.15);
+        }
         eatenItems.forEach(item => {
           const dist = Math.hypot(item.x - blobPosition.x, item.y - blobPosition.y);
           if (dist < suctionRadius + 50) {
@@ -340,7 +333,7 @@ export function GameCanvas() {
       }
 
       // Draw blob body
-      const baseColor = getBlobColor(level, currentSkin);
+      const baseColor = getBlobColor(currentLevel, currentSkin);
       if (starBoostActive) {
         ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe'; ctx.fillStyle = '#a855f7';
       } else if (boostActive) {
@@ -375,29 +368,32 @@ export function GameCanvas() {
 
       ctx.fillStyle = '#1a237e';
 
-      // Blob expressions
       const isEating = comboCount > 0;
       const isSleepy = hungerPct < 0.25;
       const isExcited = starBoostActive;
+      const isLevelDone = levelComplete;
 
       const eyeY = cy - radius * 0.1 + dy;
       const eyeSize = radius * 0.08;
 
-      if (isSleepy) {
-        // Half-closed eyes
+      if (isLevelDone) {
+        ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#1a237e';
+      } else if (isSleepy) {
         ctx.fillRect(cx - radius * 0.3 + dx - eyeSize, eyeY - 1, eyeSize * 2, 3);
         ctx.fillRect(cx + radius * 0.2 + dx - eyeSize, eyeY - 1, eyeSize * 2, 3);
       } else if (isExcited) {
-        // Wide eyes
         ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-        // Sparkle in eyes
         ctx.fillStyle = '#ffffff';
         ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#1a237e';
       } else {
-        // Normal eyes
         ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
       }
@@ -405,26 +401,18 @@ export function GameCanvas() {
       // Mouth
       const mouthY = cy + radius * 0.15 + dy;
       const mouthX = cx + dx;
-      if (isEating && comboCount >= 3) {
-        // Open mouth
+      if (isLevelDone) {
         ctx.beginPath();
-        ctx.arc(mouthX, mouthY, radius * 0.12, 0, Math.PI * 2);
+        ctx.arc(mouthX, mouthY, radius * 0.15, 0, Math.PI, false);
         ctx.fill();
+      } else if (isEating && comboCount >= 3) {
+        ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.12, 0, Math.PI * 2); ctx.fill();
       } else if (isSleepy) {
-        // Tiny mouth
-        ctx.beginPath();
-        ctx.arc(mouthX, mouthY + radius * 0.02, radius * 0.05, 0, Math.PI, false);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(mouthX, mouthY + radius * 0.02, radius * 0.05, 0, Math.PI, false); ctx.fill();
       } else if (isExcited || isEating) {
-        // Big smile
-        ctx.beginPath();
-        ctx.arc(mouthX, mouthY, radius * 0.13, 0, Math.PI, false);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.13, 0, Math.PI, false); ctx.fill();
       } else {
-        // Normal smile
-        ctx.beginPath();
-        ctx.arc(mouthX, mouthY, radius * 0.1, 0, Math.PI, false);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.1, 0, Math.PI, false); ctx.fill();
       }
 
       // Level-up celebration
@@ -434,7 +422,6 @@ export function GameCanvas() {
         const ringRadius = radius * (1.5 + progress * 3);
         const ringAlpha = 1 - progress;
 
-        // Screen flash
         if (levelUpAge < 0.2) {
           ctx.fillStyle = `rgba(250, 204, 21, ${0.3 * (1 - levelUpAge / 0.2)})`;
           const flashR = Math.max(canvas.width, canvas.height) / zoom;
@@ -462,9 +449,7 @@ export function GameCanvas() {
           if (pSize > 0) {
             const colors = ['#facc15', '#ffffff', '#f97316', '#22c55e'];
             ctx.fillStyle = `${colors[pi % colors.length]}${Math.round(ringAlpha * 255).toString(16).padStart(2, '0')}`;
-            ctx.beginPath();
-            ctx.arc(px, py, pSize, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(px, py, pSize, 0, Math.PI * 2); ctx.fill();
           }
         }
       }
@@ -497,22 +482,21 @@ export function GameCanvas() {
         ctx.restore();
       }
 
-      // Level-up text
-      if (levelUpAge < 2.0 && state.levelUpTime > 0) {
+      // Level complete text
+      if (levelComplete && levelUpAge < 2.0 && state.levelUpTime > 0) {
         const textAlpha = levelUpAge < 0.5 ? 1 : Math.max(0, 1 - (levelUpAge - 0.5) / 1.5);
         const textScale = levelUpAge < 0.3 ? 0.5 + (levelUpAge / 0.3) * 0.5 : 1.0;
         ctx.save();
         ctx.globalAlpha = textAlpha;
-        ctx.font = `bold ${Math.round(56 * textScale)}px sans-serif`;
+        ctx.font = `bold ${Math.round(48 * textScale)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#000000';
-        ctx.fillText(`LEVEL ${state.level}!`, canvas.width / 2 + 2, canvas.height / 2 - 60 + 2);
+        ctx.fillText('LEVEL CLEAR!', canvas.width / 2 + 2, canvas.height / 2 - 60 + 2);
         ctx.fillStyle = '#facc15';
-        ctx.fillText(`LEVEL ${state.level}!`, canvas.width / 2, canvas.height / 2 - 60);
+        ctx.fillText('LEVEL CLEAR!', canvas.width / 2, canvas.height / 2 - 60);
         ctx.restore();
       }
-
 
       if (hasDash && starBoostActive) {
         ctx.save();

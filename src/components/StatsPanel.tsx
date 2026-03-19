@@ -22,7 +22,7 @@ export function StatsPanel() {
   const [confirmReset, setConfirmReset] = useState(false);
   const stats = useGameStore(s => s.stats);
   const mps = useGameStore(s => s.moneyPerSecond);
-  const level = useGameStore(s => s.level);
+  const level = useGameStore(s => s.currentLevel);
   const essence = useGameStore(s => s.essence);
   const resetGame = useGameStore(s => s.resetGame);
 
@@ -30,9 +30,11 @@ export function StatsPanel() {
     ['Money/sec', `$${fmt(mps)}`],
     ['Current Level', level.toString()],
     ['Highest Level', stats.highestLevel.toString()],
-    ['Total Food Eaten', fmt(stats.totalFoodEaten)],
+    ['Levels Completed', (stats.totalLevelsCompleted || 0).toString()],
+    ['Stars Earned', (stats.totalStarsEarned || 0).toString()],
+    ['Total Items Eaten', fmt(stats.totalFoodEaten)],
     ['Total Money Earned', `$${fmt(stats.totalMoneyEarned)}`],
-    ['Stars Collected', stats.totalStarsEaten.toString()],
+    ['Boost Stars Collected', stats.totalStarsEaten.toString()],
     ['Best Combo', `x${stats.highestCombo}`],
     ['Top Speed', Math.floor(stats.highestSpeed).toString()],
     ['Total Taps', stats.totalTaps.toString()],

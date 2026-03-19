@@ -32,7 +32,7 @@ export function HUD() {
 
   return (
     <div className="absolute top-0 left-0 right-0 p-4 pt-safe flex flex-col gap-2 pointer-events-none z-10">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start relative">
         <div className="flex flex-col">
           <div className="text-2xl font-bold text-slate-800 drop-shadow-sm">
             Level {level}
@@ -44,6 +44,18 @@ export function HUD() {
             </div>
           )}
         </div>
+
+        {/* Combo indicator - Top Center */}
+        {comboCount >= 3 && (
+          <div className="absolute left-1/2 -translate-x-1/2 top-1 pointer-events-none z-50">
+            <span className={`inline-block text-white font-black text-base px-4 py-1 rounded-full shadow-lg animate-pulse ${
+              comboCount >= 10 ? 'bg-red-500' : comboCount >= 5 ? 'bg-orange-500' : 'bg-amber-500'
+            }`}>
+              x{Math.min(comboCount, 10)} COMBO!
+            </span>
+          </div>
+        )}
+
         <div className="flex flex-col items-end gap-0.5">
           <div className="text-xl font-bold text-emerald-600 bg-white/80 px-3 py-1 rounded-full shadow-sm backdrop-blur-sm">
             ${fmt(money)}
@@ -87,17 +99,6 @@ export function HUD() {
           LEVEL
         </span>
       </div>
-
-      {/* Combo indicator */}
-      {comboCount >= 3 && (
-        <div className="text-center mt-1">
-          <span className={`inline-block text-white font-black text-sm px-3 py-0.5 rounded-full shadow-md animate-pulse ${
-            comboCount >= 10 ? 'bg-red-500' : comboCount >= 5 ? 'bg-orange-500' : 'bg-amber-500'
-          }`}>
-            x{Math.min(comboCount, 10)} COMBO!
-          </span>
-        </div>
-      )}
 
       {/* Action buttons row */}
       <div className="flex flex-wrap justify-between items-center mt-3 pointer-events-auto gap-2">

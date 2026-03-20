@@ -164,9 +164,10 @@ export function GameCanvas() {
       const INTRO_ZOOM_DUR = 0.7;
       const INTRO_TOTAL = INTRO_HOLD + INTRO_ZOOM_DUR;
 
-      if (state._introPlaying && currentLevel !== introRef.current.level) {
+      if (state._introPlaying && !introRef.current.active) {
         introRef.current.level = currentLevel;
         introRef.current.startTime = performance.now() / 1000;
+
         introRef.current.active = true;
 
         const nonStarItems = items.filter(i => i.type !== 'star');

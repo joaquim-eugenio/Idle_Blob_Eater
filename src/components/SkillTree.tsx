@@ -261,7 +261,7 @@ export function SkillTree() {
 
   return (
     <>
-      <div className="absolute bottom-8 right-8 z-10">
+      <div className="absolute bottom-8 right-8 z-[5]">
         <button onClick={() => setIsOpen(true)} className="relative w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all" aria-label="Open skill tree">
           <SkillTreeIcon size={26} />
         </button>
@@ -325,7 +325,7 @@ export function SkillTree() {
                           )}
                           {!apexUnlocked && (
                             <span className={`absolute -bottom-3 px-2 py-0.5 rounded-full text-[9px] font-black ${apexBuyable ? 'bg-indigo-600 text-white' : 'bg-slate-500 text-white'}`}>
-                              $700
+                              ${fmt(SKILL_NODE_LOOKUP['apex_transcendence'].cost)}
                             </span>
                           )}
                         </button>

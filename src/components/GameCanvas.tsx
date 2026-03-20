@@ -92,10 +92,20 @@ export function GameCanvas() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const ripplesRef = useRef<Ripple[]>([]);
   const eatPopRef = useRef(0);
+  const introRef = useRef({
+    level: 0,
+    startTime: 0,
+    active: false,
+    overviewZoom: 1,
+    centerX: 200,
+    centerY: 300,
+  });
 
   const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const state = useGameStore.getState();
+    if (state._introPlaying) return;
     const rect = canvas.getBoundingClientRect();
 
     let clientX: number, clientY: number;
@@ -111,7 +121,6 @@ export function GameCanvas() {
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
 
-    const state = useGameStore.getState();
     const world = getWorldForLevel(state.currentLevel);
     const blobVisScale = world.blobScale;
     const zoom = 2.5 / blobVisScale;
@@ -150,22 +159,83 @@ export function GameCanvas() {
       const worldProgress = Math.min(1, levelInWorld / Math.max(1, worldLevelCount));
       const blobSizeScale = (0.3 + 0.7 * worldProgress) * blobVisualScale * 0.5;
 
+      const normalZoom = 2.5 / blobVisualScale;
+      const INTRO_HOLD = 1.0;
+      const INTRO_ZOOM_DUR = 0.7;
+      const INTRO_TOTAL = INTRO_HOLD + INTRO_ZOOM_DUR;
+
+      if (state._introPlaying && currentLevel !== introRef.current.level) {
+        introRef.current.level = currentLevel;
+        introRef.current.startTime = performance.now() / 1000;
+        introRef.current.active = true;
+
+        const nonStarItems = items.filter(i => i.type !== 'star');
+        if (nonStarItems.length > 0) {
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          for (const item of nonStarItems) {
+            minX = Math.min(minX, item.x);
+            maxX = Math.max(maxX, item.x);
+            minY = Math.min(minY, item.y);
+            maxY = Math.max(maxY, item.y);
+          }
+          minX = Math.min(minX, blobPosition.x);
+          maxX = Math.max(maxX, blobPosition.x);
+          minY = Math.min(minY, blobPosition.y);
+          maxY = Math.max(maxY, blobPosition.y);
+
+          const padding = 100;
+          const boundsW = (maxX - minX) + padding * 2;
+          const boundsH = (maxY - minY) + padding * 2;
+          introRef.current.overviewZoom = Math.min(
+            canvas.width / boundsW,
+            canvas.height / boundsH,
+            normalZoom * 0.7
+          );
+          introRef.current.centerX = (minX + maxX) / 2;
+          introRef.current.centerY = (minY + maxY) / 2;
+        } else {
+          introRef.current.active = false;
+          state.endIntro();
+        }
+      }
+
       ctx.fillStyle = world.bgColor;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
 
-      const targetCamX = blobPosition.x;
-      const targetCamY = blobPosition.y;
-      if (Math.hypot(camPosRef.current.x - targetCamX, camPosRef.current.y - targetCamY) > 1000) {
-        camPosRef.current.x = targetCamX;
-        camPosRef.current.y = targetCamY;
-      } else {
-        camPosRef.current.x += (targetCamX - camPosRef.current.x) * 0.1;
-        camPosRef.current.y += (targetCamY - camPosRef.current.y) * 0.1;
-      }
+      let zoom = normalZoom;
+      const introElapsed = performance.now() / 1000 - introRef.current.startTime;
 
-      const zoom = 2.5 / blobVisualScale;
+      if (introRef.current.active && state._introPlaying) {
+        if (introElapsed < INTRO_HOLD) {
+          zoom = introRef.current.overviewZoom;
+          camPosRef.current.x = introRef.current.centerX;
+          camPosRef.current.y = introRef.current.centerY;
+        } else if (introElapsed < INTRO_TOTAL) {
+          const t = (introElapsed - INTRO_HOLD) / INTRO_ZOOM_DUR;
+          const eased = 1 - Math.pow(1 - t, 3);
+          zoom = introRef.current.overviewZoom + (normalZoom - introRef.current.overviewZoom) * eased;
+          camPosRef.current.x = introRef.current.centerX + (blobPosition.x - introRef.current.centerX) * eased;
+          camPosRef.current.y = introRef.current.centerY + (blobPosition.y - introRef.current.centerY) * eased;
+        } else {
+          introRef.current.active = false;
+          state.endIntro();
+          zoom = normalZoom;
+          camPosRef.current.x = blobPosition.x;
+          camPosRef.current.y = blobPosition.y;
+        }
+      } else {
+        const targetCamX = blobPosition.x;
+        const targetCamY = blobPosition.y;
+        if (Math.hypot(camPosRef.current.x - targetCamX, camPosRef.current.y - targetCamY) > 1000) {
+          camPosRef.current.x = targetCamX;
+          camPosRef.current.y = targetCamY;
+        } else {
+          camPosRef.current.x += (targetCamX - camPosRef.current.x) * 0.1;
+          camPosRef.current.y += (targetCamY - camPosRef.current.y) * 0.1;
+        }
+      }
 
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.scale(zoom, zoom);
@@ -252,7 +322,7 @@ export function GameCanvas() {
         if (item.type === 'star') {
           const worldIdx = Math.max(0, WORLDS.indexOf(world));
           const starSizeTier = worldIdx + 1;
-          const starScale = (6 + starSizeTier * 4) * world.blobScale / 18;
+          const starScale = (6 + starSizeTier * 4) * world.blobScale / 36;
           ctx.scale(starScale, starScale);
           drawStarItem(ctx, item);
         } else if (item.isTapFood) {
@@ -294,7 +364,8 @@ export function GameCanvas() {
       const hungerSyn = 1 + (upgrades.hungerSynergy || 0) * 0.5;
       const maxHunger = (100 + (upgrades.hungerMax || 0) * 40) * hungerSyn;
       const hungerPct = hunger / maxHunger;
-      const frenzyActive = hasFrenzy && hungerPct < 0.35;
+      const frenzyThreshold = unlockedSkillNodes.includes('survival_tradeoff') ? 0.4 : 0.3;
+      const frenzyActive = hasFrenzy && hungerPct < frenzyThreshold;
 
       if (nodes.length === 0) {
         for (let i = 0; i < NUM_NODES; i++) {
@@ -402,8 +473,19 @@ export function GameCanvas() {
         ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = '#1a237e';
       } else if (isSleepy) {
-        ctx.fillRect(cx - radius * 0.3 + dx - eyeSize, eyeY - 1, eyeSize * 2, 3);
-        ctx.fillRect(cx + radius * 0.2 + dx - eyeSize, eyeY - 1, eyeSize * 2, 3);
+        const leftEyeX = cx - radius * 0.25 + dx;
+        const rightEyeX = cx + radius * 0.25 + dx;
+        ctx.strokeStyle = '#1a237e';
+        ctx.lineWidth = Math.max(1.5, radius * 0.03);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(leftEyeX - eyeSize, eyeY + eyeSize * 0.5);
+        ctx.quadraticCurveTo(leftEyeX, eyeY - eyeSize * 0.2, leftEyeX + eyeSize, eyeY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(rightEyeX - eyeSize, eyeY);
+        ctx.quadraticCurveTo(rightEyeX, eyeY - eyeSize * 0.2, rightEyeX + eyeSize, eyeY + eyeSize * 0.5);
+        ctx.stroke();
       } else if (isExcited) {
         ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
         ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
@@ -526,6 +608,39 @@ export function GameCanvas() {
         ctx.lineTo(canvas.width / 2 + 80, canvas.height / 2 + 44);
         ctx.stroke();
         ctx.restore();
+      }
+
+      // Level intro overlay
+      if (introRef.current.active && state._introPlaying) {
+        const fadeOut = introElapsed < INTRO_HOLD
+          ? 1
+          : Math.max(0, 1 - (introElapsed - INTRO_HOLD) / (INTRO_ZOOM_DUR * 0.5));
+
+        if (fadeOut > 0) {
+          ctx.save();
+          ctx.globalAlpha = fadeOut * 0.25;
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.restore();
+
+          ctx.save();
+          ctx.globalAlpha = fadeOut;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+
+          const titleY = canvas.height * 0.38;
+          ctx.font = 'bold 52px sans-serif';
+          ctx.fillStyle = 'rgba(0,0,0,0.3)';
+          ctx.fillText(`Level ${currentLevel}`, canvas.width / 2 + 2, titleY + 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(`Level ${currentLevel}`, canvas.width / 2, titleY);
+
+          ctx.font = 'bold 22px sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          ctx.fillText(world.name, canvas.width / 2, titleY + 40);
+
+          ctx.restore();
+        }
       }
 
       animationFrameId = requestAnimationFrame(render);

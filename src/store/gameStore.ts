@@ -99,6 +99,8 @@ export interface SkillEffects {
   frenzyShieldSeconds: number;
   chainVacuumRadius: number;
   overkillCashRatio: number;
+  weightReduction: number;
+  magnetRadius: number;
 }
 
 export interface SkillTelemetry {
@@ -116,6 +118,7 @@ const EMPTY_SKILL_EFFECTS: SkillEffects = {
   offlineEfficiency: 0, autoTapRate: 0, starSpawnRateMult: 0,
   lowHungerFrenzyMult: 0, lowHungerThreshold: 0.3,
   frenzyShieldSeconds: 0, chainVacuumRadius: 0, overkillCashRatio: 0,
+  weightReduction: 0, magnetRadius: 0,
 };
 
 const DEFAULT_UPGRADES: Upgrades = {
@@ -280,9 +283,9 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
   const world = getWorldForLevel(levelNum);
   const avgSizeTier = allEntries.reduce((s, e) => s + e.catalogItem.sizeTier, 0) / Math.max(1, totalCount);
   const avgItemSize = (6 + avgSizeTier * 4) * world.blobScale;
-  const levelSpread = 1 + levelNum * 0.04;
+  const levelSpread = 1 + levelNum * 0.055;
   const spacing = (avgItemSize * 2.5 + 20) * levelSpread;
-  const minDist = (avgItemSize * 2 + 30) + levelNum * 4;
+  const minDist = (avgItemSize * 2 + 30) + levelNum * 5.5;
 
   const clusterW = cols * spacing;
   const clusterH = rows * spacing;
@@ -404,9 +407,13 @@ interface GameState {
   _moneyBufferTime: number;
   _achievementTimer: number;
   _levelInitialized: boolean;
+  _shieldCooldown: number;
+  _minHungerPct: number;
+  _introPlaying: boolean;
 
   initLevel: (levelNum: number) => void;
   completeLevel: () => void;
+  endIntro: () => void;
   advanceToNextLevel: () => void;
   retryLevel: () => void;
   buyUpgrade: (type: keyof Upgrades, cost: number) => void;
@@ -494,6 +501,9 @@ export const useGameStore = create<GameState>()(
       _moneyBufferTime: 0,
       _achievementTimer: 0,
       _levelInitialized: false,
+      _shieldCooldown: 0,
+      _minHungerPct: 1,
+      _introPlaying: false,
 
       initLevel: (levelNum) => set((state) => {
         const def = getLevel(levelNum);
@@ -517,6 +527,9 @@ export const useGameStore = create<GameState>()(
           levelUpTime: 0,
           highestLevelReached: Math.max(state.highestLevelReached, levelNum),
           _levelInitialized: true,
+          _shieldCooldown: 0,
+          _minHungerPct: 1,
+          _introPlaying: state.tutorialComplete,
         };
       }),
 
@@ -526,9 +539,10 @@ export const useGameStore = create<GameState>()(
         const def = getLevel(state.currentLevel);
         const elapsedSecs = (Date.now() - state.levelStartTime) / 1000;
 
+        const minHp = state._minHungerPct;
         let stars = 1;
-        if (elapsedSecs <= def.starThresholds[1]) stars = 2;
-        if (elapsedSecs <= def.starThresholds[0]) stars = 3;
+        if (elapsedSecs <= def.starThresholds[1] && minHp >= 0.10) stars = 2;
+        if (elapsedSecs <= def.starThresholds[0] && minHp >= 0.40) stars = 3;
 
         const rewards = def.rewards;
         const starBonus = stars === 3 ? 1.5 : stars === 2 ? 1.2 : 1;
@@ -550,6 +564,8 @@ export const useGameStore = create<GameState>()(
           },
         };
       }),
+
+      endIntro: () => set({ _introPlaying: false, levelStartTime: Date.now(), _minHungerPct: 1 }),
 
       advanceToNextLevel: () => {
         const state = get();
@@ -726,6 +742,8 @@ export const useGameStore = create<GameState>()(
             highestLevel: Math.max(state.stats.highestLevel, state.currentLevel),
           },
           _levelInitialized: false,
+          _shieldCooldown: 0,
+          _minHungerPct: 1,
         };
       }),
 
@@ -757,9 +775,21 @@ export const useGameStore = create<GameState>()(
         const value = baseVal * BASE_TAP_VALUE_MULT
           * (1 + softCap(state.upgrades.tapValue || 0) * 0.25 + skillFx.tapValueMult) * tapSyn * tapMasteryMult;
 
+        const bx = state.blobPosition.x;
+        const by = state.blobPosition.y;
+        const tapDist = Math.hypot(worldX - bx, worldY - by);
+        const minSpawnDist = 80;
+        let spawnX = worldX;
+        let spawnY = worldY;
+        if (tapDist < minSpawnDist) {
+          const angle = tapDist > 1 ? Math.atan2(worldY - by, worldX - bx) : Math.random() * Math.PI * 2;
+          spawnX = bx + Math.cos(angle) * minSpawnDist;
+          spawnY = by + Math.sin(angle) * minSpawnDist;
+        }
+
         const newItem: Item = {
           id: Math.random().toString(36).substr(2, 9),
-          x: worldX, y: worldY,
+          x: spawnX, y: spawnY,
           vx: 0, vy: 0,
           rotation: 0, rotationSpeed: (Math.random() - 0.5) * 2,
           type: 'square', value, weight: 1, isTapFood: true,
@@ -875,7 +905,7 @@ export const useGameStore = create<GameState>()(
         lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
         lastTapTime: 0,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
-        _levelInitialized: false,
+        _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
       }),
 
       tick: (delta, width, height) => set((state) => {
@@ -888,12 +918,16 @@ export const useGameStore = create<GameState>()(
             levelFailed: false,
             levelStartTime: Date.now(),
             _levelInitialized: true,
+            _minHungerPct: 1,
+            _introPlaying: state.tutorialComplete,
           };
         }
 
         if (!state.tutorialComplete) {
-          return { levelStartTime: Date.now() };
+          return { levelStartTime: Date.now(), _introPlaying: false };
         }
+
+        if (state._introPlaying) return {};
 
         if (state.levelComplete || state.levelFailed) return {};
 
@@ -908,18 +942,40 @@ export const useGameStore = create<GameState>()(
         // --- Hunger ---
         const hungerSyn = 1 + (state.upgrades.hungerSynergy || 0) * 0.5;
         const maxHunger = (BASE_MAX_HUNGER + softCap(state.upgrades.hungerMax || 0) * 20 + skillFx.hungerMaxFlat) * hungerSyn;
-        const levelFactor = 1 + Math.pow(Math.max(0, state.currentLevel - 3), 1.2) * 0.08;
+        const levelFactor = 1 + Math.pow(Math.max(0, state.currentLevel - 3), 1.4) * 0.065;
         const rawDrain = BASE_HUNGER_DRAIN * levelFactor;
         const evoHungerResist = Math.pow(0.95, evo.hungerResist);
         const baseDrain = Math.max(0.5, rawDrain * Math.pow(0.95, softCap(state.upgrades.hungerDrain || 0)) * evoHungerResist) / hungerSyn;
         const minDrain = baseDrain * 0.7;
         const effectiveDrain = Math.max(minDrain, baseDrain * (state.hunger / maxHunger)) * (1 + skillFx.hungerDrainMult);
         const hungerFloor = state.currentLevel <= 5 ? 1 : 0;
-        let newHunger = Math.max(hungerFloor, state.hunger - effectiveDrain * delta);
+
+        let newShieldCooldown = state._shieldCooldown;
+        let newHunger: number;
+
+        if (newShieldCooldown > 0 && newShieldCooldown <= skillFx.frenzyShieldSeconds) {
+          newHunger = state.hunger;
+          newShieldCooldown -= delta;
+          if (newShieldCooldown <= 0) {
+            newShieldCooldown = -10;
+          }
+        } else {
+          newHunger = Math.max(hungerFloor, state.hunger - effectiveDrain * delta);
+          if (newShieldCooldown < 0) {
+            newShieldCooldown = Math.min(0, newShieldCooldown + delta);
+          }
+          if (skillFx.frenzyShieldSeconds > 0 && newShieldCooldown === 0
+              && (newHunger / maxHunger) < 0.08) {
+            newShieldCooldown = skillFx.frenzyShieldSeconds;
+          }
+        }
 
         if (newHunger <= 0) {
-          return { hunger: 0, levelFailed: true };
+          return { hunger: 0, levelFailed: true, _shieldCooldown: 0, _minHungerPct: 0 };
         }
+
+        const hungerPctNow = newHunger / maxHunger;
+        const newMinHungerPct = Math.min(state._minHungerPct, hungerPctNow);
 
         // --- Speed ---
         const speedSyn = 1 + (state.upgrades.speedSynergy || 0) * 0.5;
@@ -945,18 +1001,37 @@ export const useGameStore = create<GameState>()(
         // --- Movement ---
         let { x, y } = state.blobPosition;
         let targetItem: Item | null = null;
-        let minDist = Infinity;
+        const hasTargetLock = state.unlockedSkillNodes.includes('hunt_target_lock');
 
-        for (const item of state.items) {
-          if (item.type === 'star' || !item.isTapFood) {
-            const dist = Math.hypot(item.x - x, item.y - y);
-            if (dist < minDist) { minDist = dist; targetItem = item; }
-          }
-        }
-        if (!targetItem) {
+        if (hasTargetLock) {
+          let bestScore = -Infinity;
           for (const item of state.items) {
-            const dist = Math.hypot(item.x - x, item.y - y);
-            if (dist < minDist) { minDist = dist; targetItem = item; }
+            if (item.type === 'star' || !item.isTapFood) {
+              const dist = Math.max(1, Math.hypot(item.x - x, item.y - y));
+              const score = (item.value || 1) / (dist * 0.5);
+              if (score > bestScore) { bestScore = score; targetItem = item; }
+            }
+          }
+          if (!targetItem) {
+            for (const item of state.items) {
+              const dist = Math.max(1, Math.hypot(item.x - x, item.y - y));
+              const score = (item.value || 1) / (dist * 0.5);
+              if (score > bestScore) { bestScore = score; targetItem = item; }
+            }
+          }
+        } else {
+          let minDist = Infinity;
+          for (const item of state.items) {
+            if (item.type === 'star' || !item.isTapFood) {
+              const dist = Math.hypot(item.x - x, item.y - y);
+              if (dist < minDist) { minDist = dist; targetItem = item; }
+            }
+          }
+          if (!targetItem) {
+            for (const item of state.items) {
+              const dist = Math.hypot(item.x - x, item.y - y);
+              if (dist < minDist) { minDist = dist; targetItem = item; }
+            }
           }
         }
 
@@ -995,7 +1070,7 @@ export const useGameStore = create<GameState>()(
           item.y += item.vy * delta;
           item.rotation += item.rotationSpeed * delta;
 
-          const weightFactor = 1 / Math.max(1, item.weight * 0.3);
+          const weightFactor = 1 / Math.max(1, item.weight * 0.45 * (1 - skillFx.weightReduction));
 
           if (dist < suction * 2 && dist >= suction) {
             const pullSpeed = (suction * 2 - dist) * suctionStrength * delta * weightFactor;
@@ -1006,6 +1081,12 @@ export const useGameStore = create<GameState>()(
             item.rotationSpeed += (Math.random() - 0.5) * pullSpeed * 0.01;
             item.vx *= 0.95;
             item.vy *= 0.95;
+          } else if (skillFx.magnetRadius > 0 && dist < Math.max(width, height) * skillFx.magnetRadius * blobScale) {
+            const magnetAngle = Math.atan2(y - item.y, x - item.x);
+            item.vx += Math.cos(magnetAngle) * 8 * delta;
+            item.vy += Math.sin(magnetAngle) * 8 * delta;
+            item.vx *= 0.98;
+            item.vy *= 0.98;
           } else {
             item.vx *= 0.99;
             item.vy *= 0.99;
@@ -1018,8 +1099,12 @@ export const useGameStore = create<GameState>()(
               starsEaten++;
             } else {
               moneyGained += item.value;
-              hungerFoodGained += item.value * 0.12;
-              itemsEaten++;
+              if (!item.isTapFood) {
+                hungerFoodGained += item.value * 0.08;
+              }
+              if (!item.isTapFood && !item.isLegacy) {
+                itemsEaten++;
+              }
             }
           } else if (dist < maxDespawnDist) {
             remainingItems.push(item);
@@ -1043,8 +1128,9 @@ export const useGameStore = create<GameState>()(
         const comboCap = Math.max(10, skillFx.comboCap);
         const comboMult = 1 + (Math.max(0, Math.min(newComboCount, comboCap) - 1)) * 0.06;
 
+        const frenzyValueMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult * 0.5 : 1;
         moneyGained *= adBoostMultiplier * achBonuses.moneyMult * gemMoneyMult
-          * evoValueMult * comboMult * (1 + skillFx.valueMult);
+          * evoValueMult * comboMult * (1 + skillFx.valueMult) * frenzyValueMult;
 
         let newMoney = state.money + moneyGained;
         let newRunMoney = state.currentRunMoney + moneyGained;
@@ -1178,6 +1264,8 @@ export const useGameStore = create<GameState>()(
           _moneyBuffer: newMoneyBuffer,
           _moneyBufferTime: newMoneyBufferTime,
           _achievementTimer: achTimer,
+          _shieldCooldown: newShieldCooldown,
+          _minHungerPct: newMinHungerPct,
         };
       })
     }),

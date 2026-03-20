@@ -18,7 +18,7 @@ export function EvolutionPanel() {
 
   return (
     <>
-      <div className="absolute bottom-8 left-8 z-10">
+      <div className="absolute bottom-8 left-8 z-[5]">
         <button
           onClick={() => setIsOpen(true)}
           className="relative w-16 h-16 bg-purple-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-purple-600 active:scale-95 transition-all"

@@ -206,7 +206,7 @@ export function generateLevel(levelNum: number): LevelDef {
 
   const rng = seededRandom(levelNum * 7919 + 31);
 
-  const totalItems = Math.floor(8 + levelNum * 0.7 + Math.pow(levelNum * 0.04, 1.4));
+  const totalItems = Math.floor(8 + levelNum * 0.85 + Math.pow(levelNum * 0.03, 1.7));
 
   const items: { itemId: string; count: number }[] = [];
   let remaining = totalItems;
@@ -223,11 +223,11 @@ export function generateLevel(levelNum: number): LevelDef {
     items[items.length - 1].count += remaining;
   }
 
-  const baseTime = 35 + levelNum * 2.5;
+  const baseTime = 30 + levelNum * 1.8;
   const starThresholds: [number, number, number] = [
-    Math.floor(baseTime),
-    Math.floor(baseTime * 1.8),
-    Math.floor(baseTime * 2.8),
+    Math.floor(baseTime * 0.85),
+    Math.floor(baseTime * 1.5),
+    Math.floor(baseTime * 2.4),
   ];
 
   const baseMoney = Math.floor(50 * Math.pow(1.12, levelNum - 1));

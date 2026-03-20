@@ -185,6 +185,8 @@ export interface SkillNodeDef {
     frenzyShieldSeconds: number;
     chainVacuumRadius: number;
     overkillCashRatio: number;
+    weightReduction: number;
+    magnetRadius: number;
   }>;
 }
 
@@ -209,8 +211,8 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'hunt_pathing',      title: 'Predator Pathing',   shortDesc: 'Sharper chase movement',       branch: 'hunt', chapter: 1, type: 'trait',    cost: 100,   row: 2, requires: ['hunt_swift'],       effects: { speedFlat: 20 } },
   { id: 'hunt_dash_on_star', title: 'Star Dash',          shortDesc: 'Dash after star pickups',      branch: 'hunt', chapter: 1, type: 'mechanic', cost: 250,   row: 3, requires: ['hunt_pathing'],     effects: { starSpawnRateMult: 0.2, speedMult: 0.08 } },
   { id: 'hunt_keen',         title: 'Keen Senses',        shortDesc: '+6 suction range',             branch: 'hunt', chapter: 1, type: 'minor',    cost: 150,   row: 4, requires: ['hunt_dash_on_star'], effects: { suctionFlat: 6 } },
-  { id: 'hunt_suction_cone', title: 'Suction Cone',       shortDesc: 'Forward suction bias',         branch: 'hunt', chapter: 1, type: 'mechanic', cost: 600,  row: 5, requires: ['hunt_keen'],         effects: { suctionFlat: 14 } },
-  { id: 'hunt_target_lock',  title: 'Target Lock',        shortDesc: 'Prioritize highest value food', branch: 'hunt', chapter: 1, type: 'keystone', cost: 1500,  row: 6, requires: ['hunt_suction_cone'], effects: { valueMult: 0.08 } },
+  { id: 'hunt_suction_cone', title: 'Gravitational Pull',  shortDesc: 'Expanded pull field and reduced item drag', branch: 'hunt', chapter: 1, type: 'mechanic', cost: 600,  row: 5, requires: ['hunt_keen'],         effects: { suctionFlat: 8, weightReduction: 0.4 } },
+  { id: 'hunt_target_lock',  title: 'Target Lock',        shortDesc: 'Prioritize highest value items nearby', branch: 'hunt', chapter: 1, type: 'keystone', cost: 1500,  row: 6, requires: ['hunt_suction_cone'], effects: { valueMult: 0.08 } },
   { id: 'hunt_agile',        title: 'Agile Pursuit',      shortDesc: '+6% speed',                    branch: 'hunt', chapter: 2, type: 'minor',    cost: 3000,  row: 8, requires: ['hunt_target_lock'],  gateRequired: 'gateA', effects: { speedMult: 0.06 } },
   { id: 'hunt_vector_shift', title: 'Vector Shift',       shortDesc: 'Extra accel after turns',      branch: 'hunt', chapter: 2, type: 'mechanic', cost: 8000,  row: 9, requires: ['hunt_agile'],        gateRequired: 'gateA', effects: { speedMult: 0.14, suctionMult: 0.08 } },
   { id: 'hunt_chain_vacuum', title: 'Chain Vacuum',       shortDesc: 'Nearby food chains into pull',  branch: 'hunt', chapter: 2, type: 'mechanic', cost: 18000, row: 10, requires: ['hunt_vector_shift'], gateRequired: 'gateA', effects: { chainVacuumRadius: 70 } },
@@ -241,13 +243,13 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   // ── Automation branch ──
   { id: 'auto_servo',          title: 'Basic Servo',        shortDesc: '+0.1 auto-tap rate',           branch: 'automation', chapter: 1, type: 'minor',    cost: 25,    row: 1, requires: [],                    effects: { autoTapRate: 0.1 } },
   { id: 'auto_tap_drone',      title: 'Tap Drone',          shortDesc: 'Passive tap food generation',  branch: 'automation', chapter: 1, type: 'mechanic', cost: 100,   row: 2, requires: ['auto_servo'],         effects: { autoTapRate: 0.25, tapValueMult: 0.2 } },
-  { id: 'auto_tap_optimizer',  title: 'Tap Optimizer',      shortDesc: 'Stronger and faster taps',     branch: 'automation', chapter: 1, type: 'trait',    cost: 250,   row: 3, requires: ['auto_tap_drone'],     effects: { tapValueMult: 0.32, tapCooldownMult: -0.14 } },
-  { id: 'auto_signal',         title: 'Signal Boost',       shortDesc: '+0.1 tap value',               branch: 'automation', chapter: 1, type: 'minor',    cost: 150,   row: 4, requires: ['auto_tap_optimizer'], effects: { tapValueMult: 0.1 } },
+  { id: 'auto_tap_optimizer',  title: 'Efficient Systems',  shortDesc: 'Improved tap output and reduced hunger drain', branch: 'automation', chapter: 1, type: 'trait',    cost: 250,   row: 3, requires: ['auto_tap_drone'],     effects: { tapValueMult: 0.25, tapCooldownMult: -0.1, hungerDrainMult: -0.03 } },
+  { id: 'auto_signal',         title: 'Proximity Sensors',  shortDesc: 'Slight suction expansion and tap boost', branch: 'automation', chapter: 1, type: 'minor',    cost: 150,   row: 4, requires: ['auto_tap_optimizer'], effects: { tapValueMult: 0.08, suctionFlat: 5 } },
   { id: 'auto_offline_core',   title: 'Offline Core',       shortDesc: 'Offline efficiency increase',  branch: 'automation', chapter: 1, type: 'mechanic', cost: 600,  row: 5, requires: ['auto_signal'],        effects: { offlineEfficiency: 0.15 } },
   { id: 'auto_keystone',       title: 'Autopilot Brain',    shortDesc: 'Supercharged auto-tap',        branch: 'automation', chapter: 1, type: 'keystone', cost: 1500,  row: 6, requires: ['auto_offline_core'],  effects: { autoTapRate: 0.5, offlineEfficiency: 0.1 } },
   { id: 'auto_choice_builder', title: 'Builder AI',         shortDesc: 'Tap efficiency focus',            branch: 'automation', chapter: 2, type: 'choice', cost: 8000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { autoTapRate: 0.3, valueMult: 0.05 } },
-  { id: 'auto_choice_farmer',  title: 'Farmer AI',          shortDesc: 'Auto-upgrade favors spawn',    branch: 'automation', chapter: 2, type: 'choice',   cost: 8000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { spawnRateMult: 0.2, autoTapRate: 0.35 } },
-  { id: 'auto_apex',           title: 'Singularity Ops',    shortDesc: 'Massive passive scaling',      branch: 'automation', chapter: 3, type: 'keystone', cost: 80000, row: 12, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateB', effects: { offlineEfficiency: 0.3, autoTapRate: 1.2 } },
+  { id: 'auto_choice_farmer',  title: 'Magnetic Field',     shortDesc: 'Items across the level drift toward the blob', branch: 'automation', chapter: 2, type: 'choice',   cost: 8000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { magnetRadius: 1.0, autoTapRate: 0.2 } },
+  { id: 'auto_apex',           title: 'Singularity Ops',    shortDesc: 'Massive passive scaling',      branch: 'automation', chapter: 3, type: 'keystone', cost: 80000, row: 12, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateB', effects: { offlineEfficiency: 0.2, autoTapRate: 0.8, magnetRadius: 0.5, suctionMult: 0.1 } },
 
   // ── Gates and Apex ──
   { id: 'gate_a_unlock',       title: 'Gate A',             shortDesc: '2 keystones required',         branch: 'evolution', chapter: 2, type: 'gate',     cost: 0,     row: 7,  requires: [] },

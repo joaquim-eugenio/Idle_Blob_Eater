@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useGameStore, Item, getCurrentWorld } from '../store/gameStore';
 import { BASE_SUCTION, BLOB_SKINS } from '../lib/constants';
+import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
 
@@ -101,6 +102,7 @@ export function GameCanvas() {
     centerX: 200,
     centerY: 300,
   });
+  const fpsTimesRef = useRef<number[]>([]);
 
   const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -433,6 +435,7 @@ export function GameCanvas() {
 
       // Draw blob body
       const baseColor = getBlobColor(currentLevel, currentSkin);
+      const specialSkinId = state.currentSpecialSkin;
       if (abState.size.active) {
         ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee'; ctx.fillStyle = baseColor;
       } else if (starBoostActive) {
@@ -455,7 +458,14 @@ export function GameCanvas() {
         const nextNode = nodes[(i + 1) % NUM_NODES];
         ctx.quadraticCurveTo(currNode.x, currNode.y, (currNode.x + nextNode.x) / 2, (currNode.y + nextNode.y) / 2);
       }
-      ctx.fill();
+
+      if (specialSkinId && !starBoostActive && !frenzyActive) {
+        ctx.save();
+        drawSpecialSkin(ctx, specialSkinId, blobPosition.x, blobPosition.y, radius, time);
+        ctx.restore();
+      } else {
+        ctx.fill();
+      }
       ctx.shadowBlur = 0;
 
       // Active ability VFX
@@ -505,7 +515,8 @@ export function GameCanvas() {
         ctx.stroke();
       }
 
-      // Face
+      // Equipped item (behind face, on body)
+      const equippedItem = state.currentItem;
       let cx = 0, cy = 0;
       for (let i = 0; i < NUM_NODES; i++) { cx += nodes[i].x; cy += nodes[i].y; }
       cx /= NUM_NODES; cy /= NUM_NODES;
@@ -514,6 +525,14 @@ export function GameCanvas() {
       const parallaxDist = Math.hypot(dx, dy);
       if (parallaxDist > maxParallax) { dx = (dx / parallaxDist) * maxParallax; dy = (dy / parallaxDist) * maxParallax; }
 
+      if (equippedItem) {
+        ctx.save();
+        drawBlobItem(ctx, equippedItem, nodes as any, cx, cy, radius, time, NUM_NODES, dx, dy);
+        ctx.restore();
+      }
+
+      // Face
+      const equippedFace = state.currentFace;
       ctx.fillStyle = '#1a237e';
 
       const isEating = comboCount > 0;
@@ -524,54 +543,65 @@ export function GameCanvas() {
       const eyeY = cy - radius * 0.1 + dy;
       const eyeSize = radius * 0.08;
 
-      if (isLevelDone) {
-        ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#1a237e';
-      } else if (isSleepy) {
-        const leftEyeX = cx - radius * 0.25 + dx;
-        const rightEyeX = cx + radius * 0.25 + dx;
-        ctx.strokeStyle = '#1a237e';
-        ctx.lineWidth = Math.max(1.5, radius * 0.03);
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(leftEyeX - eyeSize, eyeY + eyeSize * 0.5);
-        ctx.quadraticCurveTo(leftEyeX, eyeY - eyeSize * 0.2, leftEyeX + eyeSize, eyeY);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(rightEyeX - eyeSize, eyeY);
-        ctx.quadraticCurveTo(rightEyeX, eyeY - eyeSize * 0.2, rightEyeX + eyeSize, eyeY + eyeSize * 0.5);
-        ctx.stroke();
-      } else if (isExcited) {
-        ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = '#1a237e';
-      } else {
-        ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+      if (!faceOverridesDefaultEyes(equippedFace)) {
+        if (isLevelDone) {
+          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#1a237e';
+        } else if (isSleepy) {
+          const leftEyeX = cx - radius * 0.25 + dx;
+          const rightEyeX = cx + radius * 0.25 + dx;
+          ctx.strokeStyle = '#1a237e';
+          ctx.lineWidth = Math.max(1.5, radius * 0.03);
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(leftEyeX - eyeSize, eyeY + eyeSize * 0.5);
+          ctx.quadraticCurveTo(leftEyeX, eyeY - eyeSize * 0.2, leftEyeX + eyeSize, eyeY);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(rightEyeX - eyeSize, eyeY);
+          ctx.quadraticCurveTo(rightEyeX, eyeY - eyeSize * 0.2, rightEyeX + eyeSize, eyeY + eyeSize * 0.5);
+          ctx.stroke();
+        } else if (isExcited) {
+          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#1a237e';
+        } else {
+          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+        }
       }
 
       // Mouth
       const mouthY = cy + radius * 0.15 + dy;
       const mouthX = cx + dx;
-      if (isLevelDone) {
-        ctx.beginPath();
-        ctx.arc(mouthX, mouthY, radius * 0.15, 0, Math.PI, false);
-        ctx.fill();
-      } else if (isEating && comboCount >= 3) {
-        ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.12, 0, Math.PI * 2); ctx.fill();
-      } else if (isSleepy) {
-        ctx.beginPath(); ctx.arc(mouthX, mouthY + radius * 0.02, radius * 0.05, 0, Math.PI, false); ctx.fill();
-      } else if (isExcited || isEating) {
-        ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.13, 0, Math.PI, false); ctx.fill();
-      } else {
-        ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.1, 0, Math.PI, false); ctx.fill();
+      if (!faceOverridesDefaultMouth(equippedFace)) {
+        if (isLevelDone) {
+          ctx.beginPath();
+          ctx.arc(mouthX, mouthY, radius * 0.15, 0, Math.PI, false);
+          ctx.fill();
+        } else if (isEating && comboCount >= 3) {
+          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.12, 0, Math.PI * 2); ctx.fill();
+        } else if (isSleepy) {
+          ctx.beginPath(); ctx.arc(mouthX, mouthY + radius * 0.02, radius * 0.05, 0, Math.PI, false); ctx.fill();
+        } else if (isExcited || isEating) {
+          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.13, 0, Math.PI, false); ctx.fill();
+        } else {
+          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.1, 0, Math.PI, false); ctx.fill();
+        }
+      }
+
+      // Custom face cosmetic overlay
+      if (equippedFace) {
+        ctx.save();
+        drawBlobFace(ctx, equippedFace, cx, cy, radius, dx, dy, time);
+        ctx.restore();
       }
 
       // Level-up celebration
@@ -700,6 +730,30 @@ export function GameCanvas() {
 
           ctx.restore();
         }
+      }
+
+      if (state._benchmarkActive) {
+        const now = performance.now();
+        const frameTimes = fpsTimesRef.current;
+        frameTimes.push(now);
+        while (frameTimes.length > 0 && frameTimes[0] < now - 1000) frameTimes.shift();
+        const fps = frameTimes.length;
+        const itemCount = state.items.length;
+
+        const label = `FPS: ${fps}  |  Items: ${itemCount}`;
+        ctx.save();
+        ctx.font = 'bold 14px monospace';
+        const textW = ctx.measureText(label).width;
+        const px = canvas.width - textW - 24;
+        const py = 12;
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.beginPath();
+        ctx.roundRect(px - 8, py - 4, textW + 16, 24, 8);
+        ctx.fill();
+        ctx.fillStyle = fps < 30 ? '#ef4444' : fps < 50 ? '#facc15' : '#4ade80';
+        ctx.textBaseline = 'top';
+        ctx.fillText(label, px, py);
+        ctx.restore();
       }
 
       animationFrameId = requestAnimationFrame(render);

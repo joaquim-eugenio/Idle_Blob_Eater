@@ -141,6 +141,97 @@ export const BLOB_SKINS: BlobSkinDef[] = [
   { id: 'rainbow', name: 'Rainbow Blob', cost: 50, colors: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6'] },
 ];
 
+export type CosmeticRarity = 'common' | 'rare' | 'epic' | 'legendary';
+export type CosmeticCurrency = 'money' | 'gems';
+
+export interface SpecialSkinDef {
+  id: string;
+  name: string;
+  rarity: CosmeticRarity;
+  currency: CosmeticCurrency;
+  cost: number;
+  description: string;
+}
+
+export interface BlobItemDef {
+  id: string;
+  name: string;
+  rarity: CosmeticRarity;
+  currency: CosmeticCurrency;
+  cost: number;
+  description: string;
+}
+
+export interface BlobFaceDef {
+  id: string;
+  name: string;
+  rarity: CosmeticRarity;
+  currency: CosmeticCurrency;
+  cost: number;
+  description: string;
+}
+
+export const SPECIAL_SKINS: SpecialSkinDef[] = [
+  { id: 'lava_flow', name: 'Lava Flow', rarity: 'common', currency: 'money', cost: 5000, description: 'Animated lava with glowing cracks' },
+  { id: 'ocean_depths', name: 'Ocean Depths', rarity: 'common', currency: 'money', cost: 8000, description: 'Pulsing wave rings on deep blue' },
+  { id: 'pixel_blob', name: 'Pixel Blob', rarity: 'common', currency: 'money', cost: 12000, description: 'Retro checkerboard pattern' },
+  { id: 'candy_swirl', name: 'Candy Swirl', rarity: 'rare', currency: 'gems', cost: 10, description: 'Spinning candy stripe colors' },
+  { id: 'slime_king', name: 'Slime King', rarity: 'rare', currency: 'gems', cost: 12, description: 'Translucent green with dripping goo' },
+  { id: 'cherry_blossom', name: 'Cherry Blossom', rarity: 'rare', currency: 'gems', cost: 15, description: 'Pink glow with orbiting petals' },
+  { id: 'frozen_heart', name: 'Frozen Heart', rarity: 'rare', currency: 'gems', cost: 15, description: 'Ice blue with crystal crack lines' },
+  { id: 'electric_storm', name: 'Electric Storm', rarity: 'epic', currency: 'gems', cost: 25, description: 'Cyan with animated lightning arcs' },
+  { id: 'nebula', name: 'Nebula', rarity: 'epic', currency: 'gems', cost: 25, description: 'Deep space gradient with twinkling stars' },
+  { id: 'magma_core', name: 'Magma Core', rarity: 'epic', currency: 'gems', cost: 30, description: 'Dark shell with glowing pulsing core' },
+  { id: 'holographic', name: 'Holographic', rarity: 'epic', currency: 'gems', cost: 35, description: 'Shifting rainbow shimmer effect' },
+  { id: 'crystal', name: 'Crystal', rarity: 'legendary', currency: 'gems', cost: 50, description: 'Faceted gem look with specular highlights' },
+  { id: 'void_walker', name: 'Void Walker', rarity: 'legendary', currency: 'gems', cost: 50, description: 'Dark void with spiraling particles' },
+  { id: 'dragon_scale', name: 'Dragon Scale', rarity: 'legendary', currency: 'gems', cost: 60, description: 'Gold-red scale pattern with fiery glow' },
+  { id: 'disco_ball', name: 'Disco Ball', rarity: 'legendary', currency: 'gems', cost: 75, description: 'Mirror tiles with colored light rays' },
+];
+
+export const BLOB_ITEMS: BlobItemDef[] = [
+  { id: 'red_bow_tie', name: 'Red Bow Tie', rarity: 'common', currency: 'money', cost: 3000, description: 'A dapper bow tie' },
+  { id: 'flower', name: 'Daisy', rarity: 'common', currency: 'money', cost: 4000, description: 'A cheerful flower' },
+  { id: 'party_hat', name: 'Party Hat', rarity: 'common', currency: 'money', cost: 5000, description: 'Party time!' },
+  { id: 'scarf', name: 'Cozy Scarf', rarity: 'rare', currency: 'gems', cost: 8, description: 'Warm and stylish' },
+  { id: 'headphones', name: 'Headphones', rarity: 'rare', currency: 'gems', cost: 10, description: 'Vibing to the beat' },
+  { id: 'pirate_patch', name: 'Pirate Patch', rarity: 'rare', currency: 'gems', cost: 10, description: 'Arrr matey!' },
+  { id: 'sunglasses', name: 'Cool Shades', rarity: 'rare', currency: 'gems', cost: 12, description: 'Too cool for school' },
+  { id: 'ninja_bandana', name: 'Ninja Bandana', rarity: 'epic', currency: 'gems', cost: 20, description: 'Stealthy and swift' },
+  { id: 'cape', name: 'Hero Cape', rarity: 'epic', currency: 'gems', cost: 20, description: 'Every blob needs a cape' },
+  { id: 'crown', name: 'Royal Crown', rarity: 'epic', currency: 'gems', cost: 25, description: 'Fit for a king' },
+  { id: 'monocle', name: "Gentleman's Monocle", rarity: 'epic', currency: 'gems', cost: 25, description: 'Quite distinguished' },
+  { id: 'halo', name: 'Angel Halo', rarity: 'legendary', currency: 'gems', cost: 40, description: 'Heavenly glow' },
+  { id: 'devil_horns', name: 'Devil Horns', rarity: 'legendary', currency: 'gems', cost: 40, description: 'A little mischievous' },
+  { id: 'wizard_hat', name: 'Wizard Hat', rarity: 'legendary', currency: 'gems', cost: 50, description: 'Arcane power awaits' },
+  { id: 'top_hat', name: 'Top Hat', rarity: 'legendary', currency: 'gems', cost: 60, description: 'The height of elegance' },
+];
+
+export const BLOB_FACES: BlobFaceDef[] = [
+  { id: 'thick_brows', name: 'Thick Eyebrows', rarity: 'common', currency: 'money', cost: 2000, description: 'Bold and expressive' },
+  { id: 'blush', name: 'Rosy Cheeks', rarity: 'common', currency: 'money', cost: 3000, description: 'Adorably blushing' },
+  { id: 'freckles', name: 'Freckles', rarity: 'common', currency: 'money', cost: 3000, description: 'Sun-kissed dots' },
+  { id: 'beauty_mark', name: 'Beauty Mark', rarity: 'common', currency: 'money', cost: 2000, description: 'A touch of glamour' },
+  { id: 'handlebar', name: 'Handlebar Mustache', rarity: 'rare', currency: 'gems', cost: 8, description: 'Twirl-worthy stache' },
+  { id: 'red_lips', name: 'Red Lipstick', rarity: 'rare', currency: 'gems', cost: 8, description: 'Bold red lips' },
+  { id: 'long_lashes', name: 'Long Eyelashes', rarity: 'rare', currency: 'gems', cost: 10, description: 'Flutter those lashes' },
+  { id: 'cat_whiskers', name: 'Cat Whiskers', rarity: 'rare', currency: 'gems', cost: 10, description: 'Nyaa~' },
+  { id: 'anime_eyes', name: 'Anime Eyes', rarity: 'epic', currency: 'gems', cost: 20, description: 'Big sparkly anime eyes' },
+  { id: 'star_eyes', name: 'Star Eyes', rarity: 'epic', currency: 'gems', cost: 22, description: 'Starry-eyed wonder' },
+  { id: 'heart_eyes', name: 'Heart Eyes', rarity: 'epic', currency: 'gems', cost: 22, description: 'Love at first sight' },
+  { id: 'goatee', name: 'Goatee', rarity: 'epic', currency: 'gems', cost: 18, description: 'Wise and rugged' },
+  { id: 'full_beard', name: 'Full Beard', rarity: 'legendary', currency: 'gems', cost: 35, description: 'Majestic facial hair' },
+  { id: 'cyclops', name: 'Cyclops', rarity: 'legendary', currency: 'gems', cost: 40, description: 'One eye to rule them all' },
+  { id: 'wink_sparkle', name: 'Wink & Sparkle', rarity: 'legendary', currency: 'gems', cost: 45, description: 'Charming wink with sparkle' },
+];
+
+export const RARITY_COLORS: Record<CosmeticRarity, { bg: string; border: string; text: string; badge: string }> = {
+  common: { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-600', badge: 'bg-slate-200 text-slate-700' },
+  rare: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600', badge: 'bg-blue-200 text-blue-700' },
+  epic: { bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-600', badge: 'bg-purple-200 text-purple-700' },
+  legendary: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600', badge: 'bg-amber-200 text-amber-800' },
+};
+
 export const GEM_SHOP_ITEMS = [
   { id: 'double_money', name: '2x Money', desc: 'Permanent 2x money multiplier', cost: 50, type: 'permanent' as const },
   { id: 'time_warp', name: 'Time Warp', desc: 'Earn 2 hours of offline income', cost: 10, type: 'consumable' as const },

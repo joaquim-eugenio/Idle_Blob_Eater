@@ -4,7 +4,9 @@ import { Sparkles } from 'lucide-react';
 import { AchievementPanel } from './AchievementPanel';
 import { StatsPanel } from './StatsPanel';
 import { GemShop } from './GemShop';
+import { BlobCustomizer } from './BlobCustomizer';
 import { WorldViewer } from './BiomeSelector';
+import { DebugPanel } from './DebugPanel';
 import { getWorldForLevel } from '../lib/levels';
 
 function fmt(n: number): string {
@@ -117,7 +119,9 @@ export function HUD() {
           <AchievementPanel />
           <StatsPanel />
           <GemShop />
+          <BlobCustomizer />
           <WorldViewer />
+          <DebugPanel />
         </div>
       </div>
 

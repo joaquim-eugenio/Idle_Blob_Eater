@@ -7,6 +7,7 @@ import {
   DAILY_REWARDS, STREAK_MULTIPLIERS, GEM_SHOP_ITEMS, BLOB_SKINS, SKILL_TREE_NODES,
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
   ACTIVE_ABILITIES, type AbilityId,
+  SPECIAL_SKINS, BLOB_ITEMS, BLOB_FACES,
 } from '../lib/constants';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
 import { ITEM_LOOKUP, getItemsForWorld } from '../lib/itemCatalog';
@@ -398,6 +399,12 @@ interface GameState {
   purchasedGemItems: string[];
   unlockedSkins: string[];
   currentSkin: string;
+  currentSpecialSkin: string;
+  unlockedSpecialSkins: string[];
+  currentItem: string;
+  unlockedItems: string[];
+  currentFace: string;
+  unlockedFaces: string[];
 
   achievements: string[];
   newAchievements: string[];
@@ -421,6 +428,7 @@ interface GameState {
   activeHint: string | null;
 
   skillTreeOpen: boolean;
+  customizerOpen: boolean;
 
   abilities: AbilitiesMap;
 
@@ -437,6 +445,7 @@ interface GameState {
   _minHungerPct: number;
   _introPlaying: boolean;
   _autoTapAccum: number;
+  _benchmarkActive: boolean;
 
   initLevel: (levelNum: number) => void;
   completeLevel: () => void;
@@ -457,6 +466,12 @@ interface GameState {
   buyGemShopItem: (id: string) => void;
   buyBlobSkin: (id: string) => void;
   setSkin: (id: string) => void;
+  buySpecialSkin: (id: string) => void;
+  setSpecialSkin: (id: string) => void;
+  buyBlobItem: (id: string) => void;
+  setItem: (id: string) => void;
+  buyBlobFace: (id: string) => void;
+  setFace: (id: string) => void;
   dismissAchievement: (id: string) => void;
   completeTutorial: () => void;
   advanceTutorial: () => void;
@@ -465,7 +480,14 @@ interface GameState {
   activateAbility: (id: AbilityId) => void;
   openSkillTree: () => void;
   closeSkillTree: () => void;
+  openCustomizer: () => void;
+  closeCustomizer: () => void;
   applyOfflineProgress: (earnings: number) => void;
+  debugAddResources: (money: number, gems: number, essence: number) => void;
+  debugFillHunger: () => void;
+  debugUnlockAllCosmetics: () => void;
+  debugStartBenchmark: () => void;
+  debugSetLevel: (level: number) => void;
 }
 
 export function getCurrentWorld(level: number): WorldDef {
@@ -507,6 +529,12 @@ export const useGameStore = create<GameState>()(
       purchasedGemItems: [],
       unlockedSkins: ['default'],
       currentSkin: 'default',
+      currentSpecialSkin: '',
+      unlockedSpecialSkins: [],
+      currentItem: '',
+      unlockedItems: [],
+      currentFace: '',
+      unlockedFaces: [],
 
       achievements: [],
       newAchievements: [],
@@ -530,6 +558,7 @@ export const useGameStore = create<GameState>()(
       activeHint: null,
 
       skillTreeOpen: false,
+      customizerOpen: false,
 
       abilities: { ...DEFAULT_ABILITIES },
 
@@ -546,6 +575,7 @@ export const useGameStore = create<GameState>()(
       _minHungerPct: 1,
       _introPlaying: false,
       _autoTapAccum: 0,
+      _benchmarkActive: false,
 
       initLevel: (levelNum) => set((state) => {
         const def = getLevel(levelNum);
@@ -959,6 +989,57 @@ export const useGameStore = create<GameState>()(
         return { currentSkin: id };
       }),
 
+      buySpecialSkin: (id) => set((state) => {
+        const skin = SPECIAL_SKINS.find(s => s.id === id);
+        if (!skin || state.unlockedSpecialSkins.includes(id)) return state;
+        if (skin.currency === 'gems') {
+          if (state.gems < skin.cost) return state;
+          return { gems: state.gems - skin.cost, unlockedSpecialSkins: [...state.unlockedSpecialSkins, id], currentSpecialSkin: id, currentSkin: 'default' };
+        }
+        if (state.money < skin.cost) return state;
+        return { money: state.money - skin.cost, unlockedSpecialSkins: [...state.unlockedSpecialSkins, id], currentSpecialSkin: id, currentSkin: 'default' };
+      }),
+
+      setSpecialSkin: (id) => set((state) => {
+        if (id === '') return { currentSpecialSkin: '' };
+        if (!state.unlockedSpecialSkins.includes(id)) return state;
+        return { currentSpecialSkin: id, currentSkin: 'default' };
+      }),
+
+      buyBlobItem: (id) => set((state) => {
+        const item = BLOB_ITEMS.find(i => i.id === id);
+        if (!item || state.unlockedItems.includes(id)) return state;
+        if (item.currency === 'gems') {
+          if (state.gems < item.cost) return state;
+          return { gems: state.gems - item.cost, unlockedItems: [...state.unlockedItems, id], currentItem: id };
+        }
+        if (state.money < item.cost) return state;
+        return { money: state.money - item.cost, unlockedItems: [...state.unlockedItems, id], currentItem: id };
+      }),
+
+      setItem: (id) => set((state) => {
+        if (id === '') return { currentItem: '' };
+        if (!state.unlockedItems.includes(id)) return state;
+        return { currentItem: id };
+      }),
+
+      buyBlobFace: (id) => set((state) => {
+        const face = BLOB_FACES.find(f => f.id === id);
+        if (!face || state.unlockedFaces.includes(id)) return state;
+        if (face.currency === 'gems') {
+          if (state.gems < face.cost) return state;
+          return { gems: state.gems - face.cost, unlockedFaces: [...state.unlockedFaces, id], currentFace: id };
+        }
+        if (state.money < face.cost) return state;
+        return { money: state.money - face.cost, unlockedFaces: [...state.unlockedFaces, id], currentFace: id };
+      }),
+
+      setFace: (id) => set((state) => {
+        if (id === '') return { currentFace: '' };
+        if (!state.unlockedFaces.includes(id)) return state;
+        return { currentFace: id };
+      }),
+
       dismissAchievement: (id) => set((state) => ({
         newAchievements: state.newAchievements.filter(a => a !== id),
       })),
@@ -984,12 +1065,70 @@ export const useGameStore = create<GameState>()(
 
       openSkillTree: () => set({ skillTreeOpen: true }),
       closeSkillTree: () => set({ skillTreeOpen: false }),
+      openCustomizer: () => set({ customizerOpen: true }),
+      closeCustomizer: () => set({ customizerOpen: false }),
 
       applyOfflineProgress: (earnings) => set((state) => ({
         money: state.money + earnings,
         stats: { ...state.stats, totalMoneyEarned: state.stats.totalMoneyEarned + earnings },
         currentRunMoney: state.currentRunMoney + earnings,
       })),
+
+      debugAddResources: (addMoney, addGems, addEssence) => set((state) => ({
+        money: state.money + addMoney,
+        gems: state.gems + addGems,
+        essence: state.essence + addEssence,
+      })),
+
+      debugFillHunger: () => set({ hunger: BASE_MAX_HUNGER }),
+
+      debugUnlockAllCosmetics: () => set({
+        unlockedSkins: BLOB_SKINS.map(s => s.id),
+        unlockedSpecialSkins: SPECIAL_SKINS.map(s => s.id),
+        unlockedItems: BLOB_ITEMS.map(i => i.id),
+        unlockedFaces: BLOB_FACES.map(f => f.id),
+      }),
+
+      debugSetLevel: (level) => {
+        get().initLevel(level);
+      },
+
+      debugStartBenchmark: () => set((state) => {
+        const world = getWorldForLevel(state.currentLevel);
+        const pool = getItemsForWorld(world.id);
+        if (pool.length === 0) return {};
+        const blobX = 200, blobY = 300;
+        const benchItems: Item[] = [];
+        const count = 300;
+        const spread = 800 * world.blobScale;
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const dist = 80 + Math.random() * spread;
+          const pick = pool[Math.floor(Math.random() * pool.length)];
+          benchItems.push({
+            id: Math.random().toString(36).substr(2, 9),
+            x: blobX + Math.cos(angle) * dist,
+            y: blobY + Math.sin(angle) * dist,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 2,
+            type: pick.id,
+            value: pick.baseValue,
+            weight: pick.weight,
+          });
+        }
+        return {
+          items: benchItems,
+          levelItemsTotal: count,
+          levelItemsEaten: 0,
+          levelComplete: false,
+          levelFailed: false,
+          hunger: BASE_MAX_HUNGER,
+          _benchmarkActive: true,
+          _levelInitialized: true,
+        };
+      }),
 
       resetGame: () => set({
         money: 0, currentLevel: 1, hunger: BASE_MAX_HUNGER * 0.6,
@@ -1014,13 +1153,13 @@ export const useGameStore = create<GameState>()(
         skillFlashEvents: [],
         skillTelemetry: { ...DEFAULT_SKILL_TELEMETRY, runStartTimestamp: Date.now() },
         tutorialStep: 0, tutorialComplete: false,
-        sessionCount: 0, completedHints: [], activeHint: null, skillTreeOpen: false,
+        sessionCount: 0, completedHints: [], activeHint: null, skillTreeOpen: false, customizerOpen: false,
         abilities: { ...DEFAULT_ABILITIES },
         lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
         lastTapTime: 0,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
         _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
-        _autoTapAccum: 0,
+        _autoTapAccum: 0, _benchmarkActive: false,
       }),
 
       tick: (delta, width, height) => set((state) => {
@@ -1045,6 +1184,10 @@ export const useGameStore = create<GameState>()(
         }
 
         if (state.skillTreeOpen) {
+          return { levelStartTime: Date.now() };
+        }
+
+        if (state.customizerOpen) {
           return { levelStartTime: Date.now() };
         }
 
@@ -1468,6 +1611,12 @@ export const useGameStore = create<GameState>()(
         purchasedGemItems: state.purchasedGemItems,
         unlockedSkins: state.unlockedSkins,
         currentSkin: state.currentSkin,
+        currentSpecialSkin: state.currentSpecialSkin,
+        unlockedSpecialSkins: state.unlockedSpecialSkins,
+        currentItem: state.currentItem,
+        unlockedItems: state.unlockedItems,
+        currentFace: state.currentFace,
+        unlockedFaces: state.unlockedFaces,
         achievements: state.achievements,
         stats: state.stats,
         dailyReward: state.dailyReward,
@@ -1506,6 +1655,12 @@ export const useGameStore = create<GameState>()(
           newAchievements: [],
           purchasedGemItems: persisted?.purchasedGemItems || [],
           unlockedSkins: persisted?.unlockedSkins || ['default'],
+          currentSpecialSkin: persisted?.currentSpecialSkin || '',
+          unlockedSpecialSkins: persisted?.unlockedSpecialSkins || [],
+          currentItem: persisted?.currentItem || '',
+          unlockedItems: persisted?.unlockedItems || [],
+          currentFace: persisted?.currentFace || '',
+          unlockedFaces: persisted?.unlockedFaces || [],
           highestLevelReached: persisted?.highestLevelReached || migratedLevel,
           blobGrowth: persisted?.blobGrowth || 0,
           _levelInitialized: false,

@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { GEM_SHOP_ITEMS, BLOB_SKINS } from '../lib/constants';
-import { Gem, X, Palette, ShoppingBag } from 'lucide-react';
+import { GEM_SHOP_ITEMS } from '../lib/constants';
+import { Gem, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function GemShop() {
   const [isOpen, setIsOpen] = useState(false);
-  const [tab, setTab] = useState<'shop' | 'skins'>('shop');
   const gems = useGameStore(s => s.gems);
   const purchased = useGameStore(s => s.purchasedGemItems);
-  const unlockedSkins = useGameStore(s => s.unlockedSkins);
-  const currentSkin = useGameStore(s => s.currentSkin);
   const buyGemShopItem = useGameStore(s => s.buyGemShopItem);
-  const buyBlobSkin = useGameStore(s => s.buyBlobSkin);
-  const setSkin = useGameStore(s => s.setSkin);
 
   return (
     <>
@@ -55,27 +50,8 @@ export function GemShop() {
                 </button>
               </div>
 
-              <div className="flex border-b border-slate-200">
-                <button
-                  onClick={() => setTab('shop')}
-                  className={`flex-1 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                    tab === 'shop' ? 'text-purple-600 border-b-2 border-purple-500' : 'text-slate-400'
-                  }`}
-                >
-                  <ShoppingBag size={16} /> Shop
-                </button>
-                <button
-                  onClick={() => setTab('skins')}
-                  className={`flex-1 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                    tab === 'skins' ? 'text-purple-600 border-b-2 border-purple-500' : 'text-slate-400'
-                  }`}
-                >
-                  <Palette size={16} /> Skins
-                </button>
-              </div>
-
               <div className="flex-1 overflow-auto p-4 space-y-2">
-                {tab === 'shop' && GEM_SHOP_ITEMS.map(item => {
+                {GEM_SHOP_ITEMS.map(item => {
                   const owned = item.type === 'permanent' && purchased.includes(item.id);
                   const canAfford = gems >= item.cost;
                   return (
@@ -97,49 +73,6 @@ export function GemShop() {
                       >
                         {owned ? 'Owned' : <><Gem size={14} />{item.cost}</>}
                       </button>
-                    </div>
-                  );
-                })}
-
-                {tab === 'skins' && BLOB_SKINS.filter(s => s.id !== 'default').map(skin => {
-                  const owned = unlockedSkins.includes(skin.id);
-                  const isActive = currentSkin === skin.id;
-                  const canAfford = gems >= skin.cost;
-                  return (
-                    <div key={skin.id} className="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className="w-10 h-10 rounded-full flex-shrink-0" style={{
-                          background: `linear-gradient(135deg, ${skin.colors.join(', ')})`,
-                        }} />
-                        <div>
-                          <div className="font-bold text-sm text-slate-800">{skin.name}</div>
-                          {isActive && <div className="text-xs text-purple-500 font-semibold">Equipped</div>}
-                        </div>
-                      </div>
-                      {owned ? (
-                        <button
-                          onClick={() => setSkin(isActive ? 'default' : skin.id)}
-                          className={`px-3 py-2 rounded-lg font-bold text-sm transition-all ${
-                            isActive
-                              ? 'bg-purple-100 text-purple-600'
-                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                        >
-                          {isActive ? 'Unequip' : 'Equip'}
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => buyBlobSkin(skin.id)}
-                          disabled={!canAfford}
-                          className={`px-3 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                            canAfford
-                              ? 'bg-purple-500 text-white hover:bg-purple-600 active:scale-95'
-                              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                          }`}
-                        >
-                          <Gem size={14} />{skin.cost}
-                        </button>
-                      )}
                     </div>
                   );
                 })}

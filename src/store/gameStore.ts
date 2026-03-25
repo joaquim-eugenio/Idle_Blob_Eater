@@ -981,12 +981,13 @@ export const useGameStore = create<GameState>()(
           gems: state.gems - skin.cost,
           unlockedSkins: [...state.unlockedSkins, id],
           currentSkin: id,
+          currentSpecialSkin: '',
         };
       }),
 
       setSkin: (id) => set((state) => {
         if (!state.unlockedSkins.includes(id)) return state;
-        return { currentSkin: id };
+        return { currentSkin: id, currentSpecialSkin: '' };
       }),
 
       buySpecialSkin: (id) => set((state) => {

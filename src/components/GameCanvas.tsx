@@ -443,7 +443,7 @@ export function GameCanvas() {
       } else if (boostActive) {
         ctx.shadowBlur = 20; ctx.shadowColor = '#facc15'; ctx.fillStyle = baseColor;
       } else if (frenzyActive) {
-        ctx.shadowBlur = 20; ctx.shadowColor = '#fb923c'; ctx.fillStyle = '#fb923c';
+        ctx.shadowBlur = 0; ctx.fillStyle = baseColor;
       } else {
         ctx.shadowBlur = 0; ctx.fillStyle = baseColor;
       }
@@ -459,7 +459,7 @@ export function GameCanvas() {
         ctx.quadraticCurveTo(currNode.x, currNode.y, (currNode.x + nextNode.x) / 2, (currNode.y + nextNode.y) / 2);
       }
 
-      if (specialSkinId && !starBoostActive && !frenzyActive) {
+      if (specialSkinId && !starBoostActive) {
         ctx.save();
         drawSpecialSkin(ctx, specialSkinId, blobPosition.x, blobPosition.y, radius, time);
         ctx.restore();
@@ -513,6 +513,28 @@ export function GameCanvas() {
         ctx.strokeStyle = `rgba(34, 211, 238, ${0.3 + Math.sin(time * 6) * 0.1})`;
         ctx.lineWidth = 2 / zoom;
         ctx.stroke();
+      }
+
+      if (frenzyActive) {
+        const haloY = blobPosition.y - radius * 1.15;
+        const haloX = blobPosition.x;
+        const pulse = 1 + Math.sin(time * 6) * 0.12;
+        const flicker = 0.6 + Math.sin(time * 8) * 0.15 + Math.sin(time * 13) * 0.1;
+        ctx.save();
+        ctx.shadowBlur = 18 / zoom;
+        ctx.shadowColor = '#fb923c';
+        ctx.strokeStyle = `rgba(251, 146, 60, ${flicker})`;
+        ctx.lineWidth = (3.5 / zoom) * pulse;
+        ctx.beginPath();
+        ctx.ellipse(haloX, haloY, radius * 0.35 * pulse, radius * 0.1 * pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(253, 186, 116, ${flicker * 0.5})`;
+        ctx.lineWidth = (2 / zoom) * pulse;
+        ctx.beginPath();
+        ctx.ellipse(haloX, haloY, radius * 0.28 * pulse, radius * 0.07 * pulse, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
       }
 
       // Equipped item (behind face, on body)

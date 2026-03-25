@@ -178,39 +178,123 @@ function drawFrozenHeart(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
   ctx.restore();
 }
 
+function seededRand(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function drawBolt(
+  ctx: CanvasRenderingContext2D,
+  x1: number, y1: number, x2: number, y2: number,
+  radius: number, seed: number, depth: number, maxDepth: number
+) {
+  const segs = 5 + depth;
+  const jitter = radius * (0.18 - depth * 0.04);
+  const points: { x: number; y: number }[] = [{ x: x1, y: y1 }];
+
+  for (let s = 1; s < segs; s++) {
+    const t = s / segs;
+    const jx = (seededRand(seed + s * 17.3) - 0.5) * 2 * jitter;
+    const jy = (seededRand(seed + s * 31.7) - 0.5) * 2 * jitter;
+    points.push({ x: x1 + (x2 - x1) * t + jx, y: y1 + (y2 - y1) * t + jy });
+  }
+  points.push({ x: x2, y: y2 });
+
+  const layers: [string, number][] = depth === 0
+    ? [['rgba(100, 180, 255, 0.15)', radius * 0.12],
+       ['rgba(130, 210, 255, 0.35)', radius * 0.06],
+       ['rgba(200, 240, 255, 0.8)', radius * 0.025],
+       ['#ffffff', radius * 0.012]]
+    : depth === 1
+    ? [['rgba(100, 180, 255, 0.12)', radius * 0.06],
+       ['rgba(180, 230, 255, 0.5)', radius * 0.02],
+       ['#e0f4ff', radius * 0.008]]
+    : [['rgba(150, 210, 255, 0.3)', radius * 0.015],
+       ['#d0eaff', radius * 0.005]];
+
+  for (const [color, width] of layers) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+
+  if (depth < maxDepth) {
+    for (let s = 1; s < points.length - 1; s++) {
+      if (seededRand(seed + s * 53.9 + depth * 97.1) > 0.5) continue;
+      const p = points[s];
+      const dx = (x2 - x1);
+      const dy = (y2 - y1);
+      const len = Math.hypot(dx, dy);
+      const perpX = -dy / len;
+      const perpY = dx / len;
+      const side = seededRand(seed + s * 71.3) > 0.5 ? 1 : -1;
+      const branchLen = radius * (0.25 + seededRand(seed + s * 41.1) * 0.3) / (depth + 1);
+      const spreadX = dx / len * branchLen * 0.4;
+      const spreadY = dy / len * branchLen * 0.4;
+      const bx = p.x + perpX * side * branchLen + spreadX;
+      const by = p.y + perpY * side * branchLen + spreadY;
+      drawBolt(ctx, p.x, p.y, bx, by, radius, seed + s * 137.7 + depth * 200, depth + 1, maxDepth);
+    }
+  }
+}
+
 function drawElectricStorm(ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number, time: number) {
-  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-  grad.addColorStop(0, '#67e8f9');
-  grad.addColorStop(0.6, '#06b6d4');
-  grad.addColorStop(1, '#155e75');
+  const grad = ctx.createRadialGradient(cx, cy, radius * 0.1, cx, cy, radius);
+  grad.addColorStop(0, '#0c1929');
+  grad.addColorStop(0.4, '#06101e');
+  grad.addColorStop(0.7, '#030a14');
+  grad.addColorStop(1, '#000307');
   ctx.fillStyle = grad;
   ctx.fill();
   ctx.save();
   ctx.clip();
-  const seed = Math.floor(time * 3);
-  ctx.strokeStyle = '#e0f2fe';
-  ctx.lineWidth = radius * 0.03;
-  ctx.shadowBlur = 8;
-  ctx.shadowColor = '#67e8f9';
-  for (let i = 0; i < 3; i++) {
-    const a1 = ((seed + i * 37) % 100) / 100 * Math.PI * 2;
-    const a2 = ((seed + i * 37 + 50) % 100) / 100 * Math.PI * 2;
-    const x1 = cx + Math.cos(a1) * radius * 0.7;
-    const y1 = cy + Math.sin(a1) * radius * 0.7;
-    const x2 = cx + Math.cos(a2) * radius * 0.7;
-    const y2 = cy + Math.sin(a2) * radius * 0.7;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    const segs = 4;
-    for (let s = 1; s <= segs; s++) {
-      const t = s / segs;
-      const jx = (Math.sin(seed * 7 + i * 13 + s * 17) * 0.5) * radius * 0.2;
-      const jy = (Math.cos(seed * 11 + i * 19 + s * 23) * 0.5) * radius * 0.2;
-      ctx.lineTo(x1 + (x2 - x1) * t + jx, y1 + (y2 - y1) * t + jy);
-    }
-    ctx.stroke();
+
+  const ambientPulse = 0.03 + Math.sin(time * 5) * 0.015 + Math.sin(time * 8.3) * 0.01;
+  const ambGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 0.8);
+  ambGrad.addColorStop(0, `rgba(80, 160, 255, ${ambientPulse})`);
+  ambGrad.addColorStop(1, 'rgba(80, 160, 255, 0)');
+  ctx.fillStyle = ambGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  const flickerRate = 4.5;
+  const boltSeed = Math.floor(time * flickerRate);
+  const boltFrac = (time * flickerRate) - boltSeed;
+  const boltAlpha = boltFrac < 0.15 ? 1 : Math.max(0, 1 - (boltFrac - 0.15) / 0.6);
+
+  ctx.globalAlpha = boltAlpha;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const boltCount = 2 + Math.floor(seededRand(boltSeed * 7.7) * 2);
+  for (let i = 0; i < boltCount; i++) {
+    const startAngle = seededRand(boltSeed + i * 47.3) * Math.PI * 2;
+    const endAngle = startAngle + Math.PI * (0.5 + seededRand(boltSeed + i * 83.1) * 0.6);
+    const startR = radius * (0.1 + seededRand(boltSeed + i * 29.9) * 0.2);
+    const endR = radius * (0.6 + seededRand(boltSeed + i * 61.3) * 0.35);
+    const x1 = cx + Math.cos(startAngle) * startR;
+    const y1 = cy + Math.sin(startAngle) * startR;
+    const x2 = cx + Math.cos(endAngle) * endR;
+    const y2 = cy + Math.sin(endAngle) * endR;
+    drawBolt(ctx, x1, y1, x2, y2, radius, boltSeed * 100 + i * 777, 0, 2);
   }
-  ctx.shadowBlur = 0;
+
+  const flashSeed = Math.floor(time * 2.5);
+  const flashFrac = (time * 2.5) - flashSeed;
+  if (flashFrac < 0.06) {
+    const flashAlpha = (1 - flashFrac / 0.06) * 0.08;
+    ctx.globalAlpha = flashAlpha;
+    ctx.fillStyle = '#a0d4ff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 

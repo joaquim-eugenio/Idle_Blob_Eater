@@ -10,13 +10,27 @@ function fmt(n: number): string {
   return Math.floor(n).toLocaleString();
 }
 
+function SkillTreeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="22" x2="12" y2="13" />
+      <line x1="12" y1="13" x2="5" y2="6" />
+      <line x1="12" y1="13" x2="19" y2="6" />
+      <line x1="12" y1="13" x2="12" y2="4" />
+      <circle cx="12" cy="3" r="2.5" fill="currentColor" opacity={0.25} />
+      <circle cx="5" cy="5" r="2.5" fill="currentColor" opacity={0.25} />
+      <circle cx="19" cy="5" r="2.5" fill="currentColor" opacity={0.25} />
+      <line x1="8" y1="22" x2="16" y2="22" />
+    </svg>
+  );
+}
+
 export function LevelCompleteModal() {
   const {
     levelComplete, levelFailed, levelStars, levelRewards, currentLevel,
-    completeLevel, advanceToNextLevel, retryLevel,
+    completeLevel, advanceToNextLevel, retryLevel, openSkillTree,
   } = useGameStore();
   const [hasCollected, setHasCollected] = useState(false);
-  const [autoAdvanceTimer, setAutoAdvanceTimer] = useState(5);
   const advancingRef = useRef(false);
 
   useEffect(() => {
@@ -29,23 +43,8 @@ export function LevelCompleteModal() {
     if (levelComplete && !hasCollected) {
       completeLevel();
       setHasCollected(true);
-      setAutoAdvanceTimer(5);
     }
   }, [levelComplete]);
-
-  useEffect(() => {
-    if (!hasCollected) return;
-    const interval = setInterval(() => {
-      setAutoAdvanceTimer((prev) => {
-        if (prev <= 1) {
-          handleNext();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [hasCollected]);
 
   const handleNext = () => {
     if (advancingRef.current) return;
@@ -108,13 +107,22 @@ export function LevelCompleteModal() {
               </span>
             </div>
 
-            <button
-              onClick={handleRetry}
-              className="w-full bg-red-600 hover:bg-red-500 text-white font-bold text-lg py-3 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all mt-1"
-            >
-              <RotateCcw size={20} />
-              Retry Level
-            </button>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={openSkillTree}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <SkillTreeIcon size={18} />
+                Skills
+              </button>
+              <button
+                onClick={handleRetry}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-base py-3 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <RotateCcw size={18} />
+                Retry
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       )}
@@ -185,14 +193,22 @@ export function LevelCompleteModal() {
               </motion.div>
             )}
 
-            <button
-              onClick={handleNext}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg py-3 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all mt-1"
-            >
-              Next Level
-              <ChevronRight size={20} />
-              <span className="text-sm font-normal opacity-70">({autoAdvanceTimer}s)</span>
-            </button>
+            <div className="flex gap-3 w-full mt-1">
+              <button
+                onClick={openSkillTree}
+                className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base py-3 rounded-2xl shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                <SkillTreeIcon size={18} />
+                Skills
+              </button>
+              <button
+                onClick={handleNext}
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold text-base py-3 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+              >
+                Next Level
+                <ChevronRight size={18} />
+              </button>
+            </div>
           </motion.div>
         </motion.div>
       )}

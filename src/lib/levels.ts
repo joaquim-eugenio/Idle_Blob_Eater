@@ -42,152 +42,152 @@ export interface LevelDef {
 }
 
 const HANDCRAFTED_LEVELS: LevelDef[] = [
-  // ── World 1: Crumbs ──
+  // ── World 1: Crumbs (8 → 20 items) ──
   {
     level: 1, name: 'First Crumbs', world: 'crumbs',
     items: [{ itemId: 'triangle', count: 4 }, { itemId: 'circle', count: 4 }],
     totalItems: 8,
-    starThresholds: [25, 50, 90],
-    rewards: { money: 10 },
+    starThresholds: [12, 20, 32],
+    rewards: { money: 5 },
   },
   {
     level: 2, name: 'Scattered Shapes', world: 'crumbs',
-    items: [{ itemId: 'triangle', count: 4 }, { itemId: 'square', count: 4 }, { itemId: 'circle', count: 2 }],
+    items: [{ itemId: 'triangle', count: 4 }, { itemId: 'square', count: 3 }, { itemId: 'circle', count: 3 }],
     totalItems: 10,
-    starThresholds: [30, 60, 105],
-    rewards: { money: 18 },
+    starThresholds: [14, 24, 38],
+    rewards: { money: 8 },
   },
   {
     level: 3, name: 'Geometry Snack', world: 'crumbs',
-    items: [{ itemId: 'triangle', count: 3 }, { itemId: 'square', count: 3 }, { itemId: 'hexagon', count: 3 }, { itemId: 'diamond', count: 3 }],
-    totalItems: 12,
-    starThresholds: [35, 65, 115],
-    rewards: { money: 30 },
+    items: [{ itemId: 'triangle', count: 3 }, { itemId: 'square', count: 3 }, { itemId: 'hexagon', count: 3 }, { itemId: 'diamond', count: 4 }],
+    totalItems: 13,
+    starThresholds: [17, 30, 48],
+    rewards: { money: 14 },
   },
   {
     level: 4, name: 'Shape Buffet', world: 'crumbs',
-    items: [{ itemId: 'triangle', count: 4 }, { itemId: 'square', count: 3 }, { itemId: 'hexagon', count: 3 }, { itemId: 'pentagon', count: 3 }, { itemId: 'cross', count: 2 }],
-    totalItems: 15,
-    starThresholds: [40, 75, 130],
-    rewards: { money: 45 },
+    items: [{ itemId: 'triangle', count: 3 }, { itemId: 'square', count: 3 }, { itemId: 'hexagon', count: 3 }, { itemId: 'pentagon', count: 3 }, { itemId: 'cross', count: 2 }, { itemId: 'diamond', count: 2 }],
+    totalItems: 16,
+    starThresholds: [20, 36, 56],
+    rewards: { money: 20 },
   },
   {
     level: 5, name: 'Crumb Feast', world: 'crumbs',
-    items: [{ itemId: 'triangle', count: 4 }, { itemId: 'square', count: 4 }, { itemId: 'hexagon', count: 3 }, { itemId: 'diamond', count: 3 }, { itemId: 'crescent', count: 3 }, { itemId: 'pentagon', count: 1 }],
-    totalItems: 18,
-    starThresholds: [50, 90, 155],
-    rewards: { money: 65, gems: 1 },
+    items: [{ itemId: 'triangle', count: 4 }, { itemId: 'square', count: 4 }, { itemId: 'hexagon', count: 3 }, { itemId: 'diamond', count: 3 }, { itemId: 'crescent', count: 3 }, { itemId: 'pentagon', count: 2 }, { itemId: 'cross', count: 1 }],
+    totalItems: 20,
+    starThresholds: [24, 42, 66],
+    rewards: { money: 30, gems: 1 },
   },
 
-  // ── World 2: Desk Drawer ──
+  // ── World 2: Desk Drawer (22 → 58 items) ──
   {
     level: 6, name: 'Opening the Drawer', world: 'desk_drawer',
-    items: [{ itemId: 'paperclip', count: 4 }, { itemId: 'eraser', count: 4 }],
-    totalItems: 8,
-    starThresholds: [30, 60, 110],
-    rewards: { money: 80 },
+    items: [{ itemId: 'paperclip', count: 6 }, { itemId: 'eraser', count: 6 }, { itemId: 'button', count: 5 }, { itemId: 'candy', count: 5 }],
+    totalItems: 22,
+    starThresholds: [26, 46, 72],
+    rewards: { money: 38 },
   },
   {
     level: 7, name: 'Loose Change', world: 'desk_drawer',
-    items: [{ itemId: 'coin', count: 3 }, { itemId: 'button', count: 3 }, { itemId: 'paperclip', count: 3 }],
-    totalItems: 9,
-    starThresholds: [35, 65, 115],
-    rewards: { money: 100 },
+    items: [{ itemId: 'coin', count: 6 }, { itemId: 'button', count: 5 }, { itemId: 'paperclip', count: 5 }, { itemId: 'eraser', count: 5 }, { itemId: 'screw', count: 4 }],
+    totalItems: 25,
+    starThresholds: [28, 50, 80],
+    rewards: { money: 48 },
   },
   {
     level: 8, name: 'Junk Collection', world: 'desk_drawer',
-    items: [{ itemId: 'screw', count: 3 }, { itemId: 'marble', count: 3 }, { itemId: 'candy', count: 3 }, { itemId: 'button', count: 2 }],
-    totalItems: 11,
-    starThresholds: [40, 75, 130],
-    rewards: { money: 130 },
+    items: [{ itemId: 'screw', count: 5 }, { itemId: 'marble', count: 5 }, { itemId: 'candy', count: 5 }, { itemId: 'button', count: 5 }, { itemId: 'coin', count: 4 }, { itemId: 'dice', count: 4 }],
+    totalItems: 28,
+    starThresholds: [30, 54, 86],
+    rewards: { money: 58 },
   },
   {
     level: 9, name: 'Trinket Pile', world: 'desk_drawer',
-    items: [{ itemId: 'dice', count: 3 }, { itemId: 'coin', count: 3 }, { itemId: 'candy', count: 3 }, { itemId: 'marble', count: 2 }, { itemId: 'eraser', count: 2 }],
-    totalItems: 13,
-    starThresholds: [45, 80, 140],
-    rewards: { money: 160 },
+    items: [{ itemId: 'dice', count: 6 }, { itemId: 'coin', count: 6 }, { itemId: 'candy', count: 5 }, { itemId: 'marble', count: 5 }, { itemId: 'eraser', count: 5 }, { itemId: 'screw', count: 5 }],
+    totalItems: 32,
+    starThresholds: [34, 60, 96],
+    rewards: { money: 72 },
   },
   {
     level: 10, name: 'Drawer Clean-Out', world: 'desk_drawer',
-    items: [{ itemId: 'paperclip', count: 3 }, { itemId: 'coin', count: 3 }, { itemId: 'dice', count: 3 }, { itemId: 'screw', count: 3 }, { itemId: 'candy', count: 2 }, { itemId: 'marble', count: 1 }],
-    totalItems: 15,
-    starThresholds: [50, 90, 155],
-    rewards: { money: 200, gems: 2 },
+    items: [{ itemId: 'paperclip', count: 6 }, { itemId: 'coin', count: 6 }, { itemId: 'dice', count: 6 }, { itemId: 'screw', count: 6 }, { itemId: 'candy', count: 5 }, { itemId: 'marble', count: 5 }, { itemId: 'eraser', count: 4 }],
+    totalItems: 38,
+    starThresholds: [38, 68, 108],
+    rewards: { money: 90, gems: 2 },
   },
 
-  // ── Desk Drawer continued + Backpack transition ──
+  // ── Desk Drawer continued ──
   {
     level: 11, name: 'Desk Sweep', world: 'desk_drawer',
-    items: [{ itemId: 'eraser', count: 4 }, { itemId: 'screw', count: 3 }, { itemId: 'button', count: 3 }, { itemId: 'paperclip', count: 3 }, { itemId: 'candy', count: 3 }],
-    totalItems: 16,
-    starThresholds: [55, 100, 170],
-    rewards: { money: 240 },
+    items: [{ itemId: 'eraser', count: 7 }, { itemId: 'screw', count: 7 }, { itemId: 'button', count: 7 }, { itemId: 'paperclip', count: 6 }, { itemId: 'candy', count: 6 }, { itemId: 'marble', count: 4 }, { itemId: 'coin', count: 3 }],
+    totalItems: 40,
+    starThresholds: [40, 70, 112],
+    rewards: { money: 105 },
   },
   {
     level: 12, name: 'Marble Madness', world: 'desk_drawer',
-    items: [{ itemId: 'marble', count: 5 }, { itemId: 'dice', count: 4 }, { itemId: 'coin', count: 4 }, { itemId: 'button', count: 4 }],
-    totalItems: 17,
-    starThresholds: [60, 110, 185],
-    rewards: { money: 280 },
+    items: [{ itemId: 'marble', count: 8 }, { itemId: 'dice', count: 7 }, { itemId: 'coin', count: 7 }, { itemId: 'button', count: 7 }, { itemId: 'candy', count: 7 }, { itemId: 'screw', count: 7 }],
+    totalItems: 43,
+    starThresholds: [42, 74, 118],
+    rewards: { money: 120 },
   },
   {
     level: 13, name: 'Tiny Treasures', world: 'desk_drawer',
-    items: [{ itemId: 'coin', count: 5 }, { itemId: 'dice', count: 4 }, { itemId: 'marble', count: 3 }, { itemId: 'candy', count: 3 }, { itemId: 'screw', count: 3 }],
-    totalItems: 18,
-    starThresholds: [65, 115, 195],
-    rewards: { money: 330 },
+    items: [{ itemId: 'coin', count: 8 }, { itemId: 'dice', count: 8 }, { itemId: 'marble', count: 8 }, { itemId: 'candy', count: 7 }, { itemId: 'screw', count: 7 }, { itemId: 'eraser', count: 4 }, { itemId: 'button', count: 4 }],
+    totalItems: 46,
+    starThresholds: [44, 78, 124],
+    rewards: { money: 135 },
   },
   {
     level: 14, name: 'Full Drawer', world: 'desk_drawer',
-    items: [{ itemId: 'paperclip', count: 4 }, { itemId: 'button', count: 4 }, { itemId: 'coin', count: 3 }, { itemId: 'eraser', count: 3 }, { itemId: 'marble', count: 3 }, { itemId: 'dice', count: 2 }],
-    totalItems: 19,
-    starThresholds: [70, 125, 210],
-    rewards: { money: 380 },
+    items: [{ itemId: 'paperclip', count: 8 }, { itemId: 'button', count: 8 }, { itemId: 'coin', count: 8 }, { itemId: 'eraser', count: 7 }, { itemId: 'marble', count: 7 }, { itemId: 'dice', count: 6 }, { itemId: 'screw', count: 6 }],
+    totalItems: 50,
+    starThresholds: [46, 82, 132],
+    rewards: { money: 155 },
   },
   {
     level: 15, name: 'Drawer Boss', world: 'desk_drawer',
-    items: [{ itemId: 'coin', count: 4 }, { itemId: 'marble', count: 4 }, { itemId: 'dice', count: 4 }, { itemId: 'screw', count: 4 }, { itemId: 'candy', count: 4 }],
-    totalItems: 20,
-    starThresholds: [75, 135, 225],
-    rewards: { money: 450, gems: 3 },
+    items: [{ itemId: 'coin', count: 9 }, { itemId: 'marble', count: 9 }, { itemId: 'dice', count: 8 }, { itemId: 'screw', count: 8 }, { itemId: 'candy', count: 8 }, { itemId: 'paperclip', count: 8 }, { itemId: 'button', count: 5 }, { itemId: 'eraser', count: 3 }],
+    totalItems: 58,
+    starThresholds: [52, 92, 148],
+    rewards: { money: 185, gems: 3 },
   },
 
-  // ── World 3: Backpack ──
+  // ── World 3: Backpack (55 → 75 items) ──
   {
     level: 16, name: 'Unzipped', world: 'backpack',
-    items: [{ itemId: 'pen', count: 3 }, { itemId: 'key', count: 2 }, { itemId: 'eraser', count: 3 }],
-    totalItems: 8,
-    starThresholds: [50, 95, 165],
-    rewards: { money: 500 },
+    items: [{ itemId: 'pen', count: 10 }, { itemId: 'key', count: 9 }, { itemId: 'apple', count: 9 }, { itemId: 'usb_drive', count: 9 }, { itemId: 'glasses', count: 9 }, { itemId: 'remote', count: 9 }],
+    totalItems: 55,
+    starThresholds: [48, 86, 138],
+    rewards: { money: 200, essence: 1 },
   },
   {
     level: 17, name: 'Pocket Stuff', world: 'backpack',
-    items: [{ itemId: 'usb_drive', count: 2 }, { itemId: 'glasses', count: 2 }, { itemId: 'pen', count: 3 }, { itemId: 'apple', count: 2 }],
-    totalItems: 9,
-    starThresholds: [55, 100, 175],
-    rewards: { money: 580 },
+    items: [{ itemId: 'usb_drive', count: 10 }, { itemId: 'glasses', count: 10 }, { itemId: 'pen', count: 10 }, { itemId: 'apple', count: 10 }, { itemId: 'key', count: 9 }, { itemId: 'remote', count: 9 }],
+    totalItems: 58,
+    starThresholds: [50, 90, 144],
+    rewards: { money: 225 },
   },
   {
     level: 18, name: 'School Supplies', world: 'backpack',
-    items: [{ itemId: 'pen', count: 3 }, { itemId: 'wallet', count: 1 }, { itemId: 'apple', count: 2 }, { itemId: 'remote', count: 2 }, { itemId: 'key', count: 2 }],
-    totalItems: 10,
-    starThresholds: [60, 110, 190],
-    rewards: { money: 660, essence: 1 },
+    items: [{ itemId: 'pen', count: 11 }, { itemId: 'wallet', count: 10 }, { itemId: 'apple', count: 10 }, { itemId: 'remote', count: 10 }, { itemId: 'key', count: 10 }, { itemId: 'mug', count: 5 }, { itemId: 'glasses', count: 6 }],
+    totalItems: 62,
+    starThresholds: [52, 94, 150],
+    rewards: { money: 255 },
   },
   {
     level: 19, name: 'Deep Pockets', world: 'backpack',
-    items: [{ itemId: 'wallet', count: 2 }, { itemId: 'mug', count: 2 }, { itemId: 'glasses', count: 2 }, { itemId: 'usb_drive', count: 2 }, { itemId: 'remote', count: 2 }, { itemId: 'key', count: 1 }],
-    totalItems: 11,
-    starThresholds: [65, 120, 200],
-    rewards: { money: 750 },
+    items: [{ itemId: 'wallet', count: 11 }, { itemId: 'mug', count: 10 }, { itemId: 'glasses', count: 10 }, { itemId: 'usb_drive', count: 10 }, { itemId: 'remote', count: 9 }, { itemId: 'key', count: 8 }, { itemId: 'pen', count: 8 }],
+    totalItems: 66,
+    starThresholds: [54, 98, 156],
+    rewards: { money: 285 },
   },
   {
     level: 20, name: 'Backpack Raid', world: 'backpack',
-    items: [{ itemId: 'pen', count: 3 }, { itemId: 'apple', count: 2 }, { itemId: 'mug', count: 2 }, { itemId: 'wallet', count: 2 }, { itemId: 'glasses', count: 2 }, { itemId: 'remote', count: 1 }],
-    totalItems: 12,
-    starThresholds: [70, 130, 215],
-    rewards: { money: 850, gems: 3 },
+    items: [{ itemId: 'pen', count: 12 }, { itemId: 'apple', count: 11 }, { itemId: 'mug', count: 11 }, { itemId: 'wallet', count: 11 }, { itemId: 'glasses', count: 10 }, { itemId: 'remote', count: 10 }, { itemId: 'usb_drive', count: 5 }, { itemId: 'key', count: 5 }],
+    totalItems: 75,
+    starThresholds: [60, 106, 170],
+    rewards: { money: 330, gems: 3 },
   },
 ];
 
@@ -206,7 +206,14 @@ export function generateLevel(levelNum: number): LevelDef {
 
   const rng = seededRandom(levelNum * 7919 + 31);
 
-  const totalItems = Math.floor(8 + levelNum * 0.85 + Math.pow(levelNum * 0.03, 1.7));
+  let totalItems = Math.floor(5 + levelNum * 2.8 + Math.pow(levelNum, 1.5) * 0.12);
+
+  const isWorldBoss = Number.isFinite(world.levelRange[1]) && world.levelRange[1] === levelNum;
+  const isMilestone10 = levelNum % 10 === 0;
+  const isMilestone5 = levelNum % 5 === 0;
+  if (isWorldBoss) totalItems = Math.floor(totalItems * 1.25);
+  else if (isMilestone10) totalItems = Math.floor(totalItems * 1.15);
+  else if (isMilestone5) totalItems = Math.floor(totalItems * 1.10);
 
   const items: { itemId: string; count: number }[] = [];
   let remaining = totalItems;
@@ -223,14 +230,15 @@ export function generateLevel(levelNum: number): LevelDef {
     items[items.length - 1].count += remaining;
   }
 
-  const baseTime = 30 + levelNum * 1.8;
+  const ipsBase = 0.5 + levelNum * 0.008;
+  const baseTime = totalItems / ipsBase;
   const starThresholds: [number, number, number] = [
-    Math.floor(baseTime * 0.85),
-    Math.floor(baseTime * 1.5),
-    Math.floor(baseTime * 2.4),
+    Math.floor(baseTime * 0.7),
+    Math.floor(baseTime * 1.2),
+    Math.floor(baseTime * 2.0),
   ];
 
-  const baseMoney = Math.floor(50 * Math.pow(1.12, levelNum - 1));
+  const baseMoney = Math.floor(5 * Math.pow(1.10, levelNum - 1) + totalItems * 0.8);
   const isMilestone = levelNum % 10 === 0;
   const isWorldStart = world.levelRange[0] === levelNum;
 

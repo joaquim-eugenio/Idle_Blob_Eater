@@ -6,6 +6,7 @@ import {
   EVOLUTION_UPGRADES, ACHIEVEMENTS,
   DAILY_REWARDS, STREAK_MULTIPLIERS, GEM_SHOP_ITEMS, BLOB_SKINS, SKILL_TREE_NODES,
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
+  ACTIVE_ABILITIES, type AbilityId,
 } from '../lib/constants';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
 import { ITEM_LOOKUP, getItemsForWorld } from '../lib/itemCatalog';
@@ -22,6 +23,7 @@ export interface Item {
   value: number;
   weight: number;
   isTapFood?: boolean;
+  isAutoTap?: boolean;
   isLegacy?: boolean;
 }
 
@@ -144,6 +146,21 @@ const DEFAULT_STATS: GameStats = {
 
 const DEFAULT_DAILY: DailyRewardState = {
   lastClaimDate: '', streak: 0, cycleDay: 0,
+};
+
+export interface AbilityState {
+  cooldown: number;
+  active: boolean;
+  timer: number;
+}
+
+type AbilitiesMap = Record<AbilityId, AbilityState>;
+
+const DEFAULT_ABILITIES: AbilitiesMap = {
+  magnet: { cooldown: 0, active: false, timer: 0 },
+  speed:  { cooldown: 0, active: false, timer: 0 },
+  size:   { cooldown: 0, active: false, timer: 0 },
+  food:   { cooldown: 0, active: false, timer: 0 },
 };
 
 const DEFAULT_SKILL_TELEMETRY: SkillTelemetry = {
@@ -313,7 +330,7 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
       rotation: Math.random() * Math.PI * 2,
       rotationSpeed: (Math.random() - 0.5) * 1,
       type: catalogItem.id,
-      value: catalogItem.baseValue * (1 + (levelNum - 1) * 0.08),
+      value: catalogItem.baseValue * (1 + (levelNum - 1) * 0.03),
       weight: catalogItem.weight,
     });
   }
@@ -337,7 +354,7 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
           rotation: Math.random() * Math.PI * 2,
           rotationSpeed: (Math.random() - 0.5) * 1,
           type: pick.id,
-          value: pick.baseValue * 0.5,
+          value: pick.baseValue,
           weight: pick.weight * 0.3,
           isLegacy: true,
         });
@@ -398,6 +415,15 @@ interface GameState {
   tutorialStep: number;
   tutorialComplete: boolean;
 
+  sessionCount: number;
+
+  completedHints: string[];
+  activeHint: string | null;
+
+  skillTreeOpen: boolean;
+
+  abilities: AbilitiesMap;
+
   lastSaveTimestamp: number;
   moneyPerSecond: number;
 
@@ -410,6 +436,7 @@ interface GameState {
   _shieldCooldown: number;
   _minHungerPct: number;
   _introPlaying: boolean;
+  _autoTapAccum: number;
 
   initLevel: (levelNum: number) => void;
   completeLevel: () => void;
@@ -433,6 +460,11 @@ interface GameState {
   dismissAchievement: (id: string) => void;
   completeTutorial: () => void;
   advanceTutorial: () => void;
+  showHint: (id: string) => void;
+  dismissHint: (id: string) => void;
+  activateAbility: (id: AbilityId) => void;
+  openSkillTree: () => void;
+  closeSkillTree: () => void;
   applyOfflineProgress: (earnings: number) => void;
 }
 
@@ -492,6 +524,15 @@ export const useGameStore = create<GameState>()(
       tutorialStep: 0,
       tutorialComplete: false,
 
+      sessionCount: 0,
+
+      completedHints: [],
+      activeHint: null,
+
+      skillTreeOpen: false,
+
+      abilities: { ...DEFAULT_ABILITIES },
+
       lastSaveTimestamp: Date.now(),
       moneyPerSecond: 0,
 
@@ -504,6 +545,7 @@ export const useGameStore = create<GameState>()(
       _shieldCooldown: 0,
       _minHungerPct: 1,
       _introPlaying: false,
+      _autoTapAccum: 0,
 
       initLevel: (levelNum) => set((state) => {
         const def = getLevel(levelNum);
@@ -526,10 +568,11 @@ export const useGameStore = create<GameState>()(
           starSpawnTimer: 8,
           levelUpTime: 0,
           highestLevelReached: Math.max(state.highestLevelReached, levelNum),
+          abilities: { ...DEFAULT_ABILITIES },
           _levelInitialized: true,
           _shieldCooldown: 0,
           _minHungerPct: 1,
-          _introPlaying: state.tutorialComplete,
+          _introPlaying: true,
         };
       }),
 
@@ -548,6 +591,18 @@ export const useGameStore = create<GameState>()(
         const starBonus = stars === 3 ? 1.5 : stars === 2 ? 1.2 : 1;
         const finalMoney = Math.floor(rewards.money * starBonus);
 
+        const hintToShow = state.activeHint;
+        // Hint triggers disabled for now
+        // if (!hintToShow) {
+        //   const world = getWorldForLevel(state.currentLevel);
+        //   const worldIdx = WORLDS.indexOf(world);
+        //   if (worldIdx > 0 && !state.completedHints.includes('worlds_hint')) {
+        //     hintToShow = 'worlds_hint';
+        //   } else if (!state.completedHints.includes('money_hint')) {
+        //     hintToShow = 'money_hint';
+        //   }
+        // }
+
         return {
           levelStars: stars,
           levelRewards: { ...rewards, money: finalMoney },
@@ -555,6 +610,7 @@ export const useGameStore = create<GameState>()(
           essence: state.essence + (rewards.essence || 0),
           gems: state.gems + (rewards.gems || 0),
           currentRunMoney: state.currentRunMoney + finalMoney,
+          activeHint: hintToShow,
           stats: {
             ...state.stats,
             totalLevelsCompleted: state.stats.totalLevelsCompleted + 1,
@@ -627,7 +683,6 @@ export const useGameStore = create<GameState>()(
             totalUpgradesBought: state.stats.totalUpgradesBought + 1,
             totalSynergiesBought: state.stats.totalSynergiesBought + (isSynergy ? 1 : 0),
           },
-          tutorialStep: state.tutorialStep === 3 ? 4 : state.tutorialStep,
         };
       }),
 
@@ -694,6 +749,53 @@ export const useGameStore = create<GameState>()(
       activateBoost: () => set({ boostActive: true, boostTimer: 10 }),
       activateStarBoost: () => set({ starBoostActive: true, starBoostTimer: 5 }),
 
+      activateAbility: (id) => set((state) => {
+        const def = ACTIVE_ABILITIES.find((a) => a.id === id);
+        if (!def) return state;
+        const ab = state.abilities[id];
+        if (ab.cooldown > 0 || ab.active) return state;
+        if (state.levelComplete || state.levelFailed) return state;
+        if (state.highestLevelReached < def.unlockLevel) return state;
+
+        if (id === 'food') {
+          const skillFx = getSkillEffects(state.unlockedSkillNodes);
+          const hungerSyn = 1 + (state.upgrades.hungerSynergy || 0) * 0.5;
+          const maxHunger = (BASE_MAX_HUNGER + softCap(state.upgrades.hungerMax || 0) * 20 + skillFx.hungerMaxFlat) * hungerSyn;
+          const hungerRestore = maxHunger * 0.2;
+          const bx = state.blobPosition.x;
+          const by = state.blobPosition.y;
+          const newItems = [...state.items];
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const dist = 80 + Math.random() * 40;
+            const foodValue = 1.5 * Math.sqrt(state.currentLevel) * 2;
+            newItems.push({
+              id: Math.random().toString(36).substr(2, 9),
+              x: bx + Math.cos(angle) * dist,
+              y: by + Math.sin(angle) * dist,
+              vx: 0, vy: 0,
+              rotation: 0, rotationSpeed: (Math.random() - 0.5) * 2,
+              type: 'square', value: foodValue, weight: 0.5, isTapFood: true,
+            });
+          }
+          return {
+            items: newItems,
+            hunger: Math.min(state.hunger + hungerRestore, maxHunger),
+            abilities: {
+              ...state.abilities,
+              food: { cooldown: def.cooldown, active: false, timer: 0 },
+            },
+          };
+        }
+
+        return {
+          abilities: {
+            ...state.abilities,
+            [id]: { cooldown: def.cooldown, active: true, timer: def.duration },
+          },
+        };
+      }),
+
       prestige: () => set((state) => {
         const essenceGained = Math.max(1, Math.floor(Math.sqrt(state.currentRunMoney / 500)));
         const newTotalPrestiges = state.stats.totalPrestiges + 1;
@@ -726,6 +828,7 @@ export const useGameStore = create<GameState>()(
           comboCount: 0,
           comboTimer: 0,
           lastTapTime: 0,
+          abilities: { ...DEFAULT_ABILITIES },
           _moneyBuffer: 0,
           _moneyBufferTime: 0,
           moneyPerSecond: 0,
@@ -744,6 +847,7 @@ export const useGameStore = create<GameState>()(
           _levelInitialized: false,
           _shieldCooldown: 0,
           _minHungerPct: 1,
+          _autoTapAccum: 0,
         };
       }),
 
@@ -771,25 +875,19 @@ export const useGameStore = create<GameState>()(
         if (now - state.lastTapTime < cooldown) return state;
 
         const tapMasteryMult = 1 + (state.evolutionUpgrades.tapMastery || 0) * 0.2;
-        const baseVal = 4 * Math.sqrt(state.currentLevel);
+        const baseVal = 1.5 * Math.sqrt(state.currentLevel);
         const value = baseVal * BASE_TAP_VALUE_MULT
           * (1 + softCap(state.upgrades.tapValue || 0) * 0.25 + skillFx.tapValueMult) * tapSyn * tapMasteryMult;
 
         const bx = state.blobPosition.x;
         const by = state.blobPosition.y;
         const tapDist = Math.hypot(worldX - bx, worldY - by);
-        const minSpawnDist = 80;
-        let spawnX = worldX;
-        let spawnY = worldY;
-        if (tapDist < minSpawnDist) {
-          const angle = tapDist > 1 ? Math.atan2(worldY - by, worldX - bx) : Math.random() * Math.PI * 2;
-          spawnX = bx + Math.cos(angle) * minSpawnDist;
-          spawnY = by + Math.sin(angle) * minSpawnDist;
-        }
+        const minSpawnDist = 40;
+        if (tapDist < minSpawnDist) return state;
 
         const newItem: Item = {
           id: Math.random().toString(36).substr(2, 9),
-          x: spawnX, y: spawnY,
+          x: worldX, y: worldY,
           vx: 0, vy: 0,
           rotation: 0, rotationSpeed: (Math.random() - 0.5) * 2,
           type: 'square', value, weight: 1, isTapFood: true,
@@ -799,7 +897,6 @@ export const useGameStore = create<GameState>()(
           items: [...state.items, newItem],
           lastTapTime: now,
           stats: { ...state.stats, totalTaps: state.stats.totalTaps + 1 },
-          tutorialStep: state.tutorialStep === 1 ? 2 : state.tutorialStep,
         };
       }),
 
@@ -873,6 +970,21 @@ export const useGameStore = create<GameState>()(
         return { tutorialStep: next };
       }),
 
+      showHint: (id) => set((state) => {
+        if (state.completedHints.includes(id) || state.activeHint) return state;
+        return { activeHint: id };
+      }),
+
+      dismissHint: (id) => set((state) => ({
+        activeHint: state.activeHint === id ? null : state.activeHint,
+        completedHints: state.completedHints.includes(id)
+          ? state.completedHints
+          : [...state.completedHints, id],
+      })),
+
+      openSkillTree: () => set({ skillTreeOpen: true }),
+      closeSkillTree: () => set({ skillTreeOpen: false }),
+
       applyOfflineProgress: (earnings) => set((state) => ({
         money: state.money + earnings,
         stats: { ...state.stats, totalMoneyEarned: state.stats.totalMoneyEarned + earnings },
@@ -902,10 +1014,13 @@ export const useGameStore = create<GameState>()(
         skillFlashEvents: [],
         skillTelemetry: { ...DEFAULT_SKILL_TELEMETRY, runStartTimestamp: Date.now() },
         tutorialStep: 0, tutorialComplete: false,
+        sessionCount: 0, completedHints: [], activeHint: null, skillTreeOpen: false,
+        abilities: { ...DEFAULT_ABILITIES },
         lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
         lastTapTime: 0,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
         _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
+        _autoTapAccum: 0,
       }),
 
       tick: (delta, width, height) => set((state) => {
@@ -919,15 +1034,19 @@ export const useGameStore = create<GameState>()(
             levelStartTime: Date.now(),
             _levelInitialized: true,
             _minHungerPct: 1,
-            _introPlaying: state.tutorialComplete,
+            _introPlaying: true,
           };
         }
 
-        if (!state.tutorialComplete) {
-          return { levelStartTime: Date.now(), _introPlaying: false };
+        if (state._introPlaying) return {};
+
+        if (state.activeHint) {
+          return { levelStartTime: Date.now() };
         }
 
-        if (state._introPlaying) return {};
+        if (state.skillTreeOpen) {
+          return { levelStartTime: Date.now() };
+        }
 
         if (state.levelComplete || state.levelFailed) return {};
 
@@ -984,18 +1103,20 @@ export const useGameStore = create<GameState>()(
         const starSpeedMultiplier = state.starBoostActive ? 1.5 : 1;
         const frenzyActive = (newHunger / Math.max(1, maxHunger)) <= skillFx.lowHungerThreshold;
         const frenzySpeedMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult : 1;
+        const abilitySpeedMult = state.abilities.speed.active ? 4 : 1;
         const speed = (BASE_SPEED + softCap(state.upgrades.speed || 0) * 25)
           * adBoostMultiplier * starSpeedMultiplier * speedSyn
           * evoSpeedMult * achBonuses.speedMult
-          * (1 + skillFx.speedMult) * frenzySpeedMult
+          * (1 + skillFx.speedMult) * frenzySpeedMult * abilitySpeedMult
           + skillFx.speedFlat;
 
         // --- Suction ---
         const suctionSyn = 1 + (state.upgrades.suctionSynergy || 0) * 0.5;
         const evoSuctionMult = 1 + evo.globalSuction * 0.1;
+        const abilitySuctionMult = state.abilities.size.active ? 2 : 1;
         const suction = (BASE_SUCTION + softCap(state.upgrades.suction || 0) * 15)
           * suctionSyn * Math.sqrt(blobScale) * evoSuctionMult
-          * (1 + skillFx.suctionMult) + skillFx.suctionFlat;
+          * (1 + skillFx.suctionMult) * abilitySuctionMult + skillFx.suctionFlat;
         const suctionStrength = (1 + softCap(state.upgrades.suctionStrength || 0) * 0.18) * suctionSyn;
 
         // --- Movement ---
@@ -1072,7 +1193,17 @@ export const useGameStore = create<GameState>()(
 
           const weightFactor = 1 / Math.max(1, item.weight * 0.45 * (1 - skillFx.weightReduction));
 
-          if (dist < suction * 2 && dist >= suction) {
+          if (item.isAutoTap && dist > suction) {
+            const homeAngle = Math.atan2(y - item.y, x - item.x);
+            item.vx = Math.cos(homeAngle) * dist * 3;
+            item.vy = Math.sin(homeAngle) * dist * 3;
+          } else if (state.abilities.magnet.active && dist > suction) {
+            const magnetAngle = Math.atan2(y - item.y, x - item.x);
+            item.vx += Math.cos(magnetAngle) * 200 * delta;
+            item.vy += Math.sin(magnetAngle) * 200 * delta;
+            item.vx *= 0.92;
+            item.vy *= 0.92;
+          } else if (dist < suction * 2 && dist >= suction) {
             const pullSpeed = (suction * 2 - dist) * suctionStrength * delta * weightFactor;
             const angle = Math.atan2(y - item.y, x - item.x);
             const chainBoost = skillFx.chainVacuumRadius > 0 && dist < suction + skillFx.chainVacuumRadius ? 1.5 : 1;
@@ -1100,7 +1231,7 @@ export const useGameStore = create<GameState>()(
             } else {
               moneyGained += item.value;
               if (!item.isTapFood) {
-                hungerFoodGained += item.value * 0.08;
+                hungerFoodGained += item.value * 0.20;
               }
               if (!item.isTapFood && !item.isLegacy) {
                 itemsEaten++;
@@ -1188,6 +1319,24 @@ export const useGameStore = create<GameState>()(
           if (newStarBoostTimer <= 0) { newStarBoostActive = false; newStarBoostTimer = 0; }
         }
 
+        // --- Active Abilities ---
+        const newAbilities = { ...state.abilities };
+        for (const aDef of ACTIVE_ABILITIES) {
+          const aid = aDef.id as AbilityId;
+          const ab = { ...newAbilities[aid] };
+          if (ab.cooldown > 0) {
+            ab.cooldown = Math.max(0, ab.cooldown - delta);
+          }
+          if (ab.active && ab.timer > 0) {
+            ab.timer = Math.max(0, ab.timer - delta);
+            if (ab.timer <= 0) {
+              ab.active = false;
+              ab.timer = 0;
+            }
+          }
+          newAbilities[aid] = ab;
+        }
+
         // --- $/sec tracking ---
         let newMoneyBuffer = state._moneyBuffer + moneyGained;
         let newMoneyBufferTime = state._moneyBufferTime + delta;
@@ -1209,7 +1358,6 @@ export const useGameStore = create<GameState>()(
         newStats.timePlayed += delta;
 
         // --- Achievements (check every ~1s) ---
-        let newAchievements = [...state.newAchievements];
         let newAchievementsList = [...state.achievements];
         let newGems = state.gems;
         let achTimer = state._achievementTimer + delta;
@@ -1220,19 +1368,49 @@ export const useGameStore = create<GameState>()(
             const statVal = (newStats as any)[ach.stat] || 0;
             if (statVal >= ach.threshold) {
               newAchievementsList.push(ach.id);
-              newAchievements.push(ach.id);
               if (ach.reward.type === 'gems') newGems += ach.reward.value;
             }
           }
         }
 
-        // --- Auto-tap as flat passive income ---
-        const autoTapPower = (state.upgrades.tapSynergy || 0) + skillFx.autoTapRate;
-        if (autoTapPower > 0) {
-          const autoTapMoney = autoTapPower * 1.5 * Math.sqrt(state.currentLevel);
-          newMoney += autoTapMoney * delta;
-          newRunMoney += autoTapMoney * delta;
-          moneyGained += autoTapMoney * delta;
+        // --- Contextual hints (piggyback on achievement timer) ---
+        let newActiveHint = state.activeHint;
+        let newCompletedHints = state.completedHints;
+
+        // Hint triggers disabled for now
+        // if (achTimer === 0 && !newActiveHint) {
+        //   const elapsed = (Date.now() - state.levelStartTime) / 1000;
+        //   if (state.currentLevel === 1 && elapsed > 1 && !newCompletedHints.includes('blob_intro')) {
+        //     newActiveHint = 'blob_intro';
+        //   } else if (state.currentLevel === 2 && newLevelItemsEaten >= 3 && !newCompletedHints.includes('tap_hint')) {
+        //     newActiveHint = 'tap_hint';
+        //   } else if (state.currentLevel >= 4 && hungerPctNow < 0.25 && !newCompletedHints.includes('skill_tree_hint')) {
+        //     newActiveHint = 'skill_tree_hint';
+        //   }
+        // }
+
+        // --- Auto-tap: spawn visible food that homes toward the blob ---
+        let newAutoTapAccum = state._autoTapAccum;
+        if (skillFx.autoTapRate > 0) {
+          newAutoTapAccum += skillFx.autoTapRate * delta;
+          const tapMasteryMult = 1 + (evo.tapMastery || 0) * 0.2;
+          const tapSyn = 1 + (state.upgrades.tapSynergy || 0) * 0.5;
+          const baseVal = 1.5 * Math.sqrt(state.currentLevel);
+          const tapValue = baseVal * BASE_TAP_VALUE_MULT
+            * (1 + softCap(state.upgrades.tapValue || 0) * 0.25 + skillFx.tapValueMult) * tapSyn * tapMasteryMult;
+
+          while (newAutoTapAccum >= 1) {
+            newAutoTapAccum -= 1;
+            const spawnDist = suction * 2.5;
+            remainingItems.push({
+              id: Math.random().toString(36).substr(2, 9),
+              x: x + Math.cos(newWanderAngle) * spawnDist,
+              y: y + Math.sin(newWanderAngle) * spawnDist,
+              vx: 0, vy: 0,
+              rotation: 0, rotationSpeed: (Math.random() - 0.5) * 2,
+              type: 'square', value: tapValue, weight: 1, isTapFood: true, isAutoTap: true,
+            });
+          }
         }
 
         const newSaveTimestamp = Date.now();
@@ -1258,14 +1436,17 @@ export const useGameStore = create<GameState>()(
           moneyPerSecond: newMoneyPerSecond,
           stats: newStats,
           achievements: newAchievementsList,
-          newAchievements,
           gems: newGems,
           lastSaveTimestamp: newSaveTimestamp,
           _moneyBuffer: newMoneyBuffer,
           _moneyBufferTime: newMoneyBufferTime,
           _achievementTimer: achTimer,
+          abilities: newAbilities,
+          activeHint: newActiveHint,
+          completedHints: newCompletedHints,
           _shieldCooldown: newShieldCooldown,
           _minHungerPct: newMinHungerPct,
+          _autoTapAccum: newAutoTapAccum,
         };
       })
     }),
@@ -1294,6 +1475,8 @@ export const useGameStore = create<GameState>()(
         skillTelemetry: state.skillTelemetry,
         tutorialStep: state.tutorialStep,
         tutorialComplete: state.tutorialComplete,
+        sessionCount: state.sessionCount,
+        completedHints: state.completedHints,
         lastSaveTimestamp: state.lastSaveTimestamp,
         moneyPerSecond: state.moneyPerSecond,
       }),
@@ -1314,6 +1497,11 @@ export const useGameStore = create<GameState>()(
             ...(persisted?.skillTelemetry || {}),
             runStartTimestamp: Date.now(),
           },
+          sessionCount: (persisted?.sessionCount || 0) + 1,
+          completedHints: persisted?.tutorialComplete
+            ? ['blob_intro', 'tap_hint', 'money_hint', 'skill_tree_hint', 'worlds_hint']
+            : (persisted?.completedHints || []),
+          activeHint: null,
           achievements: persisted?.achievements || [],
           newAchievements: [],
           purchasedGemItems: persisted?.purchasedGemItems || [],

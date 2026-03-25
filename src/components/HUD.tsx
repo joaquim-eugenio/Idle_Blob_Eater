@@ -1,6 +1,6 @@
 import { useGameStore } from '../store/gameStore';
 import { BASE_MAX_HUNGER, softCap } from '../lib/constants';
-import { PlaySquare, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { AchievementPanel } from './AchievementPanel';
 import { StatsPanel } from './StatsPanel';
 import { GemShop } from './GemShop';
@@ -14,8 +14,8 @@ function fmt(n: number): string {
 }
 
 export function HUD() {
-  const { currentLevel, hunger, levelItemsEaten, levelItemsTotal, money, upgrades, boostActive, activateBoost,
-    moneyPerSecond, essence, comboCount, unlockedSkillNodes, skillFlashEvents, dismissSkillFlashEvent,
+  const { currentLevel, hunger, levelItemsEaten, levelItemsTotal, money, upgrades,
+    moneyPerSecond, essence, comboCount, unlockedSkillNodes,
     levelComplete, levelFailed } = useGameStore();
 
   const world = getWorldForLevel(currentLevel);
@@ -119,30 +119,8 @@ export function HUD() {
           <GemShop />
           <WorldViewer />
         </div>
-        <button
-          onClick={activateBoost}
-          disabled={boostActive}
-          className={`px-3 py-2 rounded-xl font-bold text-sm shadow-md flex items-center gap-2 transition-all ${
-            boostActive
-              ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              : 'bg-amber-400 text-amber-900 hover:bg-amber-300 active:scale-95'
-          }`}
-        >
-          <PlaySquare size={16} />
-          {boostActive ? 'Boost Active!' : 'Ad: 3x Boost'}
-        </button>
       </div>
 
-      {skillFlashEvents.length > 0 && (
-        <div className="pointer-events-auto flex justify-center mt-1">
-          <button
-            onClick={() => dismissSkillFlashEvent(skillFlashEvents[0])}
-            className="text-[10px] sm:text-xs font-bold bg-blue-600 text-white px-3 py-1 rounded-full shadow-md animate-pulse"
-          >
-            {skillFlashEvents[0].startsWith('gate:') ? 'Gate Breakthrough!' : 'New Skill Unlocked!'}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

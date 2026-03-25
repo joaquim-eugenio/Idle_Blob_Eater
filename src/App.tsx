@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { SkillTree } from './components/SkillTree';
+import { ActionBar } from './components/ActionBar';
 import { EvolutionPanel } from './components/EvolutionPanel';
-import { AchievementToast } from './components/AchievementToast';
 import { Tutorial } from './components/Tutorial';
 import { WelcomeBackModal } from './components/WelcomeBackModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
@@ -17,10 +17,11 @@ export default function App() {
 
   const offline = useOfflineProgress();
   const dailyReward = useGameStore(s => s.dailyReward);
+  const sessionCount = useGameStore(s => s.sessionCount);
   const [dailyDismissed, setDailyDismissed] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
-  const showDaily = dailyReward.lastClaimDate !== today && !dailyDismissed;
+  const showDaily = sessionCount > 1 && dailyReward.lastClaimDate !== today && !dailyDismissed;
   const showWelcome = !showDaily && offline.showModal;
 
   useEffect(() => {
@@ -39,10 +40,10 @@ export default function App() {
     <div className="relative w-full h-[100dvh] bg-white overflow-hidden select-none touch-none">
       <GameCanvas />
       <HUD />
+      <ActionBar />
       <SkillTree />
-      <EvolutionPanel />
+      {/* <EvolutionPanel /> */}
       <LevelCompleteModal />
-      <AchievementToast />
       <Tutorial />
 
       {showDaily && (

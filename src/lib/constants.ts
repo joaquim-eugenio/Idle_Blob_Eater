@@ -263,6 +263,15 @@ export const SKILL_NODE_LOOKUP = Object.fromEntries(
 
 export const SKILL_BRANCH_ORDER: SkillBranchId[] = ['hunt', 'feast', 'survival', 'automation'];
 
+export const ACTIVE_ABILITIES = [
+  { id: 'magnet', name: 'Magnet Pull',  desc: 'Pull all items toward blob',          icon: 'Magnet',    duration: 3, cooldown: 18, unlockLevel: 1  },
+  { id: 'speed',  name: 'Speed Surge',  desc: '4x speed burst',                      icon: 'Zap',       duration: 4, cooldown: 18, unlockLevel: 1  },
+  { id: 'size',   name: 'Size Boost',   desc: 'Double blob size and suction range',   icon: 'Maximize',  duration: 4, cooldown: 25, unlockLevel: 5  },
+  { id: 'food',   name: 'Food Rain',    desc: 'Spawn food + restore hunger',          icon: 'CloudRain', duration: 0, cooldown: 30, unlockLevel: 10 },
+] as const;
+
+export type AbilityId = typeof ACTIVE_ABILITIES[number]['id'];
+
 export const SKILL_BRANCH_LABELS: Record<SkillBranchId, string> = {
   hunt: 'Hunt',
   feast: 'Feast',

@@ -32,7 +32,6 @@ const ZIGZAG = 48;
 const CHOICE_SPREAD = 72;
 const GATE_A_R = 670;
 const GATE_B_R = 930;
-const PROX_THRESHOLD = 140;
 
 const BRANCH_ANGLE: Record<string, number> = {
   hunt: -Math.PI / 2,
@@ -83,8 +82,8 @@ function buildPositions(): Record<string, { x: number; y: number }> {
     }
 
     let seq = 0;
-    for (const [row, group] of byRow) {
-      const dist = NODE_START + (row - 1) * ROW_GAP;
+    for (const [, group] of byRow) {
+      const dist = NODE_START + (group[0].row - 1) * ROW_GAP;
       if (group.length === 1) {
         const nd = group[0];
         let perp = (seq % 2 === 0 ? -1 : 1) * ZIGZAG;
@@ -145,11 +144,13 @@ function choiceLocked(node: SkillNodeDef, u: Set<string>): boolean {
 }
 
 export function SkillTree() {
-  const [isOpen, setIsOpen] = useState(false);
   const [zoom, setZoom] = useState(0.9);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const vpRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<number>(0);
+
+  const isOpen = useGameStore((s) => s.skillTreeOpen);
+  const openSkillTree = useGameStore((s) => s.openSkillTree);
+  const closeSkillTree = useGameStore((s) => s.closeSkillTree);
 
   const money = useGameStore((s) => s.money);
   const unlock = useGameStore((s) => s.unlockSkillNode);
@@ -223,37 +224,30 @@ export function SkillTree() {
   }, [zoom]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) { setSelectedId(null); return; }
     setZoom(0.9);
     requestAnimationFrame(() => centerOn({ x: CX, y: CY }, 0.9, false));
   }, [isOpen, centerOn]);
 
-  useEffect(() => {
-    const vp = vpRef.current;
-    if (!vp || !isOpen) return;
-    const tick = () => {
-      const cx = (vp.scrollLeft + vp.clientWidth / 2) / zoom;
-      const cy = (vp.scrollTop + vp.clientHeight / 2) / zoom;
-      let best: string | null = null;
-      let bestD = PROX_THRESHOLD;
-      for (const nd of visible) {
-        const p = pos[nd.id];
-        if (!p) continue;
-        const d = Math.hypot(p.x - cx, p.y - cy);
-        if (d < bestD) { bestD = d; best = nd.id; }
-      }
-      setFocusedId(best);
-    };
-    const onScroll = () => { clearTimeout(timerRef.current); timerRef.current = window.setTimeout(tick, 100); };
-    vp.addEventListener('scroll', onScroll, { passive: true });
-    tick();
-    return () => { vp.removeEventListener('scroll', onScroll); clearTimeout(timerRef.current); };
-  }, [isOpen, zoom, visible, pos]);
-
   const handleTap = (nd: SkillNodeDef, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (canPurchase(nd, uSet, money)) unlock(nd.id);
+    setSelectedId(nd.id);
   };
+
+  const handleBuy = () => {
+    if (!selectedId) return;
+    const nd = SKILL_NODE_LOOKUP[selectedId];
+    if (nd && canPurchase(nd, uSet, money)) unlock(nd.id);
+  };
+
+  const handleCanvasClick = () => {
+    setSelectedId(null);
+  };
+
+  const selectedNode = selectedId ? SKILL_NODE_LOOKUP[selectedId] : null;
+  const selectedUnlocked = selectedId ? uSet.has(selectedId) : false;
+  const selectedBuyable = selectedNode ? canPurchase(selectedNode, uSet, money) : false;
+  const selectedChoiceLocked = selectedNode ? choiceLocked(selectedNode, uSet) : false;
 
   const apexVisible = isNodeVisible(SKILL_NODE_LOOKUP['apex_transcendence'], uSet);
   const apexUnlocked = uSet.has('apex_transcendence');
@@ -261,24 +255,25 @@ export function SkillTree() {
 
   return (
     <>
-      <div className="absolute bottom-8 right-8 z-[5]">
-        <button onClick={() => setIsOpen(true)} className="relative w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all" aria-label="Open skill tree">
+      <div className="absolute bottom-24 right-8 z-[5]">
+        <button onClick={openSkillTree} className="relative w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all" aria-label="Open skill tree">
           <SkillTreeIcon size={26} />
         </button>
       </div>
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-40 flex items-center justify-center p-2 sm:p-4" onClick={() => setIsOpen(false)}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-40 flex items-center justify-center p-2 sm:p-4" onClick={closeSkillTree}>
             <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.97, opacity: 0 }} className="bg-slate-50 w-full max-w-7xl h-[92dvh] rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
 
               {/* Header */}
               <div className="px-4 py-3 border-b border-slate-200 bg-white flex items-center shrink-0">
-                <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full" aria-label="Close">
+                <button onClick={closeSkillTree} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full" aria-label="Close">
                   <X size={20} />
                 </button>
-                <div className="flex-1 flex justify-center">
-                  <div className="px-5 py-1.5 rounded-full bg-emerald-50 border-2 border-emerald-300 text-emerald-700 text-xl font-black whitespace-nowrap">
+                <div className="flex-1 flex flex-col items-center">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Skills</span>
+                  <div className="px-5 py-1 rounded-full bg-emerald-50 border-2 border-emerald-300 text-emerald-700 text-xl font-black whitespace-nowrap">
                     ${fmt(money)}
                   </div>
                 </div>
@@ -286,7 +281,7 @@ export function SkillTree() {
               </div>
 
               {/* Viewport */}
-              <div ref={vpRef} className="overflow-auto flex-1 touch-pan-x touch-pan-y">
+              <div ref={vpRef} className="overflow-auto flex-1 touch-pan-x touch-pan-y" onClick={handleCanvasClick}>
                 <div className="relative" style={{ width: CANVAS * zoom, height: CANVAS * zoom }}>
                   <div className="absolute left-0 top-0" style={{ width: CANVAS, height: CANVAS, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
 
@@ -309,11 +304,19 @@ export function SkillTree() {
                           onClick={(e) => handleTap(SKILL_NODE_LOOKUP['apex_transcendence'], e)}
                           className={`w-[100px] h-[100px] rounded-full border-[5px] flex flex-col items-center justify-center transition-all ${
                             apexUnlocked
-                              ? 'bg-gradient-to-br from-indigo-100 to-purple-100 border-indigo-400 shadow-xl shadow-indigo-300/50'
+                              ? 'bg-gradient-to-br from-indigo-100 to-purple-100 border-indigo-400'
                               : apexBuyable
-                                ? 'bg-white border-indigo-400 shadow-lg ring-2 ring-offset-2 ring-indigo-400 animate-pulse cursor-pointer'
+                                ? 'bg-white border-indigo-400'
                                 : 'bg-slate-100 border-slate-300'
                           }`}
+                          style={selectedId === 'apex_transcendence'
+                            ? { boxShadow: '0 0 24px 10px rgba(99,102,241,0.6), 0 0 48px 20px rgba(99,102,241,0.25)' }
+                            : apexUnlocked
+                              ? { boxShadow: '0 10px 15px -3px rgba(165,180,252,0.5)' }
+                              : apexBuyable
+                                ? { boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }
+                                : {}
+                          }
                         >
                           {apexUnlocked ? (
                             <Sparkles size={30} className="text-indigo-600" />
@@ -372,9 +375,9 @@ export function SkillTree() {
                       const unlocked = uSet.has(nd.id);
                       const buyable = canPurchase(nd, uSet, money);
                       const cLocked = choiceLocked(nd, uSet);
-                      const css = BRANCH_CSS[nd.branch] || BRANCH_CSS.evolution;
                       const hex = BRANCH_HEX[nd.branch] || '#6366f1';
                       const Icon = BRANCH_ICON[nd.branch] || Sparkles;
+                      const isSelected = selectedId === nd.id;
 
                       const isMinor = nd.type === 'minor';
                       const isKS = nd.type === 'keystone';
@@ -385,11 +388,17 @@ export function SkillTree() {
                       if (unlocked) {
                         border = hex; bg = 'white'; shadow = `0 2px 8px ${hex}40`; extra = '';
                       } else if (buyable) {
-                        border = '#3b82f6'; bg = 'white'; shadow = '0 0 0 3px rgba(59,130,246,0.3)'; extra = 'animate-pulse cursor-pointer';
+                        border = '#3b82f6'; bg = 'white'; shadow = '0 0 0 3px rgba(59,130,246,0.3)'; extra = 'cursor-pointer';
                       } else if (cLocked) {
                         border = '#cbd5e1'; bg = '#e2e8f0'; shadow = 'none'; extra = 'opacity-40 cursor-not-allowed';
                       } else {
                         border = '#cbd5e1'; bg = '#f1f5f9'; shadow = 'none'; extra = '';
+                      }
+
+                      if (isSelected) {
+                        const glowColor = unlocked ? hex : '#3b82f6';
+                        shadow = `0 0 20px 8px ${glowColor}90, 0 0 40px 16px ${glowColor}40`;
+                        border = glowColor;
                       }
 
                       return (
@@ -397,7 +406,7 @@ export function SkillTree() {
                           key={nd.id}
                           onClick={(e) => handleTap(nd, e)}
                           className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center transition-all ${extra}`}
-                          style={{ left: p.x, top: p.y, width: sz, height: sz, borderWidth: bw, borderStyle: 'solid', borderColor: border, background: bg, boxShadow: shadow, zIndex: 5 }}
+                          style={{ left: p.x, top: p.y, width: sz, height: sz, borderWidth: bw, borderStyle: 'solid', borderColor: border, background: bg, boxShadow: shadow, zIndex: isSelected ? 10 : 5 }}
                         >
                           {unlocked ? (
                             <div className="flex items-center justify-center" style={{ color: hex }}>
@@ -427,46 +436,70 @@ export function SkillTree() {
                       );
                     })}
 
-                    {/* Proximity tooltip */}
-                    {focusedId && focusedId !== 'apex_transcendence' && (() => {
-                      const nd = SKILL_NODE_LOOKUP[focusedId];
-                      const p = pos[focusedId];
-                      if (!nd || !p) return null;
-                      const unlocked = uSet.has(nd.id);
-                      const buyable = canPurchase(nd, uSet, money);
-                      return (
-                        <div className="absolute pointer-events-none" style={{ left: p.x, top: p.y + (nd.type === 'keystone' ? 48 : nd.type === 'minor' ? 36 : 40), transform: 'translateX(-50%)', zIndex: 20 }}>
-                          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-800/95 backdrop-blur text-white rounded-xl px-3 py-2 shadow-xl max-w-[190px] text-center">
-                            <div className="text-[11px] font-black">{nd.title}</div>
-                            <div className="text-[9px] text-slate-300 mt-0.5 leading-snug">{nd.shortDesc}</div>
-                            {!unlocked && <div className="text-[10px] font-bold text-amber-300 mt-1">Cost: ${nd.cost}</div>}
-                            {buyable && <div className="text-[10px] font-bold text-emerald-300 mt-0.5">Tap to unlock</div>}
-                            {unlocked && <div className="text-[9px] font-bold text-emerald-400 mt-0.5">Unlocked</div>}
-                          </motion.div>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Apex tooltip */}
-                    {focusedId === 'apex_transcendence' && apexVisible && (() => {
-                      const nd = SKILL_NODE_LOOKUP['apex_transcendence'];
-                      if (!nd) return null;
-                      return (
-                        <div className="absolute pointer-events-none" style={{ left: CX, top: CY + 68, transform: 'translateX(-50%)', zIndex: 20 }}>
-                          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-800/95 backdrop-blur text-white rounded-xl px-3 py-2 shadow-xl max-w-[190px] text-center">
-                            <div className="text-[11px] font-black">{nd.title}</div>
-                            <div className="text-[9px] text-slate-300 mt-0.5 leading-snug">{nd.shortDesc}</div>
-                            {!apexUnlocked && <div className="text-[10px] font-bold text-amber-300 mt-1">Cost: ${nd.cost}</div>}
-                            {apexBuyable && <div className="text-[10px] font-bold text-emerald-300 mt-0.5">Tap to unlock</div>}
-                            {apexUnlocked && <div className="text-[9px] font-bold text-emerald-400 mt-0.5">Unlocked</div>}
-                          </motion.div>
-                        </div>
-                      );
-                    })()}
-
                   </div>
                 </div>
               </div>
+
+              {/* Detail panel */}
+              <AnimatePresence>
+                {selectedNode && (
+                  <motion.div
+                    key="detail"
+                    initial={{ y: 80, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 80, opacity: 0 }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                    className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-6"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-black text-slate-800 truncate">{selectedNode.title}</span>
+                          {selectedNode.branch && (
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${(BRANCH_CSS[selectedNode.branch] || BRANCH_CSS.evolution).text}`}>
+                              {SKILL_BRANCH_LABELS[selectedNode.branch] || selectedNode.branch}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1 leading-relaxed">{selectedNode.shortDesc}</p>
+
+                        {!selectedUnlocked && !selectedChoiceLocked && (
+                          <div className="text-sm font-bold text-amber-600 mt-2">Cost: ${fmt(selectedNode.cost)}</div>
+                        )}
+                        {selectedUnlocked && (
+                          <div className="text-sm font-bold text-emerald-600 mt-2">Unlocked</div>
+                        )}
+                        {selectedChoiceLocked && (
+                          <div className="text-sm font-bold text-slate-400 mt-2">Locked (another choice selected)</div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {!selectedUnlocked && !selectedChoiceLocked && (
+                          <button
+                            onClick={handleBuy}
+                            disabled={!selectedBuyable}
+                            className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all ${
+                              selectedBuyable
+                                ? 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
+                          >
+                            {selectedBuyable ? 'Buy' : money < selectedNode.cost ? 'Not enough $' : 'Locked'}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedId(null)}
+                          className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full"
+                          aria-label="Deselect"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
             </motion.div>
           </motion.div>

@@ -92,6 +92,7 @@ export function GameCanvas() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const ripplesRef = useRef<Ripple[]>([]);
   const eatPopRef = useRef(0);
+  const displayedSizeScaleRef = useRef(0);
   const introRef = useRef({
     level: 0,
     startTime: 0,
@@ -149,7 +150,8 @@ export function GameCanvas() {
 
       const state = useGameStore.getState();
       const { blobPosition, items, currentLevel, upgrades, starBoostActive, boostActive,
-        currentSkin, comboCount, hunger, unlockedSkillNodes, levelComplete, blobGrowth } = state;
+        currentSkin, comboCount, hunger, unlockedSkillNodes, levelComplete, blobGrowth,
+        levelItemsEaten, levelItemsTotal } = state;
 
       const world = getWorldForLevel(currentLevel);
       const blobVisualScale = world.blobScale;
@@ -157,7 +159,12 @@ export function GameCanvas() {
       const levelInWorld = currentLevel - world.levelRange[0];
       const worldLevelCount = (world.levelRange[1] === Infinity ? 30 : world.levelRange[1]) - world.levelRange[0] + 1;
       const worldProgress = Math.min(1, levelInWorld / Math.max(1, worldLevelCount));
-      const blobSizeScale = (0.3 + 0.7 * worldProgress) * blobVisualScale * 0.5;
+      const baseSizeScale = (0.3 + 0.7 * worldProgress) * blobVisualScale * 0.5;
+      const eatProgress = levelItemsTotal > 0 ? levelItemsEaten / levelItemsTotal : 0;
+      const targetSizeScale = baseSizeScale * (1 + eatProgress * 0.25);
+      if (displayedSizeScaleRef.current === 0) displayedSizeScaleRef.current = targetSizeScale;
+      displayedSizeScaleRef.current += (targetSizeScale - displayedSizeScaleRef.current) * 0.15;
+      const blobSizeScale = displayedSizeScaleRef.current;
 
       const normalZoom = 2.5 / blobVisualScale;
       const INTRO_HOLD = 1.0;
@@ -355,7 +362,9 @@ export function GameCanvas() {
       });
 
       // Blob
-      const baseSize = 60 * blobSizeScale * growFactor;
+      const abState = state.abilities;
+      const abilitySizeMult = abState.size.active ? 1.6 : 1;
+      const baseSize = 60 * blobSizeScale * growFactor * abilitySizeMult;
       const time = performance.now() / 1000;
       const breath = Math.sin(time * 2) * (baseSize * 0.05);
       eatPopRef.current *= 0.88;
@@ -424,7 +433,9 @@ export function GameCanvas() {
 
       // Draw blob body
       const baseColor = getBlobColor(currentLevel, currentSkin);
-      if (starBoostActive) {
+      if (abState.size.active) {
+        ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee'; ctx.fillStyle = baseColor;
+      } else if (starBoostActive) {
         ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe'; ctx.fillStyle = '#a855f7';
       } else if (boostActive) {
         ctx.shadowBlur = 20; ctx.shadowColor = '#facc15'; ctx.fillStyle = baseColor;
@@ -446,6 +457,53 @@ export function GameCanvas() {
       }
       ctx.fill();
       ctx.shadowBlur = 0;
+
+      // Active ability VFX
+      if (abState.magnet.active) {
+        for (let ri = 0; ri < 3; ri++) {
+          const ringPhase = (time * 3 + ri * 0.7) % 1;
+          const ringR = radius * (1.5 + ringPhase * 3);
+          const ringAlpha = 0.4 * (1 - ringPhase);
+          ctx.beginPath();
+          ctx.arc(blobPosition.x, blobPosition.y, ringR, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(168, 85, 247, ${ringAlpha})`;
+          ctx.lineWidth = (4 / zoom) * (1 - ringPhase * 0.5);
+          ctx.stroke();
+        }
+      }
+
+      if (abState.speed.active) {
+        const moveAngle = Math.atan2(
+          blobPosition.y - camPosRef.current.y,
+          blobPosition.x - camPosRef.current.x
+        );
+        for (let li = 0; li < 6; li++) {
+          const spread = (li - 2.5) * 0.3;
+          const trailAngle = moveAngle + Math.PI + spread;
+          const trailLen = radius * (1.5 + Math.sin(time * 12 + li) * 0.5);
+          const tx = blobPosition.x + Math.cos(trailAngle) * trailLen;
+          const ty = blobPosition.y + Math.sin(trailAngle) * trailLen;
+          ctx.beginPath();
+          ctx.moveTo(blobPosition.x, blobPosition.y);
+          ctx.lineTo(tx, ty);
+          ctx.strokeStyle = `rgba(250, 204, 21, ${0.3 - li * 0.04})`;
+          ctx.lineWidth = (3 - li * 0.3) / zoom;
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+      }
+
+      if (abState.size.active) {
+        ctx.beginPath();
+        ctx.arc(blobPosition.x, blobPosition.y, radius * 1.4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(34, 211, 238, ${0.08 + Math.sin(time * 4) * 0.04})`;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(blobPosition.x, blobPosition.y, radius * 1.2, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(34, 211, 238, ${0.3 + Math.sin(time * 6) * 0.1})`;
+        ctx.lineWidth = 2 / zoom;
+        ctx.stroke();
+      }
 
       // Face
       let cx = 0, cy = 0;

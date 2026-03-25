@@ -1,70 +1,103 @@
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { motion, AnimatePresence } from 'motion/react';
+import { Hand, DollarSign, Sparkles, Globe } from 'lucide-react';
 
-const STEPS = [
-  { text: "This is your Blob! It eats all items to clear each level.", position: 'center' as const },
-  { text: "Tap the screen to drop extra items for your Blob!", position: 'center' as const },
-  { text: "Earn money by eating. Open the Skill Tree to power up!", position: 'bottom-right' as const },
-  { text: "Buy upgrades to clear levels faster!", position: 'center' as const },
-  { text: "Clear levels to discover new worlds with bigger items!", position: 'center' as const },
-];
+interface HintConfig {
+  message: string;
+  position: 'top-center' | 'bottom-center' | 'bottom-right';
+  icon?: ReactNode;
+  autoDismissMs?: number;
+}
+
+const HINT_CONFIGS: Record<string, HintConfig> = {
+  blob_intro: {
+    message: "This is your Blob! It eats all items to clear each level.",
+    position: 'top-center',
+    icon: <Sparkles size={20} className="text-blue-300 shrink-0" />,
+  },
+  tap_hint: {
+    message: "Tap the screen to drop extra items for your Blob!",
+    position: 'top-center',
+    icon: <Hand size={20} className="text-amber-300 shrink-0" />,
+  },
+  money_hint: {
+    message: "You earned cash! Use it to buy upgrades.",
+    position: 'top-center',
+    icon: <DollarSign size={20} className="text-emerald-300 shrink-0" />,
+    autoDismissMs: 4000,
+  },
+  skill_tree_hint: {
+    message: "Try the Skill Tree for permanent boosts!",
+    position: 'bottom-right',
+    icon: <Sparkles size={20} className="text-purple-300 shrink-0" />,
+    autoDismissMs: 5000,
+  },
+  worlds_hint: {
+    message: "New worlds await with bigger challenges!",
+    position: 'top-center',
+    icon: <Globe size={20} className="text-cyan-300 shrink-0" />,
+    autoDismissMs: 4000,
+  },
+};
+
+const POSITION_CLASSES: Record<string, string> = {
+  'top-center': 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2',
+  'bottom-center': 'bottom-36 left-1/2 -translate-x-1/2',
+  'bottom-right': 'bottom-24 right-6',
+};
 
 export function Tutorial() {
-  const tutorialStep = useGameStore(s => s.tutorialStep);
-  const tutorialComplete = useGameStore(s => s.tutorialComplete);
-  const advanceTutorial = useGameStore(s => s.advanceTutorial);
-  const completeTutorial = useGameStore(s => s.completeTutorial);
+  const activeHint = useGameStore(s => s.activeHint);
+  const dismissHint = useGameStore(s => s.dismissHint);
 
-  const step = STEPS[tutorialStep];
-  const isVisible = !tutorialComplete && tutorialStep < STEPS.length;
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  if (!isVisible) return null;
+  const config = activeHint ? HINT_CONFIGS[activeHint] : null;
+
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (!activeHint || !config?.autoDismissMs) return;
+
+    timerRef.current = setTimeout(() => {
+      dismissHint(activeHint);
+    }, config.autoDismissMs);
+
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [activeHint, config, dismissHint]);
 
   return (
     <AnimatePresence>
-      <motion.div
-        key={tutorialStep}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="absolute inset-0 z-40 pointer-events-none"
-      >
-        <div className="absolute inset-0 bg-black/20" />
-        <div className={`absolute pointer-events-auto ${
-          step.position === 'center'
-            ? 'top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2'
-            : 'bottom-24 right-24'
-        }`}>
-          <motion.div
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="bg-white rounded-2xl shadow-2xl p-5 max-w-xs text-center"
-          >
-            <div className="text-lg font-bold text-slate-800 mb-3">{step.text}</div>
-            <div className="flex gap-2 justify-center">
+      {activeHint && config && (
+        <motion.div
+          key={activeHint}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 z-40 pointer-events-none"
+        >
+          <div className="absolute inset-0 bg-black/30" />
+
+          <div className={`absolute ${POSITION_CLASSES[config.position]} pointer-events-auto`}>
+            <motion.div
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="bg-white rounded-2xl shadow-2xl p-5 max-w-xs text-center"
+            >
+              <div className="flex items-center justify-center gap-2 mb-3">
+                {config.icon}
+              </div>
+              <div className="text-lg font-bold text-slate-800 mb-4">{config.message}</div>
               <button
-                onClick={advanceTutorial}
-                className="px-5 py-2 bg-blue-500 text-white rounded-xl font-bold text-sm hover:bg-blue-600 active:scale-95 transition-all"
+                onClick={() => dismissHint(activeHint)}
+                className="px-6 py-2 bg-blue-500 text-white rounded-xl font-bold text-sm hover:bg-blue-600 active:scale-95 transition-all"
               >
-                {tutorialStep === STEPS.length - 1 ? "Let's Go!" : 'Got it'}
+                Got it
               </button>
-              <button
-                onClick={completeTutorial}
-                className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl font-bold text-sm hover:bg-slate-200 transition-all"
-              >
-                Skip
-              </button>
-            </div>
-            <div className="flex gap-1 justify-center mt-3">
-              {STEPS.map((_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-full transition-colors ${
-                  i <= tutorialStep ? 'bg-blue-500' : 'bg-slate-300'
-                }`} />
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </motion.div>
+            </motion.div>
+          </div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

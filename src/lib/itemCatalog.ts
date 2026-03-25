@@ -27,7 +27,7 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 // ─── World 1: Crumbs (geometric shapes) ───
 
 const triangle: ItemDef = {
-  id: 'triangle', name: 'Triangle', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
+  id: 'triangle', name: 'Triangle', world: 'crumbs', sizeTier: 1, baseValue: 1, weight: 1,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.moveTo(0, -s * 0.5); ctx.lineTo(s * 0.5, s * 0.5); ctx.lineTo(-s * 0.5, s * 0.5); ctx.closePath(); ctx.fill();
@@ -35,7 +35,7 @@ const triangle: ItemDef = {
 };
 
 const square: ItemDef = {
-  id: 'square', name: 'Square', world: 'crumbs', sizeTier: 1, baseValue: 4, weight: 1,
+  id: 'square', name: 'Square', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
   draw(ctx, s, c) {
     ctx.fillStyle = c[1];
     ctx.fillRect(-s * 0.5, -s * 0.5, s, s);
@@ -43,7 +43,7 @@ const square: ItemDef = {
 };
 
 const hexagon: ItemDef = {
-  id: 'hexagon', name: 'Hexagon', world: 'crumbs', sizeTier: 1, baseValue: 8, weight: 1.2,
+  id: 'hexagon', name: 'Hexagon', world: 'crumbs', sizeTier: 1, baseValue: 3, weight: 1.2,
   draw(ctx, s, c) {
     ctx.fillStyle = c[2];
     ctx.beginPath();
@@ -57,7 +57,7 @@ const hexagon: ItemDef = {
 };
 
 const diamond: ItemDef = {
-  id: 'diamond', name: 'Diamond', world: 'crumbs', sizeTier: 1, baseValue: 5, weight: 1,
+  id: 'diamond', name: 'Diamond', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath();
@@ -67,7 +67,7 @@ const diamond: ItemDef = {
 };
 
 const circle: ItemDef = {
-  id: 'circle', name: 'Circle', world: 'crumbs', sizeTier: 1, baseValue: 3, weight: 1,
+  id: 'circle', name: 'Circle', world: 'crumbs', sizeTier: 1, baseValue: 1, weight: 1,
   draw(ctx, s, c) {
     ctx.fillStyle = c[1];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.45, 0, Math.PI * 2); ctx.fill();
@@ -75,7 +75,7 @@ const circle: ItemDef = {
 };
 
 const pentagon: ItemDef = {
-  id: 'pentagon', name: 'Pentagon', world: 'crumbs', sizeTier: 1, baseValue: 6, weight: 1.1,
+  id: 'pentagon', name: 'Pentagon', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1.1,
   draw(ctx, s, c) {
     ctx.fillStyle = c[2];
     ctx.beginPath();
@@ -89,7 +89,7 @@ const pentagon: ItemDef = {
 };
 
 const cross: ItemDef = {
-  id: 'cross', name: 'Cross', world: 'crumbs', sizeTier: 1, baseValue: 4, weight: 1,
+  id: 'cross', name: 'Cross', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
   draw(ctx, s, c) {
     const t = s * 0.2, h = s * 0.5;
     ctx.fillStyle = c[0];
@@ -99,7 +99,7 @@ const cross: ItemDef = {
 };
 
 const crescent: ItemDef = {
-  id: 'crescent', name: 'Crescent', world: 'crumbs', sizeTier: 1, baseValue: 7, weight: 1.1,
+  id: 'crescent', name: 'Crescent', world: 'crumbs', sizeTier: 1, baseValue: 3, weight: 1.1,
   draw(ctx, s, c) {
     const r = s * 0.45;
     ctx.fillStyle = c[2];
@@ -114,7 +114,7 @@ const crescent: ItemDef = {
 // ─── World 2: Desk Drawer (tiny objects) ───
 
 const paperclip: ItemDef = {
-  id: 'paperclip', name: 'Paperclip', world: 'desk_drawer', sizeTier: 2, baseValue: 10, weight: 1.5,
+  id: 'paperclip', name: 'Paperclip', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 1.5,
   draw(ctx, s, c) {
     ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
     ctx.beginPath();
@@ -129,7 +129,7 @@ const paperclip: ItemDef = {
 };
 
 const button: ItemDef = {
-  id: 'button', name: 'Button', world: 'desk_drawer', sizeTier: 2, baseValue: 8, weight: 1.3,
+  id: 'button', name: 'Button', world: 'desk_drawer', sizeTier: 2, baseValue: 3, weight: 1.3,
   draw(ctx, s, c) {
     ctx.fillStyle = c[1];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
@@ -145,7 +145,7 @@ const button: ItemDef = {
 };
 
 const coin: ItemDef = {
-  id: 'coin', name: 'Coin', world: 'desk_drawer', sizeTier: 2, baseValue: 15, weight: 2,
+  id: 'coin', name: 'Coin', world: 'desk_drawer', sizeTier: 2, baseValue: 5, weight: 2,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
@@ -157,7 +157,7 @@ const coin: ItemDef = {
 };
 
 const marble: ItemDef = {
-  id: 'marble', name: 'Marble', world: 'desk_drawer', sizeTier: 2, baseValue: 12, weight: 2.5,
+  id: 'marble', name: 'Marble', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 2.5,
   draw(ctx, s, c) {
     const r = s * 0.38;
     const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
@@ -170,7 +170,7 @@ const marble: ItemDef = {
 };
 
 const dice: ItemDef = {
-  id: 'dice', name: 'Dice', world: 'desk_drawer', sizeTier: 2, baseValue: 14, weight: 2,
+  id: 'dice', name: 'Dice', world: 'desk_drawer', sizeTier: 2, baseValue: 5, weight: 2,
   draw(ctx, s, c) {
     const h = s * 0.38;
     roundRect(ctx, -h, -h, h * 2, h * 2, s * 0.08);
@@ -186,7 +186,7 @@ const dice: ItemDef = {
 };
 
 const screw: ItemDef = {
-  id: 'screw', name: 'Screw', world: 'desk_drawer', sizeTier: 2, baseValue: 9, weight: 1.8,
+  id: 'screw', name: 'Screw', world: 'desk_drawer', sizeTier: 2, baseValue: 3, weight: 1.8,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, -s * 0.3, s * 0.15, 0, Math.PI * 2); ctx.fill();
@@ -201,7 +201,7 @@ const screw: ItemDef = {
 };
 
 const candy: ItemDef = {
-  id: 'candy', name: 'Candy', world: 'desk_drawer', sizeTier: 2, baseValue: 11, weight: 1.2,
+  id: 'candy', name: 'Candy', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 1.2,
   draw(ctx, s, c) {
     ctx.fillStyle = c[1];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.28, 0, Math.PI * 2); ctx.fill();
@@ -215,7 +215,7 @@ const candy: ItemDef = {
 };
 
 const eraser: ItemDef = {
-  id: 'eraser', name: 'Eraser', world: 'desk_drawer', sizeTier: 2, baseValue: 7, weight: 1.5,
+  id: 'eraser', name: 'Eraser', world: 'desk_drawer', sizeTier: 2, baseValue: 3, weight: 1.5,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.35, -s * 0.2, s * 0.7, s * 0.4, s * 0.05);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -229,7 +229,7 @@ const eraser: ItemDef = {
 // ─── World 3: Backpack (small objects) ───
 
 const pen: ItemDef = {
-  id: 'pen', name: 'Pen', world: 'backpack', sizeTier: 3, baseValue: 20, weight: 2,
+  id: 'pen', name: 'Pen', world: 'backpack', sizeTier: 3, baseValue: 7, weight: 2,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.06, -s * 0.45, s * 0.12, s * 0.7);
@@ -243,7 +243,7 @@ const pen: ItemDef = {
 };
 
 const key: ItemDef = {
-  id: 'key', name: 'Key', world: 'backpack', sizeTier: 3, baseValue: 25, weight: 3,
+  id: 'key', name: 'Key', world: 'backpack', sizeTier: 3, baseValue: 8, weight: 3,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, -s * 0.25, s * 0.18, 0, Math.PI * 2); ctx.fill();
@@ -257,7 +257,7 @@ const key: ItemDef = {
 };
 
 const usbDrive: ItemDef = {
-  id: 'usb_drive', name: 'USB Drive', world: 'backpack', sizeTier: 3, baseValue: 22, weight: 1.8,
+  id: 'usb_drive', name: 'USB Drive', world: 'backpack', sizeTier: 3, baseValue: 7, weight: 1.8,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.15, -s * 0.35, s * 0.3, s * 0.55, s * 0.04);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -269,7 +269,7 @@ const usbDrive: ItemDef = {
 };
 
 const wallet: ItemDef = {
-  id: 'wallet', name: 'Wallet', world: 'backpack', sizeTier: 3, baseValue: 30, weight: 2.5,
+  id: 'wallet', name: 'Wallet', world: 'backpack', sizeTier: 3, baseValue: 10, weight: 2.5,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.35, -s * 0.28, s * 0.7, s * 0.56, s * 0.06);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -282,7 +282,7 @@ const wallet: ItemDef = {
 };
 
 const glasses: ItemDef = {
-  id: 'glasses', name: 'Glasses', world: 'backpack', sizeTier: 3, baseValue: 28, weight: 1.5,
+  id: 'glasses', name: 'Glasses', world: 'backpack', sizeTier: 3, baseValue: 9, weight: 1.5,
   draw(ctx, s, c) {
     ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.05; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.18, 0, Math.PI * 2); ctx.stroke();
@@ -294,7 +294,7 @@ const glasses: ItemDef = {
 };
 
 const remote: ItemDef = {
-  id: 'remote', name: 'Remote', world: 'backpack', sizeTier: 3, baseValue: 24, weight: 2.2,
+  id: 'remote', name: 'Remote', world: 'backpack', sizeTier: 3, baseValue: 8, weight: 2.2,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.14, -s * 0.42, s * 0.28, s * 0.84, s * 0.06);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -309,7 +309,7 @@ const remote: ItemDef = {
 };
 
 const apple: ItemDef = {
-  id: 'apple', name: 'Apple', world: 'backpack', sizeTier: 3, baseValue: 18, weight: 2.8,
+  id: 'apple', name: 'Apple', world: 'backpack', sizeTier: 3, baseValue: 6, weight: 2.8,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(-s * 0.08, s * 0.05, s * 0.32, 0, Math.PI * 2); ctx.fill();
@@ -324,7 +324,7 @@ const apple: ItemDef = {
 };
 
 const mug: ItemDef = {
-  id: 'mug', name: 'Mug', world: 'backpack', sizeTier: 3, baseValue: 26, weight: 3.5,
+  id: 'mug', name: 'Mug', world: 'backpack', sizeTier: 3, baseValue: 9, weight: 3.5,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.25, -s * 0.3, s * 0.45, s * 0.6, s * 0.06);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -340,7 +340,7 @@ const mug: ItemDef = {
 // ─── World 4: Room (medium objects) ───
 
 const book: ItemDef = {
-  id: 'book', name: 'Book', world: 'room', sizeTier: 4, baseValue: 40, weight: 4,
+  id: 'book', name: 'Book', world: 'room', sizeTier: 4, baseValue: 15, weight: 4,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.3, -s * 0.4, s * 0.6, s * 0.8);
@@ -353,7 +353,7 @@ const book: ItemDef = {
 };
 
 const lamp: ItemDef = {
-  id: 'lamp', name: 'Lamp', world: 'room', sizeTier: 4, baseValue: 45, weight: 5,
+  id: 'lamp', name: 'Lamp', world: 'room', sizeTier: 4, baseValue: 17, weight: 5,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath();
@@ -369,7 +369,7 @@ const lamp: ItemDef = {
 };
 
 const smartphone: ItemDef = {
-  id: 'smartphone', name: 'Smartphone', world: 'room', sizeTier: 4, baseValue: 55, weight: 3,
+  id: 'smartphone', name: 'Smartphone', world: 'room', sizeTier: 4, baseValue: 20, weight: 3,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.18, -s * 0.38, s * 0.36, s * 0.76, s * 0.05);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -381,7 +381,7 @@ const smartphone: ItemDef = {
 };
 
 const pottedPlant: ItemDef = {
-  id: 'potted_plant', name: 'Potted Plant', world: 'room', sizeTier: 4, baseValue: 38, weight: 6,
+  id: 'potted_plant', name: 'Potted Plant', world: 'room', sizeTier: 4, baseValue: 14, weight: 6,
   draw(ctx, s, c) {
     ctx.fillStyle = c[2] || '#8B4513';
     ctx.beginPath();
@@ -398,7 +398,7 @@ const pottedPlant: ItemDef = {
 };
 
 const toaster: ItemDef = {
-  id: 'toaster', name: 'Toaster', world: 'room', sizeTier: 4, baseValue: 42, weight: 5.5,
+  id: 'toaster', name: 'Toaster', world: 'room', sizeTier: 4, baseValue: 16, weight: 5.5,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.35, -s * 0.2, s * 0.7, s * 0.4, s * 0.08);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -414,7 +414,7 @@ const toaster: ItemDef = {
 };
 
 const shoe: ItemDef = {
-  id: 'shoe', name: 'Shoe', world: 'room', sizeTier: 4, baseValue: 35, weight: 3.5,
+  id: 'shoe', name: 'Shoe', world: 'room', sizeTier: 4, baseValue: 12, weight: 3.5,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath();
@@ -432,7 +432,7 @@ const shoe: ItemDef = {
 };
 
 const basketball: ItemDef = {
-  id: 'basketball', name: 'Basketball', world: 'room', sizeTier: 4, baseValue: 48, weight: 4.5,
+  id: 'basketball', name: 'Basketball', world: 'room', sizeTier: 4, baseValue: 18, weight: 4.5,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
@@ -445,7 +445,7 @@ const basketball: ItemDef = {
 };
 
 const clock: ItemDef = {
-  id: 'clock', name: 'Clock', world: 'room', sizeTier: 4, baseValue: 50, weight: 4,
+  id: 'clock', name: 'Clock', world: 'room', sizeTier: 4, baseValue: 19, weight: 4,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
@@ -462,7 +462,7 @@ const clock: ItemDef = {
 // ─── World 5: House (large objects) ───
 
 const chair: ItemDef = {
-  id: 'chair', name: 'Chair', world: 'house', sizeTier: 5, baseValue: 70, weight: 8,
+  id: 'chair', name: 'Chair', world: 'house', sizeTier: 5, baseValue: 30, weight: 8,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.3, -s * 0.1, s * 0.6, s * 0.08);
@@ -478,7 +478,7 @@ const chair: ItemDef = {
 };
 
 const monitor: ItemDef = {
-  id: 'monitor', name: 'Monitor', world: 'house', sizeTier: 5, baseValue: 85, weight: 7,
+  id: 'monitor', name: 'Monitor', world: 'house', sizeTier: 5, baseValue: 38, weight: 7,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.4, -s * 0.35, s * 0.8, s * 0.55, s * 0.03);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -492,7 +492,7 @@ const monitor: ItemDef = {
 };
 
 const fan: ItemDef = {
-  id: 'fan', name: 'Fan', world: 'house', sizeTier: 5, baseValue: 65, weight: 6,
+  id: 'fan', name: 'Fan', world: 'house', sizeTier: 5, baseValue: 25, weight: 6,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, -s * 0.05, s * 0.35, 0, Math.PI * 2); ctx.fill();
@@ -513,7 +513,7 @@ const fan: ItemDef = {
 };
 
 const guitar: ItemDef = {
-  id: 'guitar', name: 'Guitar', world: 'house', sizeTier: 5, baseValue: 90, weight: 5,
+  id: 'guitar', name: 'Guitar', world: 'house', sizeTier: 5, baseValue: 40, weight: 5,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, s * 0.15, s * 0.25, 0, Math.PI * 2); ctx.fill();
@@ -527,7 +527,7 @@ const guitar: ItemDef = {
 };
 
 const suitcase: ItemDef = {
-  id: 'suitcase', name: 'Suitcase', world: 'house', sizeTier: 5, baseValue: 75, weight: 9,
+  id: 'suitcase', name: 'Suitcase', world: 'house', sizeTier: 5, baseValue: 33, weight: 9,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.35, -s * 0.28, s * 0.7, s * 0.56, s * 0.05);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -542,7 +542,7 @@ const suitcase: ItemDef = {
 };
 
 const printer: ItemDef = {
-  id: 'printer', name: 'Printer', world: 'house', sizeTier: 5, baseValue: 80, weight: 10,
+  id: 'printer', name: 'Printer', world: 'house', sizeTier: 5, baseValue: 35, weight: 10,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.38, -s * 0.18, s * 0.76, s * 0.36, s * 0.04);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -557,7 +557,7 @@ const printer: ItemDef = {
 };
 
 const smallTable: ItemDef = {
-  id: 'small_table', name: 'Small Table', world: 'house', sizeTier: 5, baseValue: 72, weight: 10,
+  id: 'small_table', name: 'Small Table', world: 'house', sizeTier: 5, baseValue: 32, weight: 10,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     roundRect(ctx, -s * 0.4, -s * 0.32, s * 0.8, s * 0.08, s * 0.02);
@@ -569,7 +569,7 @@ const smallTable: ItemDef = {
 };
 
 const microwave: ItemDef = {
-  id: 'microwave', name: 'Microwave', world: 'house', sizeTier: 5, baseValue: 68, weight: 11,
+  id: 'microwave', name: 'Microwave', world: 'house', sizeTier: 5, baseValue: 28, weight: 11,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.4, -s * 0.25, s * 0.8, s * 0.5, s * 0.04);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -585,7 +585,7 @@ const microwave: ItemDef = {
 // ─── World 6: Warehouse (extra large objects) ───
 
 const desk: ItemDef = {
-  id: 'desk', name: 'Desk', world: 'warehouse', sizeTier: 6, baseValue: 120, weight: 14,
+  id: 'desk', name: 'Desk', world: 'warehouse', sizeTier: 6, baseValue: 45, weight: 14,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.45, -s * 0.3, s * 0.9, s * 0.1);
@@ -600,7 +600,7 @@ const desk: ItemDef = {
 };
 
 const bookshelf: ItemDef = {
-  id: 'bookshelf', name: 'Bookshelf', world: 'warehouse', sizeTier: 6, baseValue: 130, weight: 18,
+  id: 'bookshelf', name: 'Bookshelf', world: 'warehouse', sizeTier: 6, baseValue: 50, weight: 18,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.38, -s * 0.45, s * 0.76, s * 0.9);
@@ -621,7 +621,7 @@ const bookshelf: ItemDef = {
 };
 
 const fridge: ItemDef = {
-  id: 'fridge', name: 'Fridge', world: 'warehouse', sizeTier: 6, baseValue: 150, weight: 22,
+  id: 'fridge', name: 'Fridge', world: 'warehouse', sizeTier: 6, baseValue: 62, weight: 22,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.28, -s * 0.45, s * 0.56, s * 0.9, s * 0.04);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -634,7 +634,7 @@ const fridge: ItemDef = {
 };
 
 const washingMachine: ItemDef = {
-  id: 'washing_machine', name: 'Washing Machine', world: 'warehouse', sizeTier: 6, baseValue: 140, weight: 25,
+  id: 'washing_machine', name: 'Washing Machine', world: 'warehouse', sizeTier: 6, baseValue: 55, weight: 25,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.35, -s * 0.38, s * 0.7, s * 0.76, s * 0.04);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -650,7 +650,7 @@ const washingMachine: ItemDef = {
 };
 
 const sofa: ItemDef = {
-  id: 'sofa', name: 'Sofa', world: 'warehouse', sizeTier: 6, baseValue: 160, weight: 20,
+  id: 'sofa', name: 'Sofa', world: 'warehouse', sizeTier: 6, baseValue: 68, weight: 20,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.45, -s * 0.15, s * 0.9, s * 0.35, s * 0.06);
     ctx.fillStyle = c[0]; ctx.fill();
@@ -667,7 +667,7 @@ const sofa: ItemDef = {
 };
 
 const bathtub: ItemDef = {
-  id: 'bathtub', name: 'Bathtub', world: 'warehouse', sizeTier: 6, baseValue: 145, weight: 28,
+  id: 'bathtub', name: 'Bathtub', world: 'warehouse', sizeTier: 6, baseValue: 58, weight: 28,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath();
@@ -691,7 +691,7 @@ const bathtub: ItemDef = {
 };
 
 const bicycle: ItemDef = {
-  id: 'bicycle', name: 'Bicycle', world: 'warehouse', sizeTier: 6, baseValue: 135, weight: 12,
+  id: 'bicycle', name: 'Bicycle', world: 'warehouse', sizeTier: 6, baseValue: 52, weight: 12,
   draw(ctx, s, c) {
     ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.04; ctx.lineCap = 'round';
     const wr = s * 0.2;
@@ -709,7 +709,7 @@ const bicycle: ItemDef = {
 };
 
 const piano: ItemDef = {
-  id: 'piano', name: 'Piano', world: 'warehouse', sizeTier: 6, baseValue: 180, weight: 30,
+  id: 'piano', name: 'Piano', world: 'warehouse', sizeTier: 6, baseValue: 75, weight: 30,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.4, -s * 0.35, s * 0.8, s * 0.55);
@@ -729,7 +729,7 @@ const piano: ItemDef = {
 // ─── World 7: Outdoors (massive objects) ───
 
 const car: ItemDef = {
-  id: 'car', name: 'Car', world: 'outdoors', sizeTier: 7, baseValue: 250, weight: 35,
+  id: 'car', name: 'Car', world: 'outdoors', sizeTier: 7, baseValue: 130, weight: 35,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     roundRect(ctx, -s * 0.45, -s * 0.05, s * 0.9, s * 0.25, s * 0.04);
@@ -752,7 +752,7 @@ const car: ItemDef = {
 };
 
 const tree: ItemDef = {
-  id: 'tree', name: 'Tree', world: 'outdoors', sizeTier: 7, baseValue: 200, weight: 40,
+  id: 'tree', name: 'Tree', world: 'outdoors', sizeTier: 7, baseValue: 110, weight: 40,
   draw(ctx, s, c) {
     ctx.fillStyle = c[2] || '#6b3e1f';
     ctx.fillRect(-s * 0.06, s * 0.05, s * 0.12, s * 0.4);
@@ -766,7 +766,7 @@ const tree: ItemDef = {
 };
 
 const dumpster: ItemDef = {
-  id: 'dumpster', name: 'Dumpster', world: 'outdoors', sizeTier: 7, baseValue: 180, weight: 45,
+  id: 'dumpster', name: 'Dumpster', world: 'outdoors', sizeTier: 7, baseValue: 100, weight: 45,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath();
@@ -784,7 +784,7 @@ const dumpster: ItemDef = {
 };
 
 const streetLamp: ItemDef = {
-  id: 'street_lamp', name: 'Street Lamp', world: 'outdoors', sizeTier: 7, baseValue: 170, weight: 15,
+  id: 'street_lamp', name: 'Street Lamp', world: 'outdoors', sizeTier: 7, baseValue: 96, weight: 15,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.03, -s * 0.15, s * 0.06, s * 0.6);
@@ -801,7 +801,7 @@ const streetLamp: ItemDef = {
 };
 
 const mailbox: ItemDef = {
-  id: 'mailbox', name: 'Mailbox', world: 'outdoors', sizeTier: 7, baseValue: 160, weight: 12,
+  id: 'mailbox', name: 'Mailbox', world: 'outdoors', sizeTier: 7, baseValue: 88, weight: 12,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     roundRect(ctx, -s * 0.2, -s * 0.25, s * 0.4, s * 0.35, s * 0.04);
@@ -815,7 +815,7 @@ const mailbox: ItemDef = {
 };
 
 const bench: ItemDef = {
-  id: 'bench', name: 'Bench', world: 'outdoors', sizeTier: 7, baseValue: 155, weight: 16,
+  id: 'bench', name: 'Bench', world: 'outdoors', sizeTier: 7, baseValue: 85, weight: 16,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.fillRect(-s * 0.45, -s * 0.08, s * 0.9, s * 0.08);
@@ -830,7 +830,7 @@ const bench: ItemDef = {
 };
 
 const trashCan: ItemDef = {
-  id: 'trash_can', name: 'Trash Can', world: 'outdoors', sizeTier: 7, baseValue: 140, weight: 10,
+  id: 'trash_can', name: 'Trash Can', world: 'outdoors', sizeTier: 7, baseValue: 80, weight: 10,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     ctx.beginPath();
@@ -849,7 +849,7 @@ const trashCan: ItemDef = {
 };
 
 const hydrant: ItemDef = {
-  id: 'hydrant', name: 'Fire Hydrant', world: 'outdoors', sizeTier: 7, baseValue: 165, weight: 18,
+  id: 'hydrant', name: 'Fire Hydrant', world: 'outdoors', sizeTier: 7, baseValue: 92, weight: 18,
   draw(ctx, s, c) {
     ctx.fillStyle = c[0];
     roundRect(ctx, -s * 0.12, -s * 0.18, s * 0.24, s * 0.45, s * 0.06);

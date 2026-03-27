@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { ACHIEVEMENTS } from '../lib/constants';
-import { Trophy, Zap } from 'lucide-react';
+import { Trophy, Lightning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function AchievementToast() {
@@ -45,13 +45,13 @@ export function AchievementToast() {
         >
           <button
             onClick={() => dismissAchievement(achDef.id)}
-            className="bg-amber-500 text-white rounded-2xl px-5 py-3 shadow-xl flex items-center gap-3 hover:bg-amber-600 transition-colors"
+            className="bg-white border-2 border-amber-400 text-amber-800 rounded-2xl px-5 py-3 shadow-lg shadow-amber-200/40 flex items-center gap-3 hover:bg-amber-50 transition-colors"
           >
-            <Trophy size={22} />
+            <Trophy size={22} className="text-amber-500" />
             <div className="text-left">
               <div className="font-black text-sm">{achDef.name}</div>
-              <div className="text-xs opacity-90">{achDef.desc}</div>
-              <div className="text-xs font-bold mt-0.5 text-amber-200">
+              <div className="text-xs opacity-90 font-body">{achDef.desc}</div>
+              <div className="text-xs font-bold mt-0.5 text-amber-600">
                 {achDef.reward.type === 'gems' ? `+${achDef.reward.value} Gems` :
                  achDef.reward.type === 'money_mult' ? `+${Math.round(achDef.reward.value * 100)}% Money` :
                  `+${Math.round(achDef.reward.value * 100)}% Speed`}
@@ -71,9 +71,11 @@ export function AchievementToast() {
         >
           <button
             onClick={() => dismissSkillFlash(latestSkill)}
-            className={`${isGate ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-2xl px-5 py-3 shadow-xl flex items-center gap-3 transition-colors`}
+            className={`bg-white rounded-2xl px-5 py-3 shadow-lg flex items-center gap-3 transition-colors ${
+              isGate ? 'border-2 border-purple-400 text-purple-800 shadow-purple-200/40 hover:bg-purple-50' : 'border-2 border-blue-400 text-blue-800 shadow-blue-200/40 hover:bg-blue-50'
+            }`}
           >
-            <Zap size={20} />
+            <Lightning size={20} className={isGate ? 'text-purple-500' : 'text-blue-500'} />
             <div className="font-black text-sm">
               {isGate ? 'Gate Breakthrough!' : 'New Skill Unlocked!'}
             </div>

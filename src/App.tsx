@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconContext } from '@phosphor-icons/react';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { SkillTree } from './components/SkillTree';
@@ -8,6 +9,12 @@ import { Tutorial } from './components/Tutorial';
 import { WelcomeBackModal } from './components/WelcomeBackModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
 import { LevelCompleteModal } from './components/LevelCompleteModal';
+import { AchievementPanel } from './components/AchievementPanel';
+import { StatsPanel } from './components/StatsPanel';
+import { GemShop } from './components/GemShop';
+import { BlobCustomizer } from './components/BlobCustomizer';
+import { WorldViewer } from './components/BiomeSelector';
+import { DebugPanel } from './components/DebugPanel';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useOfflineProgress } from './hooks/useOfflineProgress';
 import { useGameStore } from './store/gameStore';
@@ -37,6 +44,7 @@ export default function App() {
   }, []);
 
   return (
+    <IconContext.Provider value={{ weight: 'fill' }}>
     <div className="relative w-full h-[100dvh] bg-white overflow-hidden select-none touch-none">
       <GameCanvas />
       <HUD />
@@ -44,6 +52,18 @@ export default function App() {
       <SkillTree />
       {/* <EvolutionPanel /> */}
       <LevelCompleteModal />
+
+      {/* Bottom panel bar */}
+      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe">
+        <div className="flex justify-evenly items-center px-2 py-2">
+          <AchievementPanel />
+          <StatsPanel />
+          <GemShop />
+          <BlobCustomizer />
+          <WorldViewer />
+          <DebugPanel />
+        </div>
+      </div>
       <Tutorial />
 
       {showDaily && (
@@ -62,5 +82,6 @@ export default function App() {
         />
       )}
     </div>
+    </IconContext.Provider>
   );
 }

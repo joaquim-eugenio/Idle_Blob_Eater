@@ -5,7 +5,7 @@ import {
   RARITY_COLORS, type CosmeticRarity, type CosmeticCurrency,
 } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
-import { X, Sparkles, Gem, DollarSign, Crown, Shirt, SmilePlus } from 'lucide-react';
+import { X, Sparkle, Diamond, CurrencyDollar, Crown, TShirt, SmileySticker } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const PREVIEW_NODES = 32;
@@ -256,7 +256,7 @@ export function BlobCustomizer() {
     const colors = RARITY_COLORS[item.rarity];
     const affordable = canAfford(item.cost, item.currency);
     return (
-      <div key={item.id} className={`${colors.bg} rounded-xl p-3.5 border ${colors.border} flex items-center justify-between gap-3`}>
+      <div key={item.id} className={`${colors.bg} rounded-xl p-3.5 border-2 ${colors.border} flex items-center justify-between gap-3`}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm text-slate-800 truncate">{item.name}</span>
@@ -264,15 +264,15 @@ export function BlobCustomizer() {
               {rarityLabel(item.rarity)}
             </span>
           </div>
-          <div className="text-xs text-slate-500 mt-0.5">{item.description}</div>
+          <div className="text-xs text-slate-500 mt-0.5 font-body">{item.description}</div>
         </div>
         {isOwned ? (
           <button
             onClick={onToggle}
-            className={`px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
+            className={`btn-game px-3 py-2 rounded-lg font-bold text-sm transition-all whitespace-nowrap ${
               isActive
-                ? 'bg-purple-500 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-pink-500 text-white border-b-4 border-pink-700'
+                : 'bg-slate-100 text-slate-600 border-b-4 border-slate-300 hover:bg-slate-200'
             }`}
           >
             {isActive ? 'Equipped' : 'Equip'}
@@ -281,13 +281,13 @@ export function BlobCustomizer() {
           <button
             onClick={onBuy}
             disabled={!affordable}
-            className={`px-3 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${
+            className={`btn-game px-3 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1.5 ${
               affordable
-                ? 'bg-purple-500 text-white hover:bg-purple-600 active:scale-95'
-                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                ? 'bg-pink-500 text-white border-b-4 border-pink-700 hover:bg-pink-600'
+                : 'bg-slate-100 text-slate-400 border-b-4 border-slate-200 cursor-not-allowed'
             }`}
           >
-            {item.currency === 'gems' ? <Gem size={14} /> : <DollarSign size={14} />}
+            {item.currency === 'gems' ? <Diamond size={14} /> : <CurrencyDollar size={14} />}
             {formatCost(item.cost, item.currency)}
           </button>
         )}
@@ -297,12 +297,15 @@ export function BlobCustomizer() {
 
   return (
     <>
-      <button
-        onClick={openCustomizer}
-        className="relative p-2.5 bg-pink-500/90 text-white rounded-full shadow-md hover:bg-pink-400 active:scale-95 transition-all"
-      >
-        <Sparkles size={18} />
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <button
+          onClick={openCustomizer}
+          className="relative p-2.5 bg-pink-500 text-white rounded-full border-2 border-pink-600 shadow-md shadow-pink-200/30 hover:bg-pink-400 active:scale-95 transition-all"
+        >
+          <Sparkle size={18} />
+        </button>
+        <span className="text-[10px] font-bold text-pink-600">Style</span>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
@@ -311,29 +314,29 @@ export function BlobCustomizer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={closeCustomizer}
-            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-4"
+            className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-3 sm:p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-50 w-full max-w-lg rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[92dvh]"
+              className="bg-white w-full max-w-lg rounded-3xl border-3 border-pink-400 shadow-lg shadow-pink-200/40 overflow-hidden flex flex-col max-h-[92dvh]"
             >
-              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-pink-500 to-purple-500 text-white">
+              <div className="p-4 flex justify-between items-center bg-pink-500 text-white">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Customize Blob</h2>
-                  <div className="text-sm opacity-90 flex items-center gap-3 mt-0.5">
-                    <span className="flex items-center gap-1"><Gem size={13} />{gems}</span>
-                    <span className="flex items-center gap-1"><DollarSign size={13} />${money >= 1000 ? `${(money / 1000).toFixed(1)}K` : money}</span>
+                  <div className="text-sm opacity-90 flex items-center gap-3 mt-0.5 font-body">
+                    <span className="flex items-center gap-1"><Diamond size={13} />{gems}</span>
+                    <span className="flex items-center gap-1"><CurrencyDollar size={13} />${money >= 1000 ? `${(money / 1000).toFixed(1)}K` : money}</span>
                   </div>
                 </div>
-                <button onClick={closeCustomizer} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                <button onClick={closeCustomizer} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
                   <X size={22} />
                 </button>
               </div>
 
-              <div className="relative">
+              <div className="relative bg-slate-100 border-b-2 border-slate-200">
                 <canvas
                   ref={canvasRef}
                   className="w-full"
@@ -343,22 +346,22 @@ export function BlobCustomizer() {
                   onPointerUp={handlePointerUp}
                   onPointerLeave={handlePointerUp}
                 />
-                <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-slate-400 pointer-events-none">
+                <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-slate-400 font-body pointer-events-none">
                   Touch and drag the blob!
                 </div>
               </div>
 
-              <div className="flex border-b border-slate-200">
+              <div className="flex border-b-2 border-pink-100">
                 {([
                   { id: 'skins' as const, label: 'Skins', Icon: Crown },
-                  { id: 'items' as const, label: 'Items', Icon: Shirt },
-                  { id: 'faces' as const, label: 'Faces', Icon: SmilePlus },
+                  { id: 'items' as const, label: 'Items', Icon: TShirt },
+                  { id: 'faces' as const, label: 'Faces', Icon: SmileySticker },
                 ]).map(({ id, label, Icon }) => (
                   <button
                     key={id}
                     onClick={() => setTab(id)}
                     className={`flex-1 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
-                      tab === id ? 'text-purple-600 border-b-2 border-purple-500' : 'text-slate-400'
+                      tab === id ? 'text-pink-600 border-b-3 border-pink-500' : 'text-slate-400'
                     }`}
                   >
                     <Icon size={15} /> {label}

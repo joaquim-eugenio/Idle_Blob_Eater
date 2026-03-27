@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
-import { BarChart3, RotateCcw, X } from 'lucide-react';
+import { ChartBar, ArrowCounterClockwise, X } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 function fmt(n: number): string {
@@ -46,12 +46,15 @@ export function StatsPanel() {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="p-2.5 bg-slate-500/80 text-white rounded-full shadow-md hover:bg-slate-400 active:scale-95 transition-all"
-      >
-        <BarChart3 size={18} />
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <button
+          onClick={() => setIsOpen(true)}
+          className="p-2.5 bg-blue-500 text-white rounded-full border-2 border-blue-600 shadow-md shadow-blue-200/30 hover:bg-blue-400 active:scale-95 transition-all"
+        >
+          <ChartBar size={18} />
+        </button>
+        <span className="text-[10px] font-bold text-blue-600">Stats</span>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
@@ -60,36 +63,36 @@ export function StatsPanel() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => { setIsOpen(false); setConfirmReset(false); }}
-            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-4"
+            className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-3 sm:p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white w-full max-w-sm rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]"
+              className="bg-white w-full max-w-sm rounded-3xl border-3 border-blue-400 shadow-lg shadow-blue-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 border-b border-slate-200 flex justify-between items-center">
-                <h2 className="text-xl font-black text-slate-800">Statistics</h2>
-                <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors">
+              <div className="p-5 flex justify-between items-center bg-blue-500 text-white">
+                <h2 className="text-xl font-black tracking-tight">Statistics</h2>
+                <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
                   <X size={20} />
                 </button>
               </div>
               <div className="p-4 space-y-1 flex-1 overflow-auto">
                 {rows.map(([label, value]) => (
-                  <div key={label} className="flex justify-between items-center py-2 px-2 rounded-lg even:bg-slate-50">
-                    <span className="text-sm text-slate-600">{label}</span>
+                  <div key={label} className="flex justify-between items-center py-2 px-2 rounded-lg even:bg-blue-50/50">
+                    <span className="text-sm text-slate-600 font-body">{label}</span>
                     <span className="text-sm font-bold text-slate-800">{value}</span>
                   </div>
                 ))}
               </div>
-              <div className="p-4 border-t border-slate-200">
+              <div className="p-4 border-t-2 border-blue-100">
                 {!confirmReset ? (
                   <button
                     onClick={() => setConfirmReset(true)}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 active:scale-[0.97] transition-all"
+                    className="btn-game w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-red-600 bg-red-50 border-b-4 border-red-200 hover:bg-red-100 transition-all"
                   >
-                    <RotateCcw size={15} />
+                    <ArrowCounterClockwise size={15} />
                     Reset All Progress
                   </button>
                 ) : (
@@ -98,13 +101,13 @@ export function StatsPanel() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setConfirmReset(false)}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all"
+                        className="btn-game flex-1 py-2.5 rounded-xl text-sm font-bold text-slate-600 bg-slate-100 border-b-4 border-slate-300 transition-all"
                       >
                         Cancel
                       </button>
                       <button
                         onClick={() => { resetGame(); setConfirmReset(false); setIsOpen(false); }}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 active:scale-[0.97] transition-all"
+                        className="btn-game flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-500 border-b-4 border-red-700 transition-all"
                       >
                         Yes, Reset
                       </button>

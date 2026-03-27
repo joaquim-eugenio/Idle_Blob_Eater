@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { WORLDS } from '../lib/levels';
-import { Bug, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Bug, X, CaretDown, CaretRight } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -13,7 +13,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         className="w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-100 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors"
       >
         {title}
-        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        {open ? <CaretDown size={16} /> : <CaretRight size={16} />}
       </button>
       {open && <div className="p-3 space-y-2.5">{children}</div>}
     </div>
@@ -60,12 +60,15 @@ export function DebugPanel() {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="relative p-2.5 bg-slate-600/90 text-white rounded-full shadow-md hover:bg-slate-500 active:scale-95 transition-all"
-      >
-        <Bug size={18} />
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <button
+          onClick={() => setIsOpen(true)}
+          className="relative p-2.5 bg-slate-500 text-white rounded-full border-2 border-slate-600 shadow-md shadow-slate-200/30 hover:bg-slate-400 active:scale-95 transition-all"
+        >
+          <Bug size={18} />
+        </button>
+        <span className="text-[10px] font-bold text-slate-600">Debug</span>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
@@ -74,21 +77,21 @@ export function DebugPanel() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-4"
+            className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-3 sm:p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-50 w-full max-w-md rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]"
+              className="bg-white w-full max-w-md rounded-3xl border-3 border-slate-400 shadow-lg overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-slate-700 to-slate-800 text-white">
+              <div className="p-4 flex justify-between items-center bg-slate-700 text-white">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Debug Panel</h2>
-                  <div className="text-xs opacity-70 mt-0.5">Development tools</div>
+                  <div className="text-xs opacity-70 mt-0.5 font-body">Development tools</div>
                 </div>
-                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
                   <X size={22} />
                 </button>
               </div>

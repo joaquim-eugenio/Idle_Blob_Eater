@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { useGameStore, Item, getCurrentWorld } from '../store/gameStore';
+import { useGameStore, Item, getCurrentWorld, computeTapCooldown } from '../store/gameStore';
 import { BASE_SUCTION, BLOB_SKINS } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
+
+const GAME_FONT = "'Fredoka', sans-serif";
 
 const LEVEL_COLORS = [
   '#0088ff', '#22c55e', '#f97316', '#ef4444',
@@ -25,6 +27,7 @@ interface FloatingText {
 
 interface Ripple {
   x: number; y: number; birth: number;
+  type: 'normal' | 'cooldown' | 'blob';
 }
 
 const NUM_NODES = 16;
@@ -91,6 +94,7 @@ export function GameCanvas() {
   const prevItemsRef = useRef<Item[]>([]);
   const camPosRef = useRef({ x: 200, y: 300 });
   const floatingTextsRef = useRef<FloatingText[]>([]);
+  const prevComboRef = useRef(0);
   const ripplesRef = useRef<Ripple[]>([]);
   const eatPopRef = useRef(0);
   const displayedSizeScaleRef = useRef(0);
@@ -131,8 +135,41 @@ export function GameCanvas() {
     const worldX = camPosRef.current.x + (screenX - canvas.width / 2) / zoom;
     const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
 
-    ripplesRef.current.push({ x: worldX, y: worldY, birth: performance.now() / 1000 });
+    const now = performance.now() / 1000;
+    const bx = state.blobPosition.x;
+    const by = state.blobPosition.y;
+    const tapDist = Math.hypot(worldX - bx, worldY - by);
+    const MIN_SPAWN_DIST = 40;
 
+    if (tapDist < MIN_SPAWN_DIST) {
+      ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'blob' });
+
+      const nodes = nodesRef.current;
+      const angle = Math.atan2(worldY - by, worldX - bx);
+      for (let ni = 0; ni < NUM_NODES; ni++) {
+        const nodeAngle = (ni / NUM_NODES) * Math.PI * 2;
+        let diff = Math.abs(nodeAngle - angle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        if (diff < Math.PI / 2) {
+          const force = (Math.PI / 2 - diff) * 15 * world.blobScale;
+          nodes[ni].vx -= Math.cos(angle) * force;
+          nodes[ni].vy -= Math.sin(angle) * force;
+        }
+      }
+
+      const POKE_TEXTS = ['Hey!', 'That tickles!', 'Feed me!', 'Hehe!', 'Boop!'];
+      const text = POKE_TEXTS[Math.floor(Math.random() * POKE_TEXTS.length)];
+      floatingTextsRef.current.push({ x: bx, y: by - 20, text, birth: now, value: -1 });
+      return;
+    }
+
+    const cooldown = computeTapCooldown(state.upgrades, state.unlockedSkillNodes);
+    if (now - state.lastTapTime < cooldown) {
+      ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'cooldown' });
+      return;
+    }
+
+    ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'normal' });
     state.tapFood(worldX, worldY);
   }, []);
 
@@ -315,11 +352,26 @@ export function GameCanvas() {
         const age = now - rip.birth;
         if (age > 0.6) { ripplesRef.current.splice(i, 1); continue; }
         const progress = age / 0.6;
-        const ripRadius = 20 + progress * 60;
+
+        let ripRadius: number, color: string, lineW: number;
+        if (rip.type === 'cooldown') {
+          ripRadius = 15 + progress * 25;
+          color = `rgba(150, 150, 150, ${0.35 * (1 - progress)})`;
+          lineW = (2 / zoom) * (1 - progress);
+        } else if (rip.type === 'blob') {
+          ripRadius = 15 + progress * 40;
+          color = `rgba(255, 255, 255, ${0.5 * (1 - progress)})`;
+          lineW = (2.5 / zoom) * (1 - progress);
+        } else {
+          ripRadius = 20 + progress * 60;
+          color = `rgba(59, 130, 246, ${0.5 * (1 - progress)})`;
+          lineW = (3 / zoom) * (1 - progress);
+        }
+
         ctx.beginPath();
         ctx.arc(rip.x, rip.y, ripRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(59, 130, 246, ${0.5 * (1 - progress)})`;
-        ctx.lineWidth = (3 / zoom) * (1 - progress);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineW;
         ctx.stroke();
       }
 
@@ -420,6 +472,18 @@ export function GameCanvas() {
         });
       }
       prevItemsRef.current = currentItems;
+
+      // Combo floating text
+      if (comboCount >= 2 && comboCount > prevComboRef.current) {
+        floatingTextsRef.current.push({
+          x: blobPosition.x - radius * 1.2,
+          y: blobPosition.y + radius * 0.8,
+          text: `x${Math.min(comboCount, 10)}`,
+          birth: now,
+          value: -2,
+        });
+      }
+      prevComboRef.current = comboCount;
 
       // Physics
       for (let i = 0; i < NUM_NODES; i++) {
@@ -677,19 +741,27 @@ export function GameCanvas() {
         const screenX = (ft.x - camPosRef.current.x) * zoom + canvas.width / 2;
         const screenY = (ft.y - camPosRef.current.y) * zoom + canvas.height / 2 - age * 40;
         const alpha = 1 - age;
-        const valueScale = Math.min(2, 1 + ft.value / 50);
+        const valueScale = ft.value < 0 ? 1 : Math.min(2, 1 + ft.value / 50);
         const scale = (1 + age * 0.3) * valueScale;
 
         ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.font = `bold ${Math.round(14 * scale)}px sans-serif`;
+        const isCombo = ft.value === -2;
+        const fontSize = isCombo ? Math.round(22 * scale) : Math.round(14 * scale);
+        ctx.font = `bold ${fontSize}px ${GAME_FONT}`;
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#000000';
-        ctx.fillText(ft.text, screenX + 1, screenY + 1);
 
-        const tier = ft.value > 20 ? '#f59e0b' : ft.value > 10 ? '#eab308' : '#22c55e';
-        ctx.fillStyle = tier;
-        ctx.fillText(ft.text, screenX, screenY);
+        if (isCombo) {
+          ctx.fillStyle = '#facc15';
+          ctx.fillText(ft.text, screenX, screenY);
+        } else {
+          ctx.fillStyle = '#000000';
+          ctx.fillText(ft.text, screenX + 1, screenY + 1);
+          const tier = ft.value < 0 ? '#f0abfc'
+            : ft.value > 20 ? '#f59e0b' : ft.value > 10 ? '#eab308' : '#22c55e';
+          ctx.fillStyle = tier;
+          ctx.fillText(ft.text, screenX, screenY);
+        }
         ctx.restore();
       }
 
@@ -699,7 +771,7 @@ export function GameCanvas() {
         const textScale = levelUpAge < 0.3 ? 0.5 + (levelUpAge / 0.3) * 0.5 : 1.0;
         ctx.save();
         ctx.globalAlpha = textAlpha;
-        ctx.font = `bold ${Math.round(48 * textScale)}px sans-serif`;
+        ctx.font = `900 ${Math.round(48 * textScale)}px ${GAME_FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#000000';
@@ -740,13 +812,13 @@ export function GameCanvas() {
           ctx.textBaseline = 'middle';
 
           const titleY = canvas.height * 0.38;
-          ctx.font = 'bold 52px sans-serif';
+          ctx.font = `900 52px ${GAME_FONT}`;
           ctx.fillStyle = 'rgba(0,0,0,0.3)';
           ctx.fillText(`Level ${currentLevel}`, canvas.width / 2 + 2, titleY + 2);
           ctx.fillStyle = '#ffffff';
           ctx.fillText(`Level ${currentLevel}`, canvas.width / 2, titleY);
 
-          ctx.font = 'bold 22px sans-serif';
+          ctx.font = `22px ${GAME_FONT}`;
           ctx.fillStyle = 'rgba(255,255,255,0.7)';
           ctx.fillText(world.name, canvas.width / 2, titleY + 40);
 

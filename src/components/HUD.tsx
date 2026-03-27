@@ -1,13 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { BASE_MAX_HUNGER, softCap } from '../lib/constants';
-import { Sparkles } from 'lucide-react';
-import { AchievementPanel } from './AchievementPanel';
-import { StatsPanel } from './StatsPanel';
-import { GemShop } from './GemShop';
-import { BlobCustomizer } from './BlobCustomizer';
-import { WorldViewer } from './BiomeSelector';
-import { DebugPanel } from './DebugPanel';
+import { Sparkle, GearSix } from '@phosphor-icons/react';
 import { getWorldForLevel } from '../lib/levels';
+import { SettingsPanel } from './SettingsPanel';
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -17,8 +13,19 @@ function fmt(n: number): string {
 
 export function HUD() {
   const { currentLevel, hunger, levelItemsEaten, levelItemsTotal, money, upgrades,
-    moneyPerSecond, essence, comboCount, unlockedSkillNodes,
+    moneyPerSecond, essence,
     levelComplete, levelFailed } = useGameStore();
+
+  const prevMoney = useRef(money);
+  const [flashKey, setFlashKey] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    if (money > prevMoney.current) {
+      setFlashKey((k) => k + 1);
+    }
+    prevMoney.current = money;
+  }, [money]);
 
   const world = getWorldForLevel(currentLevel);
 
@@ -31,44 +38,34 @@ export function HUD() {
     ? Math.max(0, Math.min(100, (levelItemsEaten / levelItemsTotal) * 100))
     : 0;
 
-  const activeTraitTags = [
-    unlockedSkillNodes.includes('hunt_dash_on_star') ? 'Star Dash' : null,
-    unlockedSkillNodes.includes('feast_overkill') ? 'Overkill Cash' : null,
-    unlockedSkillNodes.includes('survival_frenzy') ? 'Frenzy' : null,
-    unlockedSkillNodes.includes('auto_tap_drone') ? 'Auto Tap' : null,
-    unlockedSkillNodes.includes('gate_b_unlock') ? 'Chapter 3' : null,
-  ].filter(Boolean) as string[];
-
   return (
+    <>
     <div className="absolute top-0 left-0 right-0 p-4 pt-safe flex flex-col gap-2 pointer-events-none z-10">
       <div className="flex justify-between items-start relative">
         <div className="flex flex-col">
-          <div className="text-2xl font-bold text-slate-800 drop-shadow-sm">
+          <div className="text-2xl font-black text-slate-800 drop-shadow-sm">
             Level {currentLevel}
           </div>
-          <div className="text-xs font-semibold text-slate-500 -mt-0.5">
+          <div className="text-xs font-semibold text-slate-500 -mt-0.5 font-body">
             {world.name}
           </div>
           {essence > 0 && (
             <div className="flex items-center gap-1 text-purple-500 text-xs font-bold mt-0.5">
-              <Sparkles size={12} />
+              <Sparkle size={12} />
               {essence} Essence
             </div>
           )}
         </div>
 
-        {comboCount >= 3 && (
-          <div className="absolute left-1/2 -translate-x-1/2 top-1 pointer-events-none z-50">
-            <span className={`inline-block text-white font-black text-base px-4 py-1 rounded-full shadow-lg animate-pulse ${
-              comboCount >= 10 ? 'bg-red-500' : comboCount >= 5 ? 'bg-orange-500' : 'bg-amber-500'
-            }`}>
-              x{Math.min(comboCount, 10)} COMBO!
-            </span>
-          </div>
-        )}
-
         <div className="flex flex-col items-end gap-0.5">
-          <div className="text-xl font-bold text-emerald-600 bg-white/80 px-3 py-1 rounded-full shadow-sm backdrop-blur-sm">
+          <button
+            onClick={() => setSettingsOpen(true)}
+            className="p-1.5 text-slate-400 hover:text-slate-600 pointer-events-auto transition-colors"
+            aria-label="Settings"
+          >
+            <GearSix size={18} />
+          </button>
+          <div key={flashKey} className="text-xl font-black text-emerald-600 bg-white border-2 border-emerald-400 px-3 py-1 rounded-full shadow-md shadow-emerald-200/30 money-flash">
             ${fmt(money)}
           </div>
           {moneyPerSecond > 0 && (
@@ -79,52 +76,38 @@ export function HUD() {
         </div>
       </div>
 
-      {activeTraitTags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 justify-center pointer-events-none">
-          {activeTraitTags.map((tag) => (
-            <span key={tag} className="text-[10px] sm:text-xs bg-indigo-500/90 text-white px-2 py-0.5 rounded-full shadow-sm">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
-
       {/* Hunger Bar */}
-      <div className={`w-full bg-slate-200 rounded-full h-4 shadow-inner overflow-hidden relative ${hungerLow ? 'animate-pulse' : ''}`}>
+      <div className={`w-full bg-rose-300 rounded-full h-5 overflow-hidden relative border-2 border-rose-400 ${hungerLow ? 'animate-pulse' : ''}`}>
         <div
-          className={`h-full transition-all duration-200 ease-out ${hungerLow ? 'bg-red-600' : 'bg-rose-500'}`}
+          className={`h-full transition-all duration-200 ease-out ${hungerLow ? 'bg-red-500' : 'bg-rose-500'}`}
           style={{ width: `${hungerPercent}%` }}
         />
-        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white drop-shadow-md">
+        <span
+          className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white"
+          style={{ textShadow: '-1px -1px 0 rgba(0,0,0,0.35), 1px -1px 0 rgba(0,0,0,0.35), -1px 1px 0 rgba(0,0,0,0.35), 1px 1px 0 rgba(0,0,0,0.35)' }}
+        >
           HUNGER
         </span>
       </div>
 
       {/* Items Progress Bar */}
-      <div className="w-full bg-slate-200 rounded-full h-3 shadow-inner overflow-hidden relative mt-1">
+      <div className="w-full bg-blue-300 rounded-full h-4 overflow-hidden relative border-2 border-blue-400">
         <div
           className={`h-full transition-all duration-200 ease-out ${
             levelComplete ? 'bg-emerald-500' : levelFailed ? 'bg-red-500' : 'bg-blue-500'
           }`}
           style={{ width: `${levelComplete ? 100 : itemsPercent}%` }}
         />
-        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white drop-shadow-md">
+        <span
+          className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white"
+          style={{ textShadow: '-1px -1px 0 rgba(0,0,0,0.35), 1px -1px 0 rgba(0,0,0,0.35), -1px 1px 0 rgba(0,0,0,0.35), 1px 1px 0 rgba(0,0,0,0.35)' }}
+        >
           {levelComplete ? 'LEVEL CLEAR!' : levelFailed ? 'STARVED!' : `ITEMS ${levelItemsEaten} / ${levelItemsTotal}`}
         </span>
       </div>
 
-      {/* Action buttons row */}
-      <div className="flex flex-wrap justify-between items-center mt-3 pointer-events-auto gap-2">
-        <div className="flex gap-2 flex-wrap">
-          <AchievementPanel />
-          <StatsPanel />
-          <GemShop />
-          <BlobCustomizer />
-          <WorldViewer />
-          <DebugPanel />
-        </div>
-      </div>
-
     </div>
+    <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+    </>
   );
 }

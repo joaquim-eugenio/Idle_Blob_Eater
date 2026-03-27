@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Hand, DollarSign, Sparkles, Globe } from 'lucide-react';
+import { Hand, CurrencyDollar, Sparkle, Globe } from '@phosphor-icons/react';
 
 interface HintConfig {
   message: string;
@@ -14,7 +14,7 @@ const HINT_CONFIGS: Record<string, HintConfig> = {
   blob_intro: {
     message: "This is your Blob! It eats all items to clear each level.",
     position: 'top-center',
-    icon: <Sparkles size={20} className="text-blue-300 shrink-0" />,
+    icon: <Sparkle size={20} className="text-blue-300 shrink-0" />,
   },
   tap_hint: {
     message: "Tap the screen to drop extra items for your Blob!",
@@ -24,13 +24,13 @@ const HINT_CONFIGS: Record<string, HintConfig> = {
   money_hint: {
     message: "You earned cash! Use it to buy upgrades.",
     position: 'top-center',
-    icon: <DollarSign size={20} className="text-emerald-300 shrink-0" />,
+    icon: <CurrencyDollar size={20} className="text-emerald-300 shrink-0" />,
     autoDismissMs: 4000,
   },
   skill_tree_hint: {
     message: "Try the Skill Tree for permanent boosts!",
     position: 'bottom-right',
-    icon: <Sparkles size={20} className="text-purple-300 shrink-0" />,
+    icon: <Sparkle size={20} className="text-purple-300 shrink-0" />,
     autoDismissMs: 5000,
   },
   worlds_hint: {
@@ -82,15 +82,15 @@ export function Tutorial() {
             <motion.div
               initial={{ y: 10, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="bg-white rounded-2xl shadow-2xl p-5 max-w-xs text-center"
+              className="bg-white rounded-2xl border-3 border-blue-400 shadow-lg shadow-blue-200/30 p-5 max-w-xs text-center"
             >
               <div className="flex items-center justify-center gap-2 mb-3">
                 {config.icon}
               </div>
-              <div className="text-lg font-bold text-slate-800 mb-4">{config.message}</div>
+              <div className="text-lg font-bold text-slate-800 mb-4 font-body">{config.message}</div>
               <button
                 onClick={() => dismissHint(activeHint)}
-                className="px-6 py-2 bg-blue-500 text-white rounded-xl font-bold text-sm hover:bg-blue-600 active:scale-95 transition-all"
+                className="btn-game px-6 py-2 bg-blue-500 text-white rounded-xl font-bold text-sm border-b-4 border-blue-700 hover:bg-blue-600 transition-all"
               >
                 Got it
               </button>

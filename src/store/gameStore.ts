@@ -200,6 +200,16 @@ function getSkillEffects(unlockedNodeIds: string[]): SkillEffects {
   return fx;
 }
 
+export function computeTapCooldown(
+  upgrades: { tapCooldown?: number; tapSynergy?: number },
+  unlockedSkillNodes: string[]
+): number {
+  const skillFx = getSkillEffects(unlockedSkillNodes);
+  const tapSyn = 1 + (upgrades.tapSynergy || 0) * 0.5;
+  return BASE_TAP_COOLDOWN * Math.pow(0.9, softCap(upgrades.tapCooldown || 0)) / tapSyn
+    * Math.max(0.3, 1 + skillFx.tapCooldownMult);
+}
+
 function hasChapterKeystone(unlockedNodeIds: string[], branch: string, chapter: number) {
   return unlockedNodeIds.some((id) => {
     const node = SKILL_NODE_LOOKUP[id];
@@ -447,6 +457,11 @@ interface GameState {
   _autoTapAccum: number;
   _benchmarkActive: boolean;
 
+  sfxEnabled: boolean;
+  musicEnabled: boolean;
+  hapticsEnabled: boolean;
+
+  toggleSetting: (key: 'sfxEnabled' | 'musicEnabled' | 'hapticsEnabled') => void;
   initLevel: (levelNum: number) => void;
   completeLevel: () => void;
   endIntro: () => void;
@@ -576,6 +591,12 @@ export const useGameStore = create<GameState>()(
       _introPlaying: false,
       _autoTapAccum: 0,
       _benchmarkActive: false,
+
+      sfxEnabled: true,
+      musicEnabled: true,
+      hapticsEnabled: true,
+
+      toggleSetting: (key) => set((state) => ({ [key]: !state[key] })),
 
       initLevel: (levelNum) => set((state) => {
         const def = getLevel(levelNum);
@@ -1629,6 +1650,9 @@ export const useGameStore = create<GameState>()(
         completedHints: state.completedHints,
         lastSaveTimestamp: state.lastSaveTimestamp,
         moneyPerSecond: state.moneyPerSecond,
+        sfxEnabled: state.sfxEnabled,
+        musicEnabled: state.musicEnabled,
+        hapticsEnabled: state.hapticsEnabled,
       }),
       merge: (persisted: any, current) => {
         const migratedLevel = persisted?.currentLevel || persisted?.level || 1;

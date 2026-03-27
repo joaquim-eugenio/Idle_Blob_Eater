@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { WORLDS, getWorldForLevel } from '../lib/levels';
-import { Globe, Lock, MapPin, X } from 'lucide-react';
+import { Globe, Lock, MapPin, X } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function WorldViewer() {
@@ -12,12 +12,15 @@ export function WorldViewer() {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="p-2.5 bg-emerald-500/80 text-white rounded-full shadow-md hover:bg-emerald-400 active:scale-95 transition-all"
-      >
-        <Globe size={18} />
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <button
+          onClick={() => setIsOpen(true)}
+          className="p-2.5 bg-emerald-500 text-white rounded-full border-2 border-emerald-600 shadow-md shadow-emerald-200/30 hover:bg-emerald-400 active:scale-95 transition-all"
+        >
+          <Globe size={18} />
+        </button>
+        <span className="text-[10px] font-bold text-emerald-600">Worlds</span>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
@@ -26,20 +29,20 @@ export function WorldViewer() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-4"
+            className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-3 sm:p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white w-full max-w-sm rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]"
+              className="bg-white w-full max-w-sm rounded-3xl border-3 border-emerald-400 shadow-lg shadow-emerald-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 border-b border-slate-200 flex justify-between items-center">
-                <h2 className="text-xl font-black text-slate-800">Worlds</h2>
+              <div className="p-5 flex justify-between items-center bg-emerald-500 text-white">
+                <h2 className="text-xl font-black tracking-tight">Worlds</h2>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+                  className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
                   aria-label="Close world viewer"
                 >
                   <X size={20} />
@@ -67,10 +70,10 @@ export function WorldViewer() {
                       key={world.id}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
                         isCurrent
-                          ? 'bg-emerald-50 border-2 border-emerald-300'
+                          ? 'bg-emerald-50 border-2 border-emerald-400'
                           : isReached
-                            ? 'border border-slate-200'
-                            : 'opacity-50 border border-slate-200'
+                            ? 'border-2 border-slate-200'
+                            : 'opacity-50 border-2 border-slate-200'
                       }`}
                     >
                       <div
@@ -94,7 +97,7 @@ export function WorldViewer() {
                           Levels {world.levelRange[0]} - {maxLevelInWorld}
                         </div>
                         {isReached && progress >= 0 && (
-                          <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1 overflow-hidden">
+                          <div className="w-full bg-emerald-100 rounded-full h-1.5 mt-1 overflow-hidden border border-emerald-200">
                             <div
                               className="bg-emerald-400 h-full transition-all duration-300"
                               style={{ width: `${progress}%` }}

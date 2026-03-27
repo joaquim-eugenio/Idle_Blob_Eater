@@ -151,7 +151,7 @@ const coin: ItemDef = {
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.04;
     ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = c[1]; ctx.font = `bold ${s * 0.3}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = c[1]; ctx.font = `bold ${s * 0.3}px 'Fredoka', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('$', 0, 0);
   },
 };

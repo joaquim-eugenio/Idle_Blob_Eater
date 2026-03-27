@@ -5,7 +5,7 @@ import {
   SKILL_TREE_NODES, type SkillNodeDef,
 } from '../lib/constants';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bot, Check, Coins, Lock, Shield, Sparkles, X, Zap } from 'lucide-react';
+import { Robot, Check, Coins, Lock, Shield, Sparkle, X, Lightning } from '@phosphor-icons/react';
 
 function SkillTreeIcon({ size = 26 }: { size?: number }) {
   return (
@@ -53,8 +53,8 @@ const BRANCH_CSS: Record<string, { ring: string; fill: string; text: string }> =
   evolution:  { ring: 'border-indigo-400',  fill: 'bg-indigo-50',  text: 'text-indigo-600'  },
 };
 
-const BRANCH_ICON: Record<string, typeof Zap> = {
-  hunt: Zap, feast: Coins, survival: Shield, automation: Bot,
+const BRANCH_ICON: Record<string, typeof Lightning> = {
+  hunt: Lightning, feast: Coins, survival: Shield, automation: Robot,
 };
 
 function fmt(n: number): string {
@@ -255,25 +255,25 @@ export function SkillTree() {
 
   return (
     <>
-      <div className="absolute bottom-24 right-8 z-[5]">
-        <button onClick={openSkillTree} className="relative w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all" aria-label="Open skill tree">
+      <div className="absolute bottom-40 right-8 z-[5]">
+        <button onClick={openSkillTree} className="relative w-16 h-16 bg-blue-500 text-white rounded-full border-3 border-blue-600 shadow-lg shadow-blue-200/30 flex items-center justify-center hover:bg-blue-600 active:scale-95 transition-all" aria-label="Open skill tree">
           <SkillTreeIcon size={26} />
         </button>
       </div>
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-40 flex items-center justify-center p-2 sm:p-4" onClick={closeSkillTree}>
-            <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.97, opacity: 0 }} className="bg-slate-50 w-full max-w-7xl h-[92dvh] rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-2 sm:p-4" onClick={closeSkillTree}>
+            <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.97, opacity: 0 }} className="bg-white w-full max-w-7xl h-[92dvh] rounded-3xl border-3 border-blue-400 shadow-lg shadow-blue-200/40 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
 
               {/* Header */}
-              <div className="px-4 py-3 border-b border-slate-200 bg-white flex items-center shrink-0">
-                <button onClick={closeSkillTree} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full" aria-label="Close">
+              <div className="px-4 py-3 border-b-2 border-blue-100 bg-white flex items-center shrink-0">
+                <button onClick={closeSkillTree} className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full" aria-label="Close">
                   <X size={20} />
                 </button>
                 <div className="flex-1 flex flex-col items-center">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Skills</span>
-                  <div className="px-5 py-1 rounded-full bg-emerald-50 border-2 border-emerald-300 text-emerald-700 text-xl font-black whitespace-nowrap">
+                  <div className="px-5 py-1 rounded-full bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-xl font-black whitespace-nowrap">
                     ${fmt(money)}
                   </div>
                 </div>
@@ -286,7 +286,7 @@ export function SkillTree() {
                   <div className="absolute left-0 top-0" style={{ width: CANVAS, height: CANVAS, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
 
                     {/* Dot background */}
-                    <div className="absolute inset-0" style={{ background: '#f8fafc', backgroundImage: 'radial-gradient(circle, #e2e8f0 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+                    <div className="absolute inset-0" style={{ background: '#fafbff', backgroundImage: 'radial-gradient(circle, #e2e8f0 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
                     {/* SVG: rings + connectors */}
                     <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
@@ -319,10 +319,10 @@ export function SkillTree() {
                           }
                         >
                           {apexUnlocked ? (
-                            <Sparkles size={30} className="text-indigo-600" />
+                            <Sparkle size={30} className="text-indigo-600" />
                           ) : (
                             <>
-                              <Sparkles size={22} className={apexBuyable ? 'text-indigo-500' : 'text-slate-400'} />
+                              <Sparkle size={22} className={apexBuyable ? 'text-indigo-500' : 'text-slate-400'} />
                               <span className={`text-[7px] font-black mt-0.5 ${apexBuyable ? 'text-indigo-600' : 'text-slate-400'}`}>APEX</span>
                             </>
                           )}
@@ -376,7 +376,7 @@ export function SkillTree() {
                       const buyable = canPurchase(nd, uSet, money);
                       const cLocked = choiceLocked(nd, uSet);
                       const hex = BRANCH_HEX[nd.branch] || '#6366f1';
-                      const Icon = BRANCH_ICON[nd.branch] || Sparkles;
+                      const Icon = BRANCH_ICON[nd.branch] || Sparkle;
                       const isSelected = selectedId === nd.id;
 
                       const isMinor = nd.type === 'minor';
@@ -388,7 +388,7 @@ export function SkillTree() {
                       if (unlocked) {
                         border = hex; bg = 'white'; shadow = `0 2px 8px ${hex}40`; extra = '';
                       } else if (buyable) {
-                        border = '#3b82f6'; bg = 'white'; shadow = '0 0 0 3px rgba(59,130,246,0.3)'; extra = 'cursor-pointer';
+                        border = '#3b82f6'; bg = 'white'; shadow = '0 4px 12px rgba(59,130,246,0.35)'; extra = 'cursor-pointer';
                       } else if (cLocked) {
                         border = '#cbd5e1'; bg = '#e2e8f0'; shadow = 'none'; extra = 'opacity-40 cursor-not-allowed';
                       } else {
@@ -423,7 +423,7 @@ export function SkillTree() {
                           )}
                           {isKS && !unlocked && (
                             <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 border border-amber-500 flex items-center justify-center">
-                              <Sparkles size={8} className="text-amber-800" />
+                              <Sparkle size={8} className="text-amber-800" />
                             </span>
                           )}
                           {nd.choiceGroup && !unlocked && !cLocked && (
@@ -449,7 +449,7 @@ export function SkillTree() {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 80, opacity: 0 }}
                     transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                    className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 sm:px-6"
+                    className="shrink-0 border-t-2 border-blue-100 bg-white px-4 py-4 sm:px-6"
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
@@ -461,7 +461,7 @@ export function SkillTree() {
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-slate-600 mt-1 leading-relaxed">{selectedNode.shortDesc}</p>
+                        <p className="text-sm text-slate-600 mt-1 leading-relaxed font-body">{selectedNode.shortDesc}</p>
 
                         {!selectedUnlocked && !selectedChoiceLocked && (
                           <div className="text-sm font-bold text-amber-600 mt-2">Cost: ${fmt(selectedNode.cost)}</div>
@@ -479,10 +479,10 @@ export function SkillTree() {
                           <button
                             onClick={handleBuy}
                             disabled={!selectedBuyable}
-                            className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all ${
+                            className={`btn-game px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${
                               selectedBuyable
-                                ? 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'
-                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                ? 'bg-blue-500 text-white border-b-4 border-blue-700 hover:bg-blue-600'
+                                : 'bg-slate-200 text-slate-400 border-b-4 border-slate-300 cursor-not-allowed'
                             }`}
                           >
                             {selectedBuyable ? 'Buy' : money < selectedNode.cost ? 'Not enough $' : 'Locked'}
@@ -490,7 +490,7 @@ export function SkillTree() {
                         )}
                         <button
                           onClick={() => setSelectedId(null)}
-                          className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full"
+                          className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full"
                           aria-label="Deselect"
                         >
                           <X size={16} />

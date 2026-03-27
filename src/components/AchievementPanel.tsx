@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { ACHIEVEMENTS } from '../lib/constants';
-import { Trophy, X, Gem, DollarSign, Zap } from 'lucide-react';
+import { Trophy, X, Diamond, CurrencyDollar, Lightning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -20,17 +20,20 @@ export function AchievementPanel() {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="relative p-2.5 bg-amber-400/90 text-amber-900 rounded-full shadow-md hover:bg-amber-300 active:scale-95 transition-all"
-      >
-        <Trophy size={18} />
-        {unlocked > 0 && (
-          <div className="absolute -top-1 -right-1 bg-amber-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-            {unlocked}
-          </div>
-        )}
-      </button>
+      <div className="flex flex-col items-center gap-1">
+        <button
+          onClick={() => setIsOpen(true)}
+          className="relative p-2.5 bg-amber-500 text-white rounded-full border-2 border-amber-600 shadow-md shadow-amber-200/30 hover:bg-amber-400 active:scale-95 transition-all"
+        >
+          <Trophy size={18} />
+          {unlocked > 0 && (
+            <div className="absolute -top-1 -right-1 bg-amber-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+              {unlocked}
+            </div>
+          )}
+        </button>
+        <span className="text-[10px] font-bold text-amber-600">Awards</span>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
@@ -39,21 +42,21 @@ export function AchievementPanel() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-4"
+            className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-3 sm:p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-50 w-full max-w-lg rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]"
+              className="bg-white w-full max-w-lg rounded-3xl border-3 border-amber-400 shadow-lg shadow-amber-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-amber-400 to-orange-400 text-white">
+              <div className="p-5 flex justify-between items-center bg-amber-500 text-white">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Achievements</h2>
-                  <div className="text-sm opacity-90 mt-0.5">{unlocked}/{total} Unlocked</div>
+                  <div className="text-sm opacity-90 mt-0.5 font-body">{unlocked}/{total} Unlocked</div>
                 </div>
-                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
                   <X size={22} />
                 </button>
               </div>
@@ -75,10 +78,10 @@ export function AchievementPanel() {
                           return (
                             <div
                               key={ach.id}
-                              className={`rounded-xl p-3 border flex items-center gap-3 transition-colors ${
+                              className={`rounded-xl p-3 border-2 flex items-center gap-3 transition-colors ${
                                 isUnlocked
-                                  ? 'bg-amber-50 border-amber-200'
-                                  : 'bg-white border-slate-200'
+                                  ? 'bg-amber-50 border-amber-300'
+                                  : 'bg-slate-50 border-slate-200'
                               }`}
                             >
                               <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -90,9 +93,9 @@ export function AchievementPanel() {
                                 <div className={`font-bold text-sm ${isUnlocked ? 'text-amber-700' : 'text-slate-700'}`}>
                                   {ach.name}
                                 </div>
-                                <div className="text-xs text-slate-500">{ach.desc}</div>
+                                <div className="text-xs text-slate-500 font-body">{ach.desc}</div>
                                 {!isUnlocked && (
-                                  <div className="mt-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                  <div className="mt-1 h-2 bg-amber-100 rounded-full overflow-hidden border border-amber-200">
                                     <div
                                       className="h-full bg-amber-400 rounded-full transition-all"
                                       style={{ width: `${progress * 100}%` }}
@@ -103,17 +106,17 @@ export function AchievementPanel() {
                               <div className="flex items-center gap-1 text-xs font-bold flex-shrink-0">
                                 {ach.reward.type === 'gems' && (
                                   <span className={isUnlocked ? 'text-purple-500' : 'text-slate-400'}>
-                                    <Gem size={12} className="inline mr-0.5" />{ach.reward.value}
+                                    <Diamond size={12} className="inline mr-0.5" />{ach.reward.value}
                                   </span>
                                 )}
                                 {ach.reward.type === 'money_mult' && (
                                   <span className={isUnlocked ? 'text-emerald-500' : 'text-slate-400'}>
-                                    <DollarSign size={12} className="inline" />+{Math.round(ach.reward.value * 100)}%
+                                    <CurrencyDollar size={12} className="inline" />+{Math.round(ach.reward.value * 100)}%
                                   </span>
                                 )}
                                 {ach.reward.type === 'speed_mult' && (
                                   <span className={isUnlocked ? 'text-blue-500' : 'text-slate-400'}>
-                                    <Zap size={12} className="inline" />+{Math.round(ach.reward.value * 100)}%
+                                    <Lightning size={12} className="inline" />+{Math.round(ach.reward.value * 100)}%
                                   </span>
                                 )}
                               </div>

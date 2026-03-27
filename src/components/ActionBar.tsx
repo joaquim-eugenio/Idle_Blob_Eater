@@ -1,9 +1,9 @@
 import { useGameStore } from '../store/gameStore';
 import { ACTIVE_ABILITIES, type AbilityId } from '../lib/constants';
-import { Magnet, Zap, Maximize, CloudRain, Lock } from 'lucide-react';
+import { Magnet, Lightning, CornersOut, CloudRain, Lock } from '@phosphor-icons/react';
 
-const ICON_MAP: Record<string, typeof Zap> = {
-  Magnet, Zap, Maximize, CloudRain,
+const ICON_MAP: Record<string, typeof Lightning> = {
+  Magnet, Zap: Lightning, Maximize: CornersOut, CloudRain,
 };
 
 const ABILITY_COLORS: Record<AbilityId, { bg: string; glow: string; active: string }> = {
@@ -21,7 +21,7 @@ export function ActionBar() {
   const levelFailed = useGameStore((s) => s.levelFailed);
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 pointer-events-none">
+    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 pointer-events-none">
       {ACTIVE_ABILITIES.map((def) => {
         const id = def.id as AbilityId;
         const ab = abilities[id];
@@ -43,9 +43,9 @@ export function ActionBar() {
               locked
                 ? 'bg-slate-700/80 border-2 border-slate-600 cursor-not-allowed'
                 : ab.active
-                  ? `${colors.bg} border-[3px] ${colors.active} animate-pulse shadow-lg ${colors.glow}`
+                  ? `${colors.bg} border-[3px] ${colors.active} animate-pulse shadow-lg ${colors.glow} ring-2 ring-white/30`
                   : ready
-                    ? `${colors.bg} border-2 border-white/30 shadow-lg ${colors.glow} active:scale-90 hover:brightness-110`
+                    ? `${colors.bg} border-2 border-white/50 shadow-lg ${colors.glow} active:scale-90 hover:brightness-110`
                     : `bg-slate-500/80 border-2 border-slate-400/30 cursor-not-allowed`
             }`}
           >

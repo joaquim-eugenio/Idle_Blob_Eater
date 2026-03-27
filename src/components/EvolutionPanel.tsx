@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { EVOLUTION_UPGRADES } from '../lib/constants';
-import { Sparkles, X, ArrowUp, AlertTriangle } from 'lucide-react';
+import { Sparkle, X, ArrowUp, Warning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function EvolutionPanel() {
@@ -21,9 +21,9 @@ export function EvolutionPanel() {
       <div className="absolute bottom-8 left-8 z-[5]">
         <button
           onClick={() => setIsOpen(true)}
-          className="relative w-16 h-16 bg-purple-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-purple-600 active:scale-95 transition-all"
+          className="relative w-16 h-16 bg-purple-500 text-white rounded-full border-3 border-purple-600 shadow-lg shadow-purple-200/30 flex items-center justify-center hover:bg-purple-600 active:scale-95 transition-all"
         >
-          <Sparkles size={28} />
+          <Sparkle size={28} />
           {essence > 0 && (
             <div className="absolute -top-1 -right-1 bg-purple-300 text-purple-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
               {essence}
@@ -39,33 +39,33 @@ export function EvolutionPanel() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-30 flex items-center justify-center p-3 sm:p-4"
+            className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-3 sm:p-4"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-slate-50 w-full max-w-lg rounded-2xl sm:rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[88dvh]"
+              className="bg-white w-full max-w-lg rounded-3xl border-3 border-indigo-400 shadow-lg shadow-indigo-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
+              <div className="p-5 flex justify-between items-center bg-indigo-500 text-white">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Evolution</h2>
-                  <div className="text-sm opacity-90 flex items-center gap-1.5 mt-0.5">
-                    <Sparkles size={14} />
+                  <div className="text-sm opacity-90 flex items-center gap-1.5 mt-0.5 font-body">
+                    <Sparkle size={14} />
                     <span>{essence} Essence</span>
                   </div>
                 </div>
-                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
                   <X size={22} />
                 </button>
               </div>
 
               <div className="flex-1 overflow-auto p-4 space-y-4">
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-4 border border-purple-200">
-                  <div className="flex items-center gap-2 text-purple-700 font-bold text-sm mb-2">
-                    <AlertTriangle size={16} />
-                    Evolving resets your money, level progress, and upgrades
+                <div className="bg-indigo-50 rounded-2xl p-4 border-2 border-indigo-200">
+                  <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm mb-2">
+                    <Warning size={16} />
+                    <span className="font-body">Evolving resets your money, level progress, and upgrades</span>
                   </div>
                   <div className="text-center mb-3">
                     <div className="text-3xl font-black text-purple-600">+{essenceToGain}</div>
@@ -74,10 +74,10 @@ export function EvolutionPanel() {
                   <button
                     onClick={() => { if (canPrestige) { prestige(); } }}
                     disabled={!canPrestige}
-                    className={`w-full py-3 rounded-xl font-bold text-lg transition-all ${
+                    className={`btn-game w-full py-3 rounded-xl font-bold text-lg transition-all ${
                       canPrestige
-                        ? 'bg-purple-500 text-white hover:bg-purple-600 active:scale-[0.98] shadow-lg shadow-purple-300'
-                        : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        ? 'bg-indigo-500 text-white border-b-4 border-indigo-700 hover:bg-indigo-600'
+                        : 'bg-slate-200 text-slate-400 border-b-4 border-slate-300 cursor-not-allowed'
                     }`}
                   >
                     {canPrestige ? 'Evolve Now' : `Clear Level 5 to Evolve`}
@@ -93,10 +93,10 @@ export function EvolutionPanel() {
                     const canAfford = essence >= cost && !maxed;
 
                     return (
-                      <div key={id} className="bg-white rounded-xl p-3 border border-slate-200 flex items-center justify-between gap-3">
+                      <div key={id} className="bg-indigo-50/50 rounded-xl p-3 border-2 border-indigo-200 flex items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-sm text-slate-800">{def.name}</div>
-                          <div className="text-xs text-slate-500">{def.desc}</div>
+                          <div className="text-xs text-slate-500 font-body">{def.desc}</div>
                           <div className="text-xs text-purple-500 font-semibold mt-0.5">
                             Lv. {currentLevel}/{def.maxLevel}
                           </div>
@@ -104,12 +104,12 @@ export function EvolutionPanel() {
                         <button
                           onClick={() => buyEvolutionUpgrade(id)}
                           disabled={!canAfford}
-                          className={`px-3 py-1.5 rounded-lg font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1 ${
+                          className={`btn-game px-3 py-1.5 rounded-lg font-bold text-sm whitespace-nowrap transition-all flex items-center gap-1 ${
                             maxed
-                              ? 'bg-green-100 text-green-600 cursor-default'
+                              ? 'bg-green-100 text-green-600 border-b-4 border-green-200 cursor-default'
                               : canAfford
-                                ? 'bg-purple-500 text-white hover:bg-purple-600 active:scale-95'
-                                : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                ? 'bg-indigo-500 text-white border-b-4 border-indigo-700 hover:bg-indigo-600'
+                                : 'bg-slate-100 text-slate-400 border-b-4 border-slate-200 cursor-not-allowed'
                           }`}
                         >
                           {maxed ? 'MAX' : (

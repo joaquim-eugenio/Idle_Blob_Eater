@@ -34,7 +34,7 @@ export function DailyRewardModal({ onClaim, onDismiss }: Props) {
             className="p-1.5 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors"
             aria-label="Close daily reward modal"
           >
-            <X size={16} />
+            <X size={16} weight="bold" />
           </button>
         </div>
         <div className="text-3xl mb-1"><Gift size={40} className="mx-auto text-amber-500" /></div>

@@ -75,7 +75,7 @@ export function StatsPanel() {
               <div className="p-5 flex justify-between items-center bg-blue-500 text-white">
                 <h2 className="text-xl font-black tracking-tight">Statistics</h2>
                 <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={20} />
+                  <X size={20} weight="bold" />
                 </button>
               </div>
               <div className="p-4 space-y-1 flex-1 overflow-auto">

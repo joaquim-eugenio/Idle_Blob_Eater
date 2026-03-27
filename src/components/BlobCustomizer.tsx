@@ -332,7 +332,7 @@ export function BlobCustomizer() {
                   </div>
                 </div>
                 <button onClick={closeCustomizer} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={22} />
+                  <X size={22} weight="bold" />
                 </button>
               </div>
 

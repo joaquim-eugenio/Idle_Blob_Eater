@@ -45,7 +45,7 @@ export function WorldViewer() {
                   className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
                   aria-label="Close world viewer"
                 >
-                  <X size={20} />
+                  <X size={20} weight="bold" />
                 </button>
               </div>
 

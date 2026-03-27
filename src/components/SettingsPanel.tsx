@@ -47,7 +47,7 @@ export function SettingsPanel({ isOpen, onClose }: { isOpen: boolean; onClose: (
             <div className="p-5 flex justify-between items-center bg-slate-700 text-white">
               <h2 className="text-xl font-black tracking-tight">Settings</h2>
               <button onClick={() => { onClose(); setConfirmReset(false); }} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                <X size={20} />
+                <X size={20} weight="bold" />
               </button>
             </div>
 

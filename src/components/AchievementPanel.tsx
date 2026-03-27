@@ -57,7 +57,7 @@ export function AchievementPanel() {
                   <div className="text-sm opacity-90 mt-0.5 font-body">{unlocked}/{total} Unlocked</div>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={22} />
+                  <X size={22} weight="bold" />
                 </button>
               </div>
 

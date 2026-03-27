@@ -30,7 +30,7 @@ export function WelcomeBackModal({ earnings, timeAway, onCollect, onClose }: Pro
             className="p-1.5 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors"
             aria-label="Close welcome back modal"
           >
-            <X size={16} />
+            <X size={16} weight="bold" />
           </button>
         </div>
         <div className="text-amber-400 flex justify-center mb-2"><HandWaving size={48} /></div>

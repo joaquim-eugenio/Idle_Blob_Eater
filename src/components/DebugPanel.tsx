@@ -92,7 +92,7 @@ export function DebugPanel() {
                   <div className="text-xs opacity-70 mt-0.5 font-body">Development tools</div>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={22} />
+                  <X size={22} weight="bold" />
                 </button>
               </div>
 

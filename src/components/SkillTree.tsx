@@ -22,22 +22,28 @@ function SkillTreeIcon({ size = 26 }: { size?: number }) {
   );
 }
 
+const CANVAS_W = 2200;
+const CANVAS_H = 1700;
 const CX = 1100;
-const CY = 1100;
-const CANVAS = 2200;
-const HUB_DIST = 180;
-const NODE_START = 280;
-const ROW_GAP = 65;
+const CY = 1550;
+const HUB_DIST = 160;
+const NODE_START = 250;
+const ROW_GAP = 68;
 const ZIGZAG = 48;
 const CHOICE_SPREAD = 72;
-const GATE_A_R = 670;
-const GATE_B_R = 930;
+const GATE_A_R = 660;
+const GATE_B_R = 900;
+const MIN_ZOOM = 0.35;
+const MAX_ZOOM = 2.5;
+
+const GATE_ARC_START = -160 * Math.PI / 180;
+const GATE_ARC_END = -20 * Math.PI / 180;
 
 const BRANCH_ANGLE: Record<string, number> = {
-  hunt: -Math.PI / 2,
-  feast: Math.PI,
-  survival: 0,
-  automation: Math.PI / 2,
+  hunt: -150 * Math.PI / 180,
+  feast: -110 * Math.PI / 180,
+  survival: -70 * Math.PI / 180,
+  automation: -30 * Math.PI / 180,
 };
 
 const BRANCH_HEX: Record<string, string> = {
@@ -61,6 +67,17 @@ function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return Math.floor(n).toLocaleString();
+}
+
+function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+  const sx = cx + r * Math.cos(startAngle);
+  const sy = cy + r * Math.sin(startAngle);
+  const ex = cx + r * Math.cos(endAngle);
+  const ey = cy + r * Math.sin(endAngle);
+  let diff = endAngle - startAngle;
+  if (diff < 0) diff += Math.PI * 2;
+  const largeArc = diff > Math.PI ? 1 : 0;
+  return `M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} 1 ${ex} ${ey}`;
 }
 
 function buildPositions(): Record<string, { x: number; y: number }> {
@@ -144,9 +161,11 @@ function choiceLocked(node: SkillNodeDef, u: Set<string>): boolean {
 }
 
 export function SkillTree() {
-  const [zoom, setZoom] = useState(0.9);
+  const [zoom, setZoom] = useState(0.65);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const vpRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   const isOpen = useGameStore((s) => s.skillTreeOpen);
   const openSkillTree = useGameStore((s) => s.openSkillTree);
@@ -213,21 +232,61 @@ export function SkillTree() {
     return out;
   }, [visible, pos, uSet, hubs]);
 
-  const centerOn = useCallback((pt: { x: number; y: number }, z = zoom, smooth = true) => {
+  const centerOn = useCallback((pt: { x: number; y: number }, z: number, smooth = true) => {
     const vp = vpRef.current;
     if (!vp) return;
     const l = pt.x * z - vp.clientWidth / 2;
     const t = pt.y * z - vp.clientHeight / 2;
-    const mL = Math.max(0, CANVAS * z - vp.clientWidth);
-    const mT = Math.max(0, CANVAS * z - vp.clientHeight);
+    const mL = Math.max(0, CANVAS_W * z - vp.clientWidth);
+    const mT = Math.max(0, CANVAS_H * z - vp.clientHeight);
     vp.scrollTo({ left: Math.max(0, Math.min(mL, l)), top: Math.max(0, Math.min(mT, t)), behavior: smooth ? 'smooth' : 'auto' });
-  }, [zoom]);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) { setSelectedId(null); return; }
-    setZoom(0.9);
-    requestAnimationFrame(() => centerOn({ x: CX, y: CY }, 0.9, false));
+    setZoom(0.65);
+    requestAnimationFrame(() => centerOn({ x: CX, y: CY - 350 }, 0.65, false));
   }, [isOpen, centerOn]);
+
+  useEffect(() => {
+    const vp = vpRef.current;
+    if (!vp || !isOpen) return;
+
+    let startDist = 0;
+    let startZoom = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        startDist = Math.hypot(dx, dy);
+        startZoom = zoomRef.current;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && startDist > 0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const scale = dist / startDist;
+        setZoom(Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, startZoom * scale)));
+      }
+    };
+
+    const onTouchEnd = () => { startDist = 0; };
+
+    vp.addEventListener('touchstart', onTouchStart, { passive: true });
+    vp.addEventListener('touchmove', onTouchMove, { passive: false });
+    vp.addEventListener('touchend', onTouchEnd);
+
+    return () => {
+      vp.removeEventListener('touchstart', onTouchStart);
+      vp.removeEventListener('touchmove', onTouchMove);
+      vp.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [isOpen]);
 
   const handleTap = (nd: SkillNodeDef, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -263,181 +322,197 @@ export function SkillTree() {
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-2 sm:p-4" onClick={closeSkillTree}>
-            <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.97, opacity: 0 }} className="bg-white w-full max-w-7xl h-[92dvh] rounded-3xl border-3 border-blue-400 shadow-lg shadow-blue-200/40 overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-40">
+            <motion.div initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.97, opacity: 0 }} className="bg-white w-full h-full overflow-hidden flex flex-col">
 
               {/* Header */}
               <div className="px-4 py-3 border-b-2 border-blue-100 bg-white flex items-center shrink-0">
-                <button onClick={closeSkillTree} className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full" aria-label="Close">
-                  <X size={20} />
-                </button>
+                <div className="w-9" />
                 <div className="flex-1 flex flex-col items-center">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Skills</span>
                   <div className="px-5 py-1 rounded-full bg-emerald-50 border-2 border-emerald-400 text-emerald-700 text-xl font-black whitespace-nowrap">
                     ${fmt(money)}
                   </div>
                 </div>
-                <div className="w-9" />
+                <button onClick={closeSkillTree} className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full" aria-label="Close">
+                  <X size={20} weight="bold" />
+                </button>
               </div>
 
-              {/* Viewport */}
-              <div ref={vpRef} className="overflow-auto flex-1 touch-pan-x touch-pan-y" onClick={handleCanvasClick}>
-                <div className="relative" style={{ width: CANVAS * zoom, height: CANVAS * zoom }}>
-                  <div className="absolute left-0 top-0" style={{ width: CANVAS, height: CANVAS, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
+              {/* Viewport wrapper */}
+              <div className="relative flex-1 min-h-0">
+                <div ref={vpRef} className="overflow-auto w-full h-full relative z-0" style={{ touchAction: 'pan-x pan-y' }} onClick={handleCanvasClick}>
+                  <div className="relative" style={{ width: CANVAS_W * zoom, height: CANVAS_H * zoom }}>
+                    <div className="absolute left-0 top-0" style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${zoom})`, transformOrigin: 'top left' }}>
 
-                    {/* Dot background */}
-                    <div className="absolute inset-0" style={{ background: '#fafbff', backgroundImage: 'radial-gradient(circle, #e2e8f0 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
+                      {/* Dot background */}
+                      <div className="absolute inset-0" style={{ background: '#fafbff', backgroundImage: 'radial-gradient(circle, #e2e8f0 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
-                    {/* SVG: rings + connectors */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
-                      <circle cx={CX} cy={CY} r={GATE_A_R} fill="none" stroke={gateA ? '#818cf8' : '#94a3b8'} strokeWidth={gateA ? 3 : 2} strokeDasharray={gateA ? undefined : '10 8'} opacity={gateA ? 0.65 : 0.2} />
-                      <circle cx={CX} cy={CY} r={GATE_B_R} fill="none" stroke={gateB ? '#818cf8' : '#94a3b8'} strokeWidth={gateB ? 3 : 2} strokeDasharray={gateB ? undefined : '10 8'} opacity={gateB ? 0.65 : 0.2} />
-                      {lines.map((l, i) => (
-                        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color} strokeWidth={l.bright ? 5 : 4} strokeLinecap="round" opacity={l.bright ? 1 : 0.4} />
-                      ))}
-                    </svg>
+                      {/* SVG: gate arcs + connectors */}
+                      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+                        <path d={describeArc(CX, CY, GATE_A_R, GATE_ARC_START, GATE_ARC_END)} fill="none" stroke={gateA ? '#818cf8' : '#94a3b8'} strokeWidth={gateA ? 3 : 2} strokeDasharray={gateA ? undefined : '10 8'} opacity={gateA ? 0.65 : 0.2} />
+                        <path d={describeArc(CX, CY, GATE_B_R, GATE_ARC_START, GATE_ARC_END)} fill="none" stroke={gateB ? '#818cf8' : '#94a3b8'} strokeWidth={gateB ? 3 : 2} strokeDasharray={gateB ? undefined : '10 8'} opacity={gateB ? 0.65 : 0.2} />
+                        {lines.map((l, i) => (
+                          <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color} strokeWidth={l.bright ? 5 : 4} strokeLinecap="round" opacity={l.bright ? 1 : 0.4} />
+                        ))}
+                      </svg>
 
-                    {/* Blob Core */}
-                    <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: CX, top: CY, zIndex: 4 }}>
-                      {apexVisible ? (
-                        <button
-                          onClick={(e) => handleTap(SKILL_NODE_LOOKUP['apex_transcendence'], e)}
-                          className={`w-[100px] h-[100px] rounded-full border-[5px] flex flex-col items-center justify-center transition-all ${
-                            apexUnlocked
-                              ? 'bg-gradient-to-br from-indigo-100 to-purple-100 border-indigo-400'
-                              : apexBuyable
-                                ? 'bg-white border-indigo-400'
-                                : 'bg-slate-100 border-slate-300'
-                          }`}
-                          style={selectedId === 'apex_transcendence'
-                            ? { boxShadow: '0 0 24px 10px rgba(99,102,241,0.6), 0 0 48px 20px rgba(99,102,241,0.25)' }
-                            : apexUnlocked
-                              ? { boxShadow: '0 10px 15px -3px rgba(165,180,252,0.5)' }
-                              : apexBuyable
-                                ? { boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }
-                                : {}
-                          }
-                        >
-                          {apexUnlocked ? (
-                            <Sparkle size={30} className="text-indigo-600" />
-                          ) : (
-                            <>
-                              <Sparkle size={22} className={apexBuyable ? 'text-indigo-500' : 'text-slate-400'} />
-                              <span className={`text-[7px] font-black mt-0.5 ${apexBuyable ? 'text-indigo-600' : 'text-slate-400'}`}>APEX</span>
-                            </>
-                          )}
-                          {!apexUnlocked && (
-                            <span className={`absolute -bottom-3 px-2 py-0.5 rounded-full text-[9px] font-black ${apexBuyable ? 'bg-indigo-600 text-white' : 'bg-slate-500 text-white'}`}>
-                              ${fmt(SKILL_NODE_LOOKUP['apex_transcendence'].cost)}
-                            </span>
-                          )}
-                        </button>
-                      ) : (
-                        <div className="w-[100px] h-[100px] rounded-full border-[5px] border-slate-300 bg-white flex items-center justify-center">
-                          <div className="w-[50px] h-[50px] rounded-full border-[4px] border-slate-300 flex items-center justify-center">
-                            <div className="w-3 h-3 rounded-full bg-slate-400" />
+                      {/* Blob Core at bottom center */}
+                      <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: CX, top: CY, zIndex: 4 }}>
+                        {apexVisible ? (
+                          <button
+                            onClick={(e) => handleTap(SKILL_NODE_LOOKUP['apex_transcendence'], e)}
+                            className={`w-[100px] h-[100px] rounded-full border-[5px] flex flex-col items-center justify-center transition-all ${
+                              apexUnlocked
+                                ? 'bg-gradient-to-br from-indigo-100 to-purple-100 border-indigo-400'
+                                : apexBuyable
+                                  ? 'bg-white border-indigo-400'
+                                  : 'bg-slate-100 border-slate-300'
+                            }`}
+                            style={selectedId === 'apex_transcendence'
+                              ? { boxShadow: '0 0 24px 10px rgba(99,102,241,0.6), 0 0 48px 20px rgba(99,102,241,0.25)' }
+                              : apexUnlocked
+                                ? { boxShadow: '0 10px 15px -3px rgba(165,180,252,0.5)' }
+                                : apexBuyable
+                                  ? { boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }
+                                  : {}
+                            }
+                          >
+                            {apexUnlocked ? (
+                              <Sparkle size={30} className="text-indigo-600" />
+                            ) : (
+                              <>
+                                <Sparkle size={22} className={apexBuyable ? 'text-indigo-500' : 'text-slate-400'} />
+                                <span className={`text-[7px] font-black mt-0.5 ${apexBuyable ? 'text-indigo-600' : 'text-slate-400'}`}>APEX</span>
+                              </>
+                            )}
+                            {!apexUnlocked && (
+                              <span className={`absolute -bottom-3 px-2 py-0.5 rounded-full text-[11px] font-bold ${apexBuyable ? 'bg-indigo-600 text-white' : 'bg-slate-500 text-white'}`}>
+                                ${fmt(SKILL_NODE_LOOKUP['apex_transcendence'].cost)}
+                              </span>
+                            )}
+                          </button>
+                        ) : (
+                          <div className="w-[100px] h-[100px] rounded-full border-[5px] border-slate-300 bg-white flex items-center justify-center">
+                            <div className="w-[50px] h-[50px] rounded-full border-[4px] border-slate-300 flex items-center justify-center">
+                              <div className="w-3 h-3 rounded-full bg-slate-400" />
+                            </div>
                           </div>
+                        )}
+                        <div className="absolute left-1/2 -translate-x-1/2 top-[108px] px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-xs font-black shadow-sm whitespace-nowrap">
+                          Blob Core
                         </div>
-                      )}
-                      <div className="absolute left-1/2 -translate-x-1/2 top-[108px] px-3 py-1 rounded-full bg-slate-200 text-slate-700 text-xs font-black shadow-sm whitespace-nowrap">
-                        Blob Core
                       </div>
+
+                      {/* Branch hubs along each branch direction */}
+                      {hubs.map(({ branch, x, y }) => {
+                        const Icon = BRANCH_ICON[branch];
+                        const css = BRANCH_CSS[branch];
+                        const a = BRANCH_ANGLE[branch];
+                        const isLeft = branch === 'hunt' || branch === 'feast';
+                        const labelAngle = a + (isLeft ? -1 : 1) * (Math.PI / 2);
+                        const lx = x + Math.cos(labelAngle) * 55;
+                        const ly = y + Math.sin(labelAngle) * 55;
+                        return (
+                          <React.Fragment key={branch}>
+                            <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: x, top: y, zIndex: 4 }}>
+                              <div className={`w-[66px] h-[66px] rounded-full border-[4px] ${css.ring} bg-white flex items-center justify-center shadow-sm`}>
+                                <Icon size={24} className={css.text} />
+                              </div>
+                            </div>
+                            <div className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ left: lx, top: ly, zIndex: 4 }}>
+                              <span className={`text-[11px] font-black ${css.text} uppercase tracking-wider whitespace-nowrap`}>
+                                {SKILL_BRANCH_LABELS[branch]}
+                              </span>
+                            </div>
+                          </React.Fragment>
+                        );
+                      })}
+
+                      {/* Skill nodes */}
+                      {visible.filter((n) => n.id !== 'apex_transcendence').map((nd) => {
+                        const p = pos[nd.id];
+                        if (!p) return null;
+                        const unlocked = uSet.has(nd.id);
+                        const buyable = canPurchase(nd, uSet, money);
+                        const cLocked = choiceLocked(nd, uSet);
+                        const hex = BRANCH_HEX[nd.branch] || '#6366f1';
+                        const Icon = BRANCH_ICON[nd.branch] || Sparkle;
+                        const isSelected = selectedId === nd.id;
+
+                        const isMinor = nd.type === 'minor';
+                        const isKS = nd.type === 'keystone';
+                        const sz = isMinor ? 48 : isKS ? 68 : 56;
+                        const bw = isKS ? 4 : 3;
+
+                        let border: string, bg: string, shadow: string, extra: string;
+                        if (unlocked) {
+                          border = hex; bg = 'white'; shadow = `0 2px 8px ${hex}40`; extra = '';
+                        } else if (buyable) {
+                          border = '#3b82f6'; bg = 'white'; shadow = '0 4px 12px rgba(59,130,246,0.35)'; extra = 'cursor-pointer';
+                        } else if (cLocked) {
+                          border = '#cbd5e1'; bg = '#e2e8f0'; shadow = 'none'; extra = 'opacity-40 cursor-not-allowed';
+                        } else {
+                          border = '#cbd5e1'; bg = '#f1f5f9'; shadow = 'none'; extra = '';
+                        }
+
+                        if (isSelected) {
+                          const glowColor = unlocked ? hex : '#3b82f6';
+                          shadow = `0 0 20px 8px ${glowColor}90, 0 0 40px 16px ${glowColor}40`;
+                          border = glowColor;
+                        }
+
+                        return (
+                          <button
+                            key={nd.id}
+                            onClick={(e) => handleTap(nd, e)}
+                            className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center transition-all ${extra}`}
+                            style={{ left: p.x, top: p.y, width: sz, height: sz, borderWidth: bw, borderStyle: 'solid', borderColor: border, background: bg, boxShadow: shadow, zIndex: isSelected ? 10 : 5 }}
+                          >
+                            {unlocked ? (
+                              <div className="flex items-center justify-center" style={{ color: hex }}>
+                                <Check size={isMinor ? 16 : 20} strokeWidth={3} />
+                              </div>
+                            ) : (
+                              <Icon size={isMinor ? 14 : 18} style={{ color: buyable ? hex : '#94a3b8' }} />
+                            )}
+
+                            {!unlocked && !cLocked && (
+                              <span className="absolute -bottom-2.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: buyable ? '#3b82f6' : '#64748b' }}>
+                                ${nd.cost}
+                              </span>
+                            )}
+                            {isKS && !unlocked && (
+                              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 border border-amber-500 flex items-center justify-center">
+                                <Sparkle size={8} className="text-amber-800" />
+                              </span>
+                            )}
+                            {nd.choiceGroup && !unlocked && !cLocked && (
+                              <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-purple-400 border border-purple-500 flex items-center justify-center text-white text-[7px] font-black">?</span>
+                            )}
+                            {cLocked && (
+                              <Lock size={12} className="text-slate-400" />
+                            )}
+                          </button>
+                        );
+                      })}
+
                     </div>
-
-                    {/* Branch hubs */}
-                    {hubs.map(({ branch, x, y }) => {
-                      const Icon = BRANCH_ICON[branch];
-                      const css = BRANCH_CSS[branch];
-                      const angle = BRANCH_ANGLE[branch];
-                      const labelAngle = angle + (branch === 'automation' ? 1 : -1) * (Math.PI / 2);
-                      const lx = x + Math.cos(labelAngle) * 85;
-                      const ly = y + Math.sin(labelAngle) * 85;
-                      return (
-                        <React.Fragment key={branch}>
-                          <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: x, top: y, zIndex: 4 }}>
-                            <div className={`w-[66px] h-[66px] rounded-full border-[4px] ${css.ring} bg-white flex items-center justify-center shadow-sm`}>
-                              <Icon size={24} className={css.text} />
-                            </div>
-                          </div>
-                          <div className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ left: lx, top: ly, zIndex: 4 }}>
-                            <span className={`text-[11px] font-black ${css.text} uppercase tracking-wider whitespace-nowrap`}>
-                              {SKILL_BRANCH_LABELS[branch]}
-                            </span>
-                          </div>
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {/* Skill nodes */}
-                    {visible.filter((n) => n.id !== 'apex_transcendence').map((nd) => {
-                      const p = pos[nd.id];
-                      if (!p) return null;
-                      const unlocked = uSet.has(nd.id);
-                      const buyable = canPurchase(nd, uSet, money);
-                      const cLocked = choiceLocked(nd, uSet);
-                      const hex = BRANCH_HEX[nd.branch] || '#6366f1';
-                      const Icon = BRANCH_ICON[nd.branch] || Sparkle;
-                      const isSelected = selectedId === nd.id;
-
-                      const isMinor = nd.type === 'minor';
-                      const isKS = nd.type === 'keystone';
-                      const sz = isMinor ? 48 : isKS ? 68 : 56;
-                      const bw = isKS ? 4 : 3;
-
-                      let border: string, bg: string, shadow: string, extra: string;
-                      if (unlocked) {
-                        border = hex; bg = 'white'; shadow = `0 2px 8px ${hex}40`; extra = '';
-                      } else if (buyable) {
-                        border = '#3b82f6'; bg = 'white'; shadow = '0 4px 12px rgba(59,130,246,0.35)'; extra = 'cursor-pointer';
-                      } else if (cLocked) {
-                        border = '#cbd5e1'; bg = '#e2e8f0'; shadow = 'none'; extra = 'opacity-40 cursor-not-allowed';
-                      } else {
-                        border = '#cbd5e1'; bg = '#f1f5f9'; shadow = 'none'; extra = '';
-                      }
-
-                      if (isSelected) {
-                        const glowColor = unlocked ? hex : '#3b82f6';
-                        shadow = `0 0 20px 8px ${glowColor}90, 0 0 40px 16px ${glowColor}40`;
-                        border = glowColor;
-                      }
-
-                      return (
-                        <button
-                          key={nd.id}
-                          onClick={(e) => handleTap(nd, e)}
-                          className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full flex items-center justify-center transition-all ${extra}`}
-                          style={{ left: p.x, top: p.y, width: sz, height: sz, borderWidth: bw, borderStyle: 'solid', borderColor: border, background: bg, boxShadow: shadow, zIndex: isSelected ? 10 : 5 }}
-                        >
-                          {unlocked ? (
-                            <div className="flex items-center justify-center" style={{ color: hex }}>
-                              <Check size={isMinor ? 16 : 20} strokeWidth={3} />
-                            </div>
-                          ) : (
-                            <Icon size={isMinor ? 14 : 18} style={{ color: buyable ? hex : '#94a3b8' }} />
-                          )}
-
-                          {!unlocked && !cLocked && (
-                            <span className="absolute -bottom-2.5 px-1.5 py-0.5 rounded-full text-[8px] font-black text-white" style={{ background: buyable ? '#3b82f6' : '#64748b' }}>
-                              ${nd.cost}
-                            </span>
-                          )}
-                          {isKS && !unlocked && (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 border border-amber-500 flex items-center justify-center">
-                              <Sparkle size={8} className="text-amber-800" />
-                            </span>
-                          )}
-                          {nd.choiceGroup && !unlocked && !cLocked && (
-                            <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-purple-400 border border-purple-500 flex items-center justify-center text-white text-[7px] font-black">?</span>
-                          )}
-                          {cLocked && (
-                            <Lock size={12} className="text-slate-400" />
-                          )}
-                        </button>
-                      );
-                    })}
-
                   </div>
                 </div>
+
+              </div>
+
+              {/* Zoom buttons - fixed so they float above the scroll container */}
+              <div className="fixed bottom-24 right-4 flex flex-col gap-1.5 z-50">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setZoom(z => Math.min(MAX_ZOOM, +(z + 0.1).toFixed(2))); }}
+                  className="w-10 h-10 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center text-slate-700 text-xl font-bold shadow-md hover:bg-slate-50 active:scale-90 transition-transform"
+                >+</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setZoom(z => Math.max(MIN_ZOOM, +(z - 0.1).toFixed(2))); }}
+                  className="w-10 h-10 bg-white border-2 border-slate-300 rounded-full flex items-center justify-center text-slate-700 text-xl font-bold shadow-md hover:bg-slate-50 active:scale-90 transition-transform"
+                >&minus;</button>
               </div>
 
               {/* Detail panel */}
@@ -493,7 +568,7 @@ export function SkillTree() {
                           className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full"
                           aria-label="Deselect"
                         >
-                          <X size={16} />
+                          <X size={16} weight="bold" />
                         </button>
                       </div>
                     </div>

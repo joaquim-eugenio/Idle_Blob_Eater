@@ -19,6 +19,7 @@ export function ActionBar() {
   const highestLevel = useGameStore((s) => s.highestLevelReached);
   const levelComplete = useGameStore((s) => s.levelComplete);
   const levelFailed = useGameStore((s) => s.levelFailed);
+  const reviveOffered = useGameStore((s) => s.reviveOffered);
 
   return (
     <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[5] flex items-center gap-2 pointer-events-none">
@@ -28,7 +29,7 @@ export function ActionBar() {
         const Icon = ICON_MAP[def.icon];
         const colors = ABILITY_COLORS[id];
         const locked = highestLevel < def.unlockLevel;
-        const ready = !locked && ab.cooldown <= 0 && !ab.active && !levelComplete && !levelFailed;
+        const ready = !locked && ab.cooldown <= 0 && !ab.active && !levelComplete && !levelFailed && !reviveOffered;
         const onCooldown = !locked && ab.cooldown > 0 && !ab.active;
 
         const cooldownFraction = onCooldown ? ab.cooldown / def.cooldown : 0;

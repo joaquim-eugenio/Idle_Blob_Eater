@@ -384,6 +384,8 @@ interface GameState {
   levelItemsTotal: number;
   levelComplete: boolean;
   levelFailed: boolean;
+  reviveOffered: boolean;
+  reviveUsedThisAttempt: boolean;
   levelStars: number;
   levelStartTime: number;
   levelRewards: { money: number; essence?: number; gems?: number } | null;
@@ -467,6 +469,8 @@ interface GameState {
   endIntro: () => void;
   advanceToNextLevel: () => void;
   retryLevel: () => void;
+  reviveBlob: () => void;
+  declineRevive: () => void;
   buyUpgrade: (type: keyof Upgrades, cost: number) => void;
   unlockSkillNode: (nodeId: string) => void;
   dismissSkillFlashEvent: (id: string) => void;
@@ -519,6 +523,8 @@ export const useGameStore = create<GameState>()(
       levelItemsTotal: 0,
       levelComplete: false,
       levelFailed: false,
+      reviveOffered: false,
+      reviveUsedThisAttempt: false,
       levelStars: 0,
       levelStartTime: Date.now(),
       levelRewards: null,
@@ -609,6 +615,8 @@ export const useGameStore = create<GameState>()(
           levelItemsTotal: def.totalItems,
           levelComplete: false,
           levelFailed: false,
+          reviveOffered: false,
+          reviveUsedThisAttempt: false,
           levelStars: 0,
           levelStartTime: Date.now(),
           levelRewards: null,
@@ -689,6 +697,18 @@ export const useGameStore = create<GameState>()(
         get().initLevel(state.currentLevel);
         set({ hunger: BASE_MAX_HUNGER * 0.6 });
       },
+
+      reviveBlob: () => set({
+        reviveOffered: false,
+        reviveUsedThisAttempt: true,
+        hunger: BASE_MAX_HUNGER * 0.4,
+        _shieldCooldown: 0,
+      }),
+
+      declineRevive: () => set({
+        reviveOffered: false,
+        levelFailed: true,
+      }),
 
       buyUpgrade: (type, cost) => set((state) => {
         if (state.money < cost) return state;
@@ -861,6 +881,8 @@ export const useGameStore = create<GameState>()(
           levelItemsTotal: 0,
           levelComplete: false,
           levelFailed: false,
+          reviveOffered: false,
+          reviveUsedThisAttempt: false,
           levelStars: 0,
           levelStartTime: Date.now(),
           levelRewards: null,
@@ -1155,7 +1177,7 @@ export const useGameStore = create<GameState>()(
       resetGame: () => set({
         money: 0, currentLevel: 1, hunger: BASE_MAX_HUNGER * 0.6,
         levelItemsEaten: 0, levelItemsTotal: 0, levelComplete: false,
-        levelFailed: false,
+        levelFailed: false, reviveOffered: false, reviveUsedThisAttempt: false,
         levelStars: 0, levelStartTime: Date.now(), levelRewards: null,
         highestLevelReached: 1, blobGrowth: 0,
         blobPosition: { x: 200, y: 300 }, items: [],
@@ -1192,6 +1214,8 @@ export const useGameStore = create<GameState>()(
             items: levelItems,
             levelItemsTotal: def.totalItems,
             levelFailed: false,
+            reviveOffered: false,
+            reviveUsedThisAttempt: false,
             levelStartTime: Date.now(),
             _levelInitialized: true,
             _minHungerPct: 1,
@@ -1213,7 +1237,7 @@ export const useGameStore = create<GameState>()(
           return { levelStartTime: Date.now() };
         }
 
-        if (state.levelComplete || state.levelFailed) return {};
+        if (state.levelComplete || state.levelFailed || state.reviveOffered) return {};
 
         const evo = state.evolutionUpgrades;
         const world = getWorldForLevel(state.currentLevel);
@@ -1255,6 +1279,9 @@ export const useGameStore = create<GameState>()(
         }
 
         if (newHunger <= 0) {
+          if (!state.reviveUsedThisAttempt) {
+            return { hunger: 0, reviveOffered: true, _shieldCooldown: 0, _minHungerPct: 0 };
+          }
           return { hunger: 0, levelFailed: true, _shieldCooldown: 0, _minHungerPct: 0 };
         }
 

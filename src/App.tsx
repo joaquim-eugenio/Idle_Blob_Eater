@@ -9,6 +9,7 @@ import { Tutorial } from './components/Tutorial';
 import { WelcomeBackModal } from './components/WelcomeBackModal';
 import { DailyRewardModal } from './components/DailyRewardModal';
 import { LevelCompleteModal } from './components/LevelCompleteModal';
+import { RevivePanel } from './components/RevivePanel';
 import { AchievementPanel } from './components/AchievementPanel';
 import { StatsPanel } from './components/StatsPanel';
 import { GemShop } from './components/GemShop';
@@ -51,6 +52,7 @@ export default function App() {
       <ActionBar />
       <SkillTree />
       {/* <EvolutionPanel /> */}
+      <RevivePanel />
       <LevelCompleteModal />
 
       {/* Bottom panel bar */}

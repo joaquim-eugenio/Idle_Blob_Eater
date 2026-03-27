@@ -14,7 +14,7 @@ function fmt(n: number): string {
 export function HUD() {
   const { currentLevel, hunger, levelItemsEaten, levelItemsTotal, money, upgrades,
     moneyPerSecond, essence,
-    levelComplete, levelFailed } = useGameStore();
+    levelComplete, levelFailed, reviveOffered } = useGameStore();
 
   const prevMoney = useRef(money);
   const [flashKey, setFlashKey] = useState(0);
@@ -94,7 +94,7 @@ export function HUD() {
       <div className="w-full bg-blue-300 rounded-full h-4 overflow-hidden relative border-2 border-blue-400">
         <div
           className={`h-full transition-all duration-200 ease-out ${
-            levelComplete ? 'bg-emerald-500' : levelFailed ? 'bg-red-500' : 'bg-blue-500'
+            levelComplete ? 'bg-emerald-500' : (levelFailed || reviveOffered) ? 'bg-red-500' : 'bg-blue-500'
           }`}
           style={{ width: `${levelComplete ? 100 : itemsPercent}%` }}
         />
@@ -102,7 +102,7 @@ export function HUD() {
           className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white"
           style={{ textShadow: '-1px -1px 0 rgba(0,0,0,0.35), 1px -1px 0 rgba(0,0,0,0.35), -1px 1px 0 rgba(0,0,0,0.35), 1px 1px 0 rgba(0,0,0,0.35)' }}
         >
-          {levelComplete ? 'LEVEL CLEAR!' : levelFailed ? 'STARVED!' : `ITEMS ${levelItemsEaten} / ${levelItemsTotal}`}
+          {levelComplete ? 'LEVEL CLEAR!' : (levelFailed || reviveOffered) ? 'STARVED!' : `ITEMS ${levelItemsEaten} / ${levelItemsTotal}`}
         </span>
       </div>
 

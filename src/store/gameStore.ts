@@ -1519,6 +1519,20 @@ export const useGameStore = create<GameState>()(
 
         if (state._introPlaying) return {};
 
+        if (!state.completedHints.includes('oversized_food') &&
+            state.activeHint !== 'oversized_food') {
+          const bx = state.blobPosition.x;
+          const by = state.blobPosition.y;
+          const world = getWorldForLevel(state.currentLevel);
+          const viewRadius = 160 * world.blobScale / 2.5;
+          const nearbyOversized = state.items.some(i =>
+            i.isOversized && Math.hypot(i.x - bx, i.y - by) < viewRadius
+          );
+          if (nearbyOversized) {
+            return { activeHint: 'oversized_food', levelStartTime: Date.now() };
+          }
+        }
+
         if (state.activeHint) {
           return { levelStartTime: Date.now() };
         }

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useGameStore, Item, getCurrentWorld, computeTapCooldown } from '../store/gameStore';
 import { BASE_SUCTION, BLOB_SKINS, OVERSIZED_SIZE_MULT, OVERSIZED_VOMIT_STAGES, getOversizedConfig } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
@@ -108,6 +108,18 @@ export function GameCanvas() {
     centerY: 300,
   });
   const fpsTimesRef = useRef<number[]>([]);
+  const tutorialPosRef = useRef<{ x: number; y: number; r: number; itemId: string } | null>(null);
+  const [tutorialVisible, setTutorialVisible] = useState(false);
+
+  const handleTutorialTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const state = useGameStore.getState();
+    const osItem = state.items.find(i => i.isOversized && i.splitState !== 'splitting');
+    if (osItem) state.tapOversizedItem(osItem.id);
+    state.dismissHint('oversized_food');
+    setTutorialVisible(false);
+  }, []);
 
   const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -137,6 +149,7 @@ export function GameCanvas() {
     const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
 
     const now = performance.now() / 1000;
+    const isTutorialActive = state.activeHint === 'oversized_food';
 
     const worldForTap = getWorldForLevel(state.currentLevel);
     const wIdx = WORLDS.indexOf(worldForTap);
@@ -150,7 +163,7 @@ export function GameCanvas() {
       const tapSizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * tapStageFrac;
       const itemSize = (6 + catalogItem.sizeTier * 4) * nextWorldForTap.blobScale * tapSizeMult;
       const hitDist = Math.hypot(worldX - item.x, worldY - item.y);
-      if (hitDist < itemSize * 0.8) {
+      if (hitDist < itemSize * (isTutorialActive ? 1.2 : 0.8)) {
         ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'crack' });
         const tapsAfter = (item.splitTapsReceived || 0) + 1;
         const osCfg = getOversizedConfig(wIdx);
@@ -161,9 +174,14 @@ export function GameCanvas() {
           birth: now, value: -1,
         });
         state.tapOversizedItem(item.id);
+        if (isTutorialActive) {
+          state.dismissHint('oversized_food');
+        }
         return;
       }
     }
+
+    if (isTutorialActive) return;
 
     const bx = state.blobPosition.x;
     const by = state.blobPosition.y;
@@ -971,6 +989,27 @@ export function GameCanvas() {
         }
       }
 
+      // Oversized food tutorial: update position ref for HTML overlay
+      if (state.activeHint === 'oversized_food') {
+        const osItem = items.find(i => i.isOversized && i.splitState !== 'splitting');
+        if (osItem) {
+          const sx = (osItem.x - camPosRef.current.x) * zoom + canvas.width / 2;
+          const sy = (osItem.y - camPosRef.current.y) * zoom + canvas.height / 2;
+          const catalogE = ITEM_LOOKUP[osItem.type];
+          const osStage = osItem.oversizedStage || OVERSIZED_VOMIT_STAGES;
+          const stageFrac = osStage / OVERSIZED_VOMIT_STAGES;
+          const sizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * stageFrac;
+          const itemRad = catalogE
+            ? (6 + catalogE.sizeTier * 4) * (getWorldForLevel(currentLevel + 1)?.blobScale || 1) * sizeMult * zoom
+            : 30;
+          tutorialPosRef.current = { x: sx, y: sy, r: itemRad * 1.5, itemId: osItem.id };
+          if (!tutorialVisible) setTutorialVisible(true);
+        }
+      } else if (tutorialPosRef.current) {
+        tutorialPosRef.current = null;
+        if (tutorialVisible) setTutorialVisible(false);
+      }
+
       if (state._benchmarkActive) {
         const now = performance.now();
         const frameTimes = fpsTimesRef.current;
@@ -1002,12 +1041,103 @@ export function GameCanvas() {
     return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
+  const tp = tutorialVisible ? tutorialPosRef.current : null;
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0"
-      onClick={handleTap}
-      onTouchStart={handleTap}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0"
+        onClick={handleTap}
+        onTouchStart={handleTap}
+      />
+      {tp && (
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 9999, touchAction: 'none' }}
+          onClick={handleTutorialTap}
+          onTouchStart={handleTutorialTap}
+        >
+          {/* Full-screen dark overlay with spotlight cutout */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(circle at ${tp.x}px ${tp.y}px, transparent ${tp.r}px, rgba(0,0,0,0.65) ${tp.r + 18}px)`,
+            }}
+          />
+
+          {/* Pulsing glow ring */}
+          <div
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              left: tp.x - tp.r - 4,
+              top: tp.y - tp.r - 4,
+              width: (tp.r + 4) * 2,
+              height: (tp.r + 4) * 2,
+              border: '3px solid rgba(255,220,80,0.8)',
+              boxShadow: '0 0 18px 4px rgba(255,220,80,0.4), inset 0 0 18px 4px rgba(255,220,80,0.15)',
+              animation: 'tutPulse 1.2s ease-in-out infinite',
+            }}
+          />
+
+          {/* Tapping hand emoji */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: tp.x + tp.r * 0.3,
+              top: tp.y + tp.r * 0.1,
+              fontSize: Math.min(56, window.innerWidth * 0.11),
+              animation: 'tutTap 1s ease-in-out infinite',
+              filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',
+              transformOrigin: 'center bottom',
+            }}
+          >
+            👆
+          </div>
+
+          {/* Text */}
+          <div
+            className="absolute left-0 right-0 pointer-events-none text-center"
+            style={{ top: tp.y - tp.r - 64 }}
+          >
+            <div
+              style={{
+                fontFamily: "'Fredoka', sans-serif",
+                fontWeight: 900,
+                fontSize: Math.min(30, window.innerWidth * 0.06),
+                color: '#fde68a',
+                textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 0 20px rgba(253,230,138,0.3)',
+              }}
+            >
+              Tap to break!
+            </div>
+            <div
+              style={{
+                fontFamily: "'Fredoka', sans-serif",
+                fontSize: Math.min(15, window.innerWidth * 0.032),
+                color: 'rgba(255,255,255,0.85)',
+                textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                marginTop: 4,
+              }}
+            >
+              This food is too big to eat whole
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes tutPulse {
+              0%, 100% { transform: scale(1); opacity: 0.7; }
+              50% { transform: scale(1.08); opacity: 1; }
+            }
+            @keyframes tutTap {
+              0%, 100% { transform: translateY(0) scale(1); }
+              40% { transform: translateY(-10px) scale(1.05); }
+              55% { transform: translateY(4px) scale(0.92); }
+              70% { transform: translateY(-2px) scale(1); }
+            }
+          `}</style>
+        </div>
+      )}
+    </>
   );
 }

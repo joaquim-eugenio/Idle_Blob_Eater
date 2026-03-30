@@ -12,6 +12,12 @@ export const BASE_TAP_VALUE_MULT = 1.5;
 export const OFFLINE_BASE_EFFICIENCY = 0.1;
 export const OFFLINE_MAX_HOURS = 8;
 
+export const AUTOPILOT_BASE_CLEAR_RATE = 0.05;
+export const AUTOPILOT_DEFAULT_MAX_HOURS = 8;
+export const AUTOPILOT_DIMINISHING_THRESHOLD_HOURS = 4;
+export const AUTOPILOT_DIMINISHING_FACTOR = 0.5;
+export const AUTOPILOT_DRAIN_MULT = 0.02;
+
 export const OVERSIZED_SIZE_MULT = 1.6;
 export const OVERSIZED_MIN_WORLD_IDX = 1;
 export const OVERSIZED_MIN_LEVEL_IN_WORLD = 2;
@@ -80,6 +86,7 @@ export const EVOLUTION_UPGRADES: Record<string, { name: string; desc: string; ma
   tapMastery: { name: 'Tap Mastery', desc: '+20% tap value per level', maxLevel: 10, cost: (l) => Math.floor(5 * Math.pow(2, l)) },
   offlineRate: { name: 'Idle Earnings', desc: '+10% offline efficiency per level', maxLevel: 5, cost: (l) => Math.floor(10 * Math.pow(2, l)) },
   startingLevel: { name: 'Head Start', desc: 'Start at a higher level after prestige', maxLevel: 5, cost: (l) => Math.floor(15 * Math.pow(2.5, l)) },
+  autopilotRate: { name: 'Idle Mastery', desc: '+15% autopilot clear rate per level', maxLevel: 5, cost: (l) => Math.floor(12 * Math.pow(2.2, l)) },
 };
 
 export interface AchievementDef {
@@ -326,6 +333,9 @@ export interface SkillNodeDef {
     autoSplitRate: number;
     splitTapReduction: number;
     oversizedValueMult: number;
+    autopilotEfficiency: number;
+    autopilotHungerResist: number;
+    autopilotMaxHours: number;
   }>;
 }
 
@@ -392,12 +402,14 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'survival_iron',       title: 'Iron Stomach',          shortDesc: 'Increased hunger capacity',       branch: 'survival', chapter: 1, type: 'choice',       cost: 375,    row: 3, requires: ['survival_digestive'],     choiceGroup: 'survival_early', effects: { hungerMaxFlat: 30, hungerDrainMult: -0.04 } },
   { id: 'survival_endurance',  title: 'Endurance',             shortDesc: '-4% hunger drain',                branch: 'survival', chapter: 1, type: 'minor',        cost: 225,    row: 4, requires: ['survival_shield', 'survival_iron'], effects: { hungerDrainMult: -0.04 } },
   { id: 'survival_frenzy',     title: 'Low-Hunger Frenzy',     shortDesc: 'Speed/value boost when starving', branch: 'survival', chapter: 1, type: 'conditional',  cost: 900,    row: 5, requires: ['survival_endurance'],     effects: { lowHungerThreshold: 0.3, lowHungerFrenzyMult: 0.3 } },
+  { id: 'survival_hibernation', title: 'Hibernation Mode',    shortDesc: '-70% hunger drain during autopilot', branch: 'survival', chapter: 1, type: 'mechanic', cost: 5000, row: 6, requires: ['survival_shield'], effects: { autopilotHungerResist: 0.7 } },
   { id: 'survival_keystone',   title: 'Last Stand Metabolism', shortDesc: 'High hunger tank + frenzy',       branch: 'survival', chapter: 1, type: 'keystone',     cost: 2250,   row: 6, requires: ['survival_frenzy'],        effects: { hungerMaxFlat: 55, hungerDrainMult: -0.1 } },
   { id: 'survival_tradeoff',   title: 'Risk Reactor',          shortDesc: 'More risk, bigger frenzy',        branch: 'survival', chapter: 2, type: 'conditional',  cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { lowHungerFrenzyMult: 0.32, lowHungerThreshold: 0.42 } },
   { id: 'survival_reservoir',  title: 'Deep Reservoir',        shortDesc: 'Large hunger capacity',           branch: 'survival', chapter: 2, type: 'trait',        cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { hungerMaxFlat: 110 } },
   { id: 'survival_adaptation', title: 'Metabolic Adaptation',  shortDesc: 'Body sustains itself and heals through eating', branch: 'survival', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['survival_tradeoff', 'survival_reservoir'], gateRequired: 'gateA', effects: { hungerDrainMult: -0.12, hungerMaxFlat: 50, hungerOnEat: 2, lowHungerFrenzyMult: 0.10 } },
   { id: 'survival_berserker',  title: 'Berserker Core',        shortDesc: 'Living on the edge grants explosive power', branch: 'survival', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['survival_adaptation'], gateRequired: 'gateA', choiceGroup: 'survival_mastery', effects: { lowHungerFrenzyMult: 0.40, lowHungerThreshold: 0.45, speedMult: 0.15, valueMult: 0.10 } },
   { id: 'survival_fortress',   title: 'Fortress Metabolism',   shortDesc: 'Nearly unkillable with passive hunger regen', branch: 'survival', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['survival_adaptation'], gateRequired: 'gateA', choiceGroup: 'survival_mastery', effects: { hungerMaxFlat: 130, hungerDrainMult: -0.20, frenzyShieldSeconds: 2.5, hungerOnEat: 5 } },
+  { id: 'survival_deep_sleep',  title: 'Deep Sleep',            shortDesc: '-20% autopilot drain, +10 max hunger', branch: 'survival', chapter: 3, type: 'trait', cost: 45000, row: 11, requires: ['survival_apex'], gateRequired: 'gateB', effects: { autopilotHungerResist: 0.2, hungerMaxFlat: 10 } },
   { id: 'survival_apex',       title: 'Immortal Core',         shortDesc: 'Late run stamina + economy',      branch: 'survival', chapter: 3, type: 'keystone',     cost: 120000, row: 12, requires: ['survival_berserker', 'survival_fortress'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.30, valueMult: 0.15, hungerMaxFlat: 80, frenzyShieldSeconds: 1.2, lowHungerFrenzyMult: 0.15 } },
   { id: 'survival_mastery_node', title: 'Undying Core',        shortDesc: 'Ultimate survival and hunger mastery', branch: 'survival', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['survival_apex'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.30, hungerMaxFlat: 160, lowHungerFrenzyMult: 0.30, valueMult: 0.15, hungerOnEat: 4, frenzyShieldSeconds: 1.5 } },
 
@@ -407,15 +419,19 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'auto_tap_optimizer',  title: 'Efficient Systems', shortDesc: 'Improved tap output and reduced hunger drain', branch: 'automation', chapter: 1, type: 'trait', cost: 375, row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { tapValueMult: 0.25, tapCooldownMult: -0.1, hungerDrainMult: -0.03 } },
   { id: 'auto_power_grid',     title: 'Power Grid',        shortDesc: 'Passive tapping and offline gains', branch: 'automation', chapter: 1, type: 'choice', cost: 375, row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { autoTapRate: 0.25, offlineEfficiency: 0.08 } },
   { id: 'auto_signal',         title: 'Proximity Sensors', shortDesc: 'Slight suction expansion and tap boost', branch: 'automation', chapter: 1, type: 'minor', cost: 225, row: 4, requires: ['auto_tap_optimizer', 'auto_power_grid'], effects: { tapValueMult: 0.08, suctionFlat: 5 } },
+  { id: 'auto_autopilot_unlock', title: 'Autopilot Mode',  shortDesc: 'Blob clears the level while you are away', branch: 'automation', chapter: 1, type: 'mechanic', cost: 500, row: 4.5, requires: ['auto_tap_drone'], effects: { autopilotEfficiency: 0.5 } },
   { id: 'auto_split_drone',    title: 'Splitter Drone',    shortDesc: 'Drone automatically cracks oversized food', branch: 'automation', chapter: 1, type: 'mechanic', cost: 600, row: 4.5, requires: ['auto_signal'], effects: { autoSplitRate: 0.5 } },
   { id: 'auto_offline_core',   title: 'Offline Core',      shortDesc: 'Offline efficiency increase',    branch: 'automation', chapter: 1, type: 'mechanic', cost: 900,    row: 5, requires: ['auto_signal'],        effects: { offlineEfficiency: 0.15 } },
   { id: 'auto_keystone',       title: 'Autopilot Brain',   shortDesc: 'Supercharged auto-tap',          branch: 'automation', chapter: 1, type: 'keystone', cost: 2250,   row: 6, requires: ['auto_offline_core'],  effects: { autoTapRate: 0.5, offlineEfficiency: 0.1 } },
+  { id: 'auto_idle_pathfinding', title: 'Smart Pathing',   shortDesc: '+30% autopilot efficiency',       branch: 'automation', chapter: 2, type: 'trait',    cost: 8000,   row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', effects: { autopilotEfficiency: 0.3 } },
+  { id: 'auto_extended_battery', title: 'Extended Battery', shortDesc: 'Autopilot lasts up to 12h',     branch: 'automation', chapter: 2, type: 'trait',    cost: 15000,  row: 9.5, requires: ['auto_idle_pathfinding'], gateRequired: 'gateA', effects: { autopilotMaxHours: 4 } },
   { id: 'auto_choice_builder', title: 'Builder AI',        shortDesc: 'Tap efficiency focus',            branch: 'automation', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { autoTapRate: 0.45, valueMult: 0.08 } },
   { id: 'auto_choice_farmer',  title: 'Magnetic Field',    shortDesc: 'Items across the level drift toward the blob', branch: 'automation', chapter: 2, type: 'choice', cost: 12000, row: 9, requires: ['auto_keystone'], gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { magnetRadius: 1.3, autoTapRate: 0.35 } },
   { id: 'auto_split_elite',    title: 'Crusher Protocol',  shortDesc: 'Faster auto-splitting and reduced taps needed', branch: 'automation', chapter: 2, type: 'trait', cost: 18000, row: 9.5, requires: ['auto_split_drone', 'auto_keystone'], gateRequired: 'gateA', effects: { autoSplitRate: 1.5, splitTapReduction: 1 } },
   { id: 'auto_neural_net',     title: 'Neural Network',    shortDesc: 'AI systems optimize all automation pipelines', branch: 'automation', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateA', effects: { autoTapRate: 0.5, tapValueMult: 0.15, offlineEfficiency: 0.10, passiveMoneyRate: 0.5 } },
   { id: 'auto_swarm',          title: 'Drone Swarm',       shortDesc: 'Flood the field with micro-drones', branch: 'automation', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { autoTapRate: 1.0, magnetRadius: 0.8, suctionFlat: 12, multiEatRadius: 20 } },
   { id: 'auto_overclock',      title: 'Overclock Protocol', shortDesc: 'Each tap and auto-eat is massively amplified', branch: 'automation', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { tapValueMult: 0.45, tapCooldownMult: -0.25, valueMult: 0.10, passiveMoneyRate: 1.0 } },
+  { id: 'auto_perpetual_motion', title: 'Perpetual Motion', shortDesc: 'Full autopilot efficiency, no diminishing returns', branch: 'automation', chapter: 3, type: 'keystone', cost: 80000, row: 11, requires: ['auto_neural_net', 'auto_extended_battery'], gateRequired: 'gateB', effects: { autopilotEfficiency: 0.5, autopilotMaxHours: 8 } },
   { id: 'auto_apex',           title: 'Singularity Ops',   shortDesc: 'Massive passive scaling',        branch: 'automation', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['auto_swarm', 'auto_overclock'], gateRequired: 'gateB', effects: { offlineEfficiency: 0.30, autoTapRate: 1.2, magnetRadius: 0.8, suctionMult: 0.15, tapValueMult: 0.15 } },
   { id: 'auto_mastery_node',   title: 'Singularity Engine', shortDesc: 'Ultimate passive automation power', branch: 'automation', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['auto_apex'], gateRequired: 'gateB', effects: { autoTapRate: 1.5, offlineEfficiency: 0.25, magnetRadius: 1.0, tapValueMult: 0.30, passiveMoneyRate: 2.0 } },
 

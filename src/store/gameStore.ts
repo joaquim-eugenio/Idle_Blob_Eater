@@ -10,6 +10,9 @@ import {
   SPECIAL_SKINS, BLOB_ITEMS, BLOB_FACES,
   getOversizedConfig, OVERSIZED_MIN_LEVEL_IN_WORLD, OVERSIZED_PROACTIVE_VALUE_MULT,
   OVERSIZED_VOMIT_STAGES,
+  AUTOPILOT_BASE_CLEAR_RATE, AUTOPILOT_DEFAULT_MAX_HOURS,
+  AUTOPILOT_DIMINISHING_THRESHOLD_HOURS, AUTOPILOT_DIMINISHING_FACTOR,
+  AUTOPILOT_DRAIN_MULT,
 } from '../lib/constants';
 import { showRewardedAd, canShowAdForAbility } from '../lib/ads';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
@@ -70,6 +73,7 @@ export interface EvolutionUpgrades {
   tapMastery: number;
   offlineRate: number;
   startingLevel: number;
+  autopilotRate: number;
   [key: string]: number;
 }
 
@@ -128,6 +132,9 @@ export interface SkillEffects {
   autoSplitRate: number;
   splitTapReduction: number;
   oversizedValueMult: number;
+  autopilotEfficiency: number;
+  autopilotHungerResist: number;
+  autopilotMaxHours: number;
 }
 
 export interface SkillTelemetry {
@@ -149,6 +156,7 @@ const EMPTY_SKILL_EFFECTS: SkillEffects = {
   comboValueScale: 0, multiEatRadius: 0, critEatChance: 0,
   hungerOnEat: 0, speedPerCombo: 0, passiveMoneyRate: 0,
   autoSplitRate: 0, splitTapReduction: 0, oversizedValueMult: 0,
+  autopilotEfficiency: 0, autopilotHungerResist: 0, autopilotMaxHours: 0,
 };
 
 const DEFAULT_UPGRADES: Upgrades = {
@@ -162,7 +170,7 @@ const DEFAULT_UPGRADES: Upgrades = {
 const DEFAULT_EVOLUTION: EvolutionUpgrades = {
   startingMoney: 0, globalSpeed: 0, globalSuction: 0,
   hungerResist: 0, spawnValueMult: 0, tapMastery: 0,
-  offlineRate: 0, startingLevel: 0,
+  offlineRate: 0, startingLevel: 0, autopilotRate: 0,
 };
 
 const DEFAULT_STATS: GameStats = {
@@ -239,6 +247,32 @@ function getSkillEffects(unlockedNodeIds: string[]): SkillEffects {
     }
   }
   return fx;
+}
+
+export function computeAutopilotClearRate(state: {
+  upgrades: Upgrades;
+  evolutionUpgrades: EvolutionUpgrades;
+  unlockedSkillNodes: string[];
+  achievements: string[];
+}): number {
+  const skillFx = getSkillEffects(state.unlockedSkillNodes);
+  const evo = state.evolutionUpgrades;
+
+  const speedSyn = 1 + ((state.upgrades.speedSynergy as number) || 0) * 0.5;
+  const evoSpeedMult = 1 + evo.globalSpeed * 0.1;
+  const effectiveSpeed = (BASE_SPEED + softCap(state.upgrades.speed || 0) * 25) * speedSyn * evoSpeedMult * (1 + skillFx.speedMult) + skillFx.speedFlat;
+
+  const suctionSyn = 1 + ((state.upgrades.suctionSynergy as number) || 0) * 0.5;
+  const evoSuctionMult = 1 + evo.globalSuction * 0.1;
+  const effectiveSuction = (BASE_SUCTION + softCap(state.upgrades.suction || 0) * 15) * suctionSyn * evoSuctionMult * (1 + skillFx.suctionMult) + skillFx.suctionFlat;
+
+  const speedBonus = effectiveSpeed / BASE_SPEED;
+  const suctionBonus = effectiveSuction / BASE_SUCTION;
+  const autoTapBonus = 1 + skillFx.autoTapRate * 0.5;
+  const autopilotSkillMult = 1 + skillFx.autopilotEfficiency;
+  const evoAutopilotMult = 1 + evo.autopilotRate * 0.15;
+
+  return AUTOPILOT_BASE_CLEAR_RATE * speedBonus * suctionBonus * autoTapBonus * autopilotSkillMult * evoAutopilotMult;
 }
 
 export function computeTapCooldown(
@@ -508,6 +542,30 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
   return items;
 }
 
+export interface AutopilotSnapshot {
+  level: number;
+  itemsRemaining: number;
+  totalItems: number;
+  clearRate: number;
+  hungerAtDeploy: number;
+  maxHunger: number;
+  hungerDrainPerSec: number;
+  hungerRestorePerItem: number;
+  timestamp: number;
+}
+
+export type AutopilotOutcome = 'completed' | 'partial' | 'died';
+
+export interface AutopilotResult {
+  outcome: AutopilotOutcome;
+  itemsEaten: number;
+  totalItems: number;
+  hungerAtEnd: number;
+  timeAlive: number;
+  moneyEarned: number;
+  level: number;
+}
+
 interface GameState {
   money: number;
   currentLevel: number;
@@ -604,6 +662,9 @@ interface GameState {
   _oversizedVomitCount: number;
   _benchmarkActive: boolean;
 
+  autopilotActive: boolean;
+  autopilotSnapshot: AutopilotSnapshot | null;
+
   pendingWorldUnlock: { from: WorldDef; to: WorldDef } | null;
 
   sfxEnabled: boolean;
@@ -657,6 +718,10 @@ interface GameState {
   closeSkillTree: () => void;
   openCustomizer: () => void;
   closeCustomizer: () => void;
+  activateAutopilot: () => void;
+  deactivateAutopilot: () => void;
+  resolveAutopilot: () => AutopilotResult | null;
+  reviveFromAutopilot: (result: AutopilotResult) => void;
   applyOfflineProgress: (earnings: number) => void;
   debugAddResources: (money: number, gems: number, essence: number) => void;
   debugFillHunger: () => void;
@@ -766,6 +831,9 @@ export const useGameStore = create<GameState>()(
       _autoSplitAccum: 0,
       _oversizedVomitCount: 0,
       _benchmarkActive: false,
+
+      autopilotActive: false,
+      autopilotSnapshot: null,
 
       pendingWorldUnlock: null,
 
@@ -1159,6 +1227,8 @@ export const useGameStore = create<GameState>()(
           _moneyBuffer: 0,
           _moneyBufferTime: 0,
           moneyPerSecond: 0,
+          autopilotActive: false,
+          autopilotSnapshot: null,
           unlockedSkillNodes: [],
           skillFlashEvents: [],
           skillTelemetry: {
@@ -1399,6 +1469,176 @@ export const useGameStore = create<GameState>()(
       openCustomizer: () => set({ customizerOpen: true }),
       closeCustomizer: () => set({ customizerOpen: false }),
 
+      activateAutopilot: () => set((state) => {
+        const hasAutopilot = state.unlockedSkillNodes.includes('auto_autopilot_unlock');
+        if (!hasAutopilot) return state;
+        if (state.levelComplete || state.levelFailed || state.reviveOffered) return state;
+        if (state.autopilotActive) return state;
+
+        const skillFx = getSkillEffects(state.unlockedSkillNodes);
+        const clearRate = computeAutopilotClearRate(state);
+
+        const hungerSyn = 1 + ((state.upgrades.hungerSynergy as number) || 0) * 0.5;
+        const maxHunger = (BASE_MAX_HUNGER + softCap(state.upgrades.hungerMax || 0) * 20 + skillFx.hungerMaxFlat) * hungerSyn;
+
+        const evo = state.evolutionUpgrades;
+        const levelFactor = 1 + Math.pow(Math.max(0, state.currentLevel - 3), 1.4) * 0.065;
+        const rawDrain = BASE_HUNGER_DRAIN * levelFactor;
+        const evoHungerResist = Math.pow(0.95, evo.hungerResist);
+        const baseDrain = Math.max(0.5, rawDrain * Math.pow(0.95, softCap(state.upgrades.hungerDrain || 0)) * evoHungerResist) / hungerSyn;
+        const effectiveDrain = baseDrain * (1 + skillFx.hungerDrainMult);
+        const autopilotDrain = effectiveDrain * AUTOPILOT_DRAIN_MULT * Math.max(0, 1 - skillFx.autopilotHungerResist);
+
+        const itemsRemaining = state.levelItemsTotal - state.levelItemsEaten;
+        const avgItemValue = 1 + (state.currentLevel - 1) * 0.03;
+        const hungerRestorePerItem = avgItemValue * 0.20;
+
+        return {
+          autopilotActive: true,
+          autopilotSnapshot: {
+            level: state.currentLevel,
+            itemsRemaining,
+            totalItems: state.levelItemsTotal,
+            clearRate,
+            hungerAtDeploy: state.hunger,
+            maxHunger,
+            hungerDrainPerSec: autopilotDrain,
+            hungerRestorePerItem,
+            timestamp: Date.now(),
+          },
+        };
+      }),
+
+      deactivateAutopilot: () => set((state) => {
+        if (!state.autopilotActive) return state;
+        return {
+          autopilotActive: false,
+          autopilotSnapshot: null,
+        };
+      }),
+
+      resolveAutopilot: () => {
+        const state = get();
+        if (!state.autopilotActive || !state.autopilotSnapshot) return null;
+
+        const snapshot = state.autopilotSnapshot;
+        const now = Date.now();
+        const elapsed = (now - snapshot.timestamp) / 1000;
+
+        const skillFx = getSkillEffects(state.unlockedSkillNodes);
+        const maxAutopilotHours = AUTOPILOT_DEFAULT_MAX_HOURS + skillFx.autopilotMaxHours;
+        const maxSeconds = maxAutopilotHours * 3600;
+        const cappedElapsed = Math.min(elapsed, maxSeconds);
+
+        const hasPerpetualMotion = state.unlockedSkillNodes.includes('auto_perpetual_motion');
+        const diminishThresholdSec = AUTOPILOT_DIMINISHING_THRESHOLD_HOURS * 3600;
+
+        let hunger = snapshot.hungerAtDeploy;
+        let itemsEaten = 0;
+        let itemFractionAccum = 0;
+        let timeAlive = 0;
+        let died = false;
+
+        const achBonuses = getAchievementBonuses(state.achievements);
+        const hasDoubleMoney = state.purchasedGemItems.includes('double_money');
+        const evo = state.evolutionUpgrades;
+        const evoValueMult = 1 + evo.spawnValueMult * 0.15;
+        const gemMoneyMult = hasDoubleMoney ? 2 : 1;
+        const skillValueMult = 1 + skillFx.valueMult;
+        const avgItemValue = 1 + (snapshot.level - 1) * 0.03;
+        const baseMoneyPerItem = avgItemValue * achBonuses.moneyMult * gemMoneyMult * evoValueMult * skillValueMult;
+
+        let moneyEarned = 0;
+        const simStepSec = 1;
+
+        for (let t = 0; t < cappedElapsed; t += simStepSec) {
+          if (itemsEaten >= snapshot.itemsRemaining) break;
+
+          let effectiveClearRate = snapshot.clearRate;
+          if (!hasPerpetualMotion && t > diminishThresholdSec) {
+            effectiveClearRate *= AUTOPILOT_DIMINISHING_FACTOR;
+          }
+
+          itemFractionAccum += effectiveClearRate * simStepSec;
+          const wholeItems = Math.floor(itemFractionAccum);
+          if (wholeItems > 0) {
+            const toEat = Math.min(wholeItems, snapshot.itemsRemaining - itemsEaten);
+            itemsEaten += toEat;
+            itemFractionAccum -= wholeItems;
+
+            hunger = Math.min(snapshot.maxHunger, hunger + toEat * snapshot.hungerRestorePerItem);
+            moneyEarned += toEat * baseMoneyPerItem;
+          }
+
+          hunger -= snapshot.hungerDrainPerSec * simStepSec;
+          timeAlive = t + simStepSec;
+
+          if (hunger <= 0) {
+            hunger = 0;
+            died = true;
+            break;
+          }
+        }
+
+        if (!died && timeAlive < cappedElapsed) {
+          timeAlive = cappedElapsed;
+        }
+
+        const outcome: AutopilotOutcome = died
+          ? 'died'
+          : itemsEaten >= snapshot.itemsRemaining
+            ? 'completed'
+            : 'partial';
+
+        moneyEarned = Math.floor(moneyEarned);
+
+        const result: AutopilotResult = {
+          outcome,
+          itemsEaten,
+          totalItems: snapshot.totalItems,
+          hungerAtEnd: Math.max(0, hunger),
+          timeAlive,
+          moneyEarned,
+          level: snapshot.level,
+        };
+
+        const newLevelItemsEaten = (snapshot.totalItems - snapshot.itemsRemaining) + itemsEaten;
+
+        set((s) => {
+          const updates: any = {
+            autopilotActive: false,
+            autopilotSnapshot: null,
+            money: s.money + moneyEarned,
+            currentRunMoney: s.currentRunMoney + moneyEarned,
+            stats: { ...s.stats, totalMoneyEarned: s.stats.totalMoneyEarned + moneyEarned, totalFoodEaten: s.stats.totalFoodEaten + itemsEaten },
+            levelItemsEaten: newLevelItemsEaten,
+            hunger: Math.max(0, hunger),
+          };
+
+          if (outcome === 'completed') {
+            updates.levelComplete = true;
+            updates.levelUpTime = Date.now();
+          } else if (outcome === 'died') {
+            updates.hunger = 0;
+          }
+
+          return updates;
+        });
+
+        return result;
+      },
+
+      reviveFromAutopilot: (result: AutopilotResult) => set((state) => {
+        const skillFx = getSkillEffects(state.unlockedSkillNodes);
+        const hungerSyn = 1 + ((state.upgrades.hungerSynergy as number) || 0) * 0.5;
+        const maxHunger = (BASE_MAX_HUNGER + softCap(state.upgrades.hungerMax || 0) * 20 + skillFx.hungerMaxFlat) * hungerSyn;
+        return {
+          hunger: maxHunger * 0.5,
+          levelFailed: false,
+          reviveOffered: false,
+        };
+      }),
+
       applyOfflineProgress: (earnings) => set((state) => ({
         money: state.money + earnings,
         stats: { ...state.stats, totalMoneyEarned: state.stats.totalMoneyEarned + earnings },
@@ -1495,6 +1735,7 @@ export const useGameStore = create<GameState>()(
         interstitialLastTime: 0, lastRewardedAdTime: 0,
         lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
         lastTapTime: 0,
+        autopilotActive: false, autopilotSnapshot: null,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
         _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
         _autoTapAccum: 0, _benchmarkActive: false,
@@ -1545,6 +1786,7 @@ export const useGameStore = create<GameState>()(
           return { levelStartTime: Date.now() };
         }
 
+        if (state.autopilotActive) return {};
         if (state.levelComplete || state.levelFailed || state.reviveOffered) return {};
 
         const evo = state.evolutionUpgrades;
@@ -2157,6 +2399,8 @@ export const useGameStore = create<GameState>()(
         abilityCharges: state.abilityCharges,
         lastDailyChargeRefill: state.lastDailyChargeRefill,
         interstitialLevelsSinceAd: state.interstitialLevelsSinceAd,
+        autopilotActive: state.autopilotActive,
+        autopilotSnapshot: state.autopilotSnapshot,
       }),
       merge: (persisted: any, current) => {
         const migratedLevel = persisted?.currentLevel || persisted?.level || 1;
@@ -2199,6 +2443,8 @@ export const useGameStore = create<GameState>()(
           interstitialSessionAdCount: 0,
           interstitialLastTime: 0,
           lastRewardedAdTime: 0,
+          autopilotActive: persisted?.autopilotActive || false,
+          autopilotSnapshot: persisted?.autopilotSnapshot || null,
           _levelInitialized: false,
         };
       },

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useGameStore } from '../store/gameStore';
-import { BASE_MAX_HUNGER, softCap } from '../lib/constants';
-import { Sparkle, GearSix } from '@phosphor-icons/react';
+import { useGameStore, computeAutopilotClearRate } from '../store/gameStore';
+import { BASE_MAX_HUNGER, BASE_HUNGER_DRAIN, softCap, SKILL_NODE_LOOKUP, AUTOPILOT_DRAIN_MULT } from '../lib/constants';
+import { Sparkle, GearSix, Robot } from '@phosphor-icons/react';
 import { getWorldForLevel } from '../lib/levels';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -11,14 +11,36 @@ function fmt(n: number): string {
   return Math.floor(n).toLocaleString();
 }
 
+function getSkillEffectsLight(unlockedNodeIds: string[]) {
+  let autopilotHungerResist = 0;
+  for (const id of unlockedNodeIds) {
+    const node = SKILL_NODE_LOOKUP[id];
+    if (!node?.effects) continue;
+    if (node.effects.autopilotHungerResist) autopilotHungerResist += node.effects.autopilotHungerResist;
+  }
+  return { autopilotHungerResist };
+}
+
+function formatDuration(seconds: number) {
+  if (seconds < 60) return `${Math.ceil(seconds)}s`;
+  if (seconds < 3600) return `${Math.ceil(seconds / 60)}m`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.ceil((seconds % 3600) / 60);
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 export function HUD() {
   const { currentLevel, hunger, levelItemsEaten, levelItemsTotal, money, upgrades,
     moneyPerSecond, essence,
-    levelComplete, levelFailed, reviveOffered } = useGameStore();
+    levelComplete, levelFailed, reviveOffered,
+    unlockedSkillNodes, evolutionUpgrades, achievements } = useGameStore();
 
   const prevMoney = useRef(money);
   const [flashKey, setFlashKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const hasAutopilot = unlockedSkillNodes.includes('auto_autopilot_unlock');
+  const showIdleInfo = hasAutopilot && !levelComplete && !levelFailed && !reviveOffered && (levelItemsTotal - levelItemsEaten) > 0;
 
   useEffect(() => {
     if (money > prevMoney.current) {
@@ -115,8 +137,76 @@ export function HUD() {
         </span>
       </div>
 
+
+      {/* Autopilot info toast */}
+      {showIdleInfo && (
+        <AutopilotInfoToast
+          currentLevel={currentLevel}
+          upgrades={upgrades}
+          evolutionUpgrades={evolutionUpgrades}
+          unlockedSkillNodes={unlockedSkillNodes}
+          achievements={achievements}
+          hunger={hunger}
+          levelItemsEaten={levelItemsEaten}
+          levelItemsTotal={levelItemsTotal}
+        />
+      )}
+
     </div>
     <SettingsPanel isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
+  );
+}
+
+function AutopilotInfoToast({
+  currentLevel, upgrades, evolutionUpgrades, unlockedSkillNodes, achievements,
+  hunger, levelItemsEaten, levelItemsTotal,
+}: {
+  currentLevel: number;
+  upgrades: any;
+  evolutionUpgrades: any;
+  unlockedSkillNodes: string[];
+  achievements: string[];
+  hunger: number;
+  levelItemsEaten: number;
+  levelItemsTotal: number;
+}) {
+  const clearRate = computeAutopilotClearRate({ upgrades, evolutionUpgrades, unlockedSkillNodes, achievements });
+  const itemsRemaining = levelItemsTotal - levelItemsEaten;
+  const estSeconds = itemsRemaining > 0 ? itemsRemaining / clearRate : 0;
+
+  const skillFx = getSkillEffectsLight(unlockedSkillNodes);
+  const hungerSyn = 1 + ((upgrades.hungerSynergy as number) || 0) * 0.5;
+  const levelFactor = 1 + Math.pow(Math.max(0, currentLevel - 3), 1.4) * 0.065;
+  const rawDrain = BASE_HUNGER_DRAIN * levelFactor;
+  const evoHungerResist = Math.pow(0.95, evolutionUpgrades.hungerResist || 0);
+  const baseDrain = Math.max(0.5, rawDrain * Math.pow(0.95, softCap(upgrades.hungerDrain || 0)) * evoHungerResist) / hungerSyn;
+  const autopilotDrain = baseDrain * AUTOPILOT_DRAIN_MULT * Math.max(0, 1 - skillFx.autopilotHungerResist);
+
+  const avgItemValue = 1 + (currentLevel - 1) * 0.03;
+  const restorePerItem = avgItemValue * 0.20;
+  const netDrainPerSec = autopilotDrain - (clearRate * restorePerItem);
+  const survivalSeconds = netDrainPerSec > 0 ? hunger / netDrainPerSec : Infinity;
+
+  let riskLabel: string;
+  let dotColor: string;
+  if (survivalSeconds === Infinity || survivalSeconds > estSeconds * 1.5) {
+    riskLabel = 'Safe';
+    dotColor = 'bg-emerald-500';
+  } else if (survivalSeconds > estSeconds) {
+    riskLabel = 'Risky';
+    dotColor = 'bg-amber-500';
+  } else {
+    riskLabel = 'Danger';
+    dotColor = 'bg-red-500';
+  }
+
+  return (
+    <div className="self-end flex items-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm border border-slate-200/80 text-[10px] font-bold">
+      <Robot size={11} className="text-indigo-400 shrink-0" />
+      <span className="text-slate-500">Auto ~{formatDuration(estSeconds)}</span>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
+      <span className="text-slate-500">{riskLabel}</span>
+    </div>
   );
 }

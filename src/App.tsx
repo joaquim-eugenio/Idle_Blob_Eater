@@ -15,6 +15,7 @@ import { StatsPanel } from './components/StatsPanel';
 import { GemShop } from './components/GemShop';
 import { BlobCustomizer } from './components/BlobCustomizer';
 import { WorldViewer } from './components/BiomeSelector';
+import { WorldUnlockCelebration } from './components/WorldUnlockCelebration';
 import { DebugPanel } from './components/DebugPanel';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useOfflineProgress } from './hooks/useOfflineProgress';
@@ -26,7 +27,12 @@ export default function App() {
   const offline = useOfflineProgress();
   const dailyReward = useGameStore(s => s.dailyReward);
   const sessionCount = useGameStore(s => s.sessionCount);
+  const checkDailyChargeRefill = useGameStore(s => s.checkDailyChargeRefill);
   const [dailyDismissed, setDailyDismissed] = useState(false);
+
+  useEffect(() => {
+    checkDailyChargeRefill();
+  }, []);
 
   const today = new Date().toISOString().split('T')[0];
   const showDaily = sessionCount > 1 && dailyReward.lastClaimDate !== today && !dailyDismissed;
@@ -54,6 +60,7 @@ export default function App() {
       {/* <EvolutionPanel /> */}
       <RevivePanel />
       <LevelCompleteModal />
+      <WorldUnlockCelebration />
 
       {/* Bottom panel bar */}
       <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe">

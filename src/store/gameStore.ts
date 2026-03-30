@@ -6,9 +6,10 @@ import {
   EVOLUTION_UPGRADES, ACHIEVEMENTS,
   DAILY_REWARDS, STREAK_MULTIPLIERS, GEM_SHOP_ITEMS, BLOB_SKINS, SKILL_TREE_NODES,
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
-  ACTIVE_ABILITIES, type AbilityId,
+  ACTIVE_ABILITIES, type AbilityId, ABILITY_CHARGES,
   SPECIAL_SKINS, BLOB_ITEMS, BLOB_FACES,
 } from '../lib/constants';
+import { showRewardedAd, canShowAdForAbility } from '../lib/ads';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
 import { ITEM_LOOKUP, getItemsForWorld } from '../lib/itemCatalog';
 
@@ -73,6 +74,7 @@ export interface GameStats {
   totalPrestiges: number;
   totalLevelsCompleted: number;
   totalStarsEarned: number;
+  worldsCompleted: number;
 }
 
 export interface DailyRewardState {
@@ -143,6 +145,7 @@ const DEFAULT_STATS: GameStats = {
   highestLevel: 1, totalUpgradesBought: 0, totalSynergiesBought: 0,
   highestCombo: 0, highestSpeed: 0, totalTaps: 0, timePlayed: 0,
   totalPrestiges: 0, totalLevelsCompleted: 0, totalStarsEarned: 0,
+  worldsCompleted: 0,
 };
 
 const DEFAULT_DAILY: DailyRewardState = {
@@ -162,6 +165,19 @@ const DEFAULT_ABILITIES: AbilitiesMap = {
   speed:  { cooldown: 0, active: false, timer: 0 },
   size:   { cooldown: 0, active: false, timer: 0 },
   food:   { cooldown: 0, active: false, timer: 0 },
+};
+
+type AbilityChargesMap = Record<AbilityId, number>;
+
+const DEFAULT_ABILITY_CHARGES: AbilityChargesMap = {
+  magnet: ABILITY_CHARGES.magnet.maxCharges,
+  speed:  ABILITY_CHARGES.speed.maxCharges,
+  size:   ABILITY_CHARGES.size.maxCharges,
+  food:   ABILITY_CHARGES.food.maxCharges,
+};
+
+const DEFAULT_AD_RECHARGE_TIME: Record<AbilityId, number> = {
+  magnet: 0, speed: 0, size: 0, food: 0,
 };
 
 const DEFAULT_SKILL_TELEMETRY: SkillTelemetry = {
@@ -439,10 +455,21 @@ interface GameState {
   completedHints: string[];
   activeHint: string | null;
 
+  lastRunEatRatio: number;
+  lastRunSurvivalTime: number;
+
   skillTreeOpen: boolean;
   customizerOpen: boolean;
 
   abilities: AbilitiesMap;
+  abilityCharges: AbilityChargesMap;
+  lastAdRechargeTime: Record<AbilityId, number>;
+  lastDailyChargeRefill: string;
+
+  interstitialLevelsSinceAd: number;
+  interstitialSessionAdCount: number;
+  interstitialLastTime: number;
+  lastRewardedAdTime: number;
 
   lastSaveTimestamp: number;
   moneyPerSecond: number;
@@ -459,10 +486,14 @@ interface GameState {
   _autoTapAccum: number;
   _benchmarkActive: boolean;
 
+  pendingWorldUnlock: { from: WorldDef; to: WorldDef } | null;
+
   sfxEnabled: boolean;
   musicEnabled: boolean;
   hapticsEnabled: boolean;
 
+  setPendingWorldUnlock: (from: WorldDef, to: WorldDef) => void;
+  clearPendingWorldUnlock: () => void;
   toggleSetting: (key: 'sfxEnabled' | 'musicEnabled' | 'hapticsEnabled') => void;
   initLevel: (levelNum: number) => void;
   completeLevel: () => void;
@@ -497,6 +528,12 @@ interface GameState {
   showHint: (id: string) => void;
   dismissHint: (id: string) => void;
   activateAbility: (id: AbilityId) => void;
+  rechargeAbility: (id: AbilityId) => Promise<boolean>;
+  rechargeAllAbilities: () => Promise<boolean>;
+  checkDailyChargeRefill: () => boolean;
+  buySuggestedAndRetry: (nodeId: string) => void;
+  buySuggestedUpgrade: (nodeId: string) => void;
+  recordInterstitialShown: () => void;
   openSkillTree: () => void;
   closeSkillTree: () => void;
   openCustomizer: () => void;
@@ -578,10 +615,21 @@ export const useGameStore = create<GameState>()(
       completedHints: [],
       activeHint: null,
 
+      lastRunEatRatio: 0,
+      lastRunSurvivalTime: 0,
+
       skillTreeOpen: false,
       customizerOpen: false,
 
       abilities: { ...DEFAULT_ABILITIES },
+      abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
+      lastAdRechargeTime: { ...DEFAULT_AD_RECHARGE_TIME },
+      lastDailyChargeRefill: '',
+
+      interstitialLevelsSinceAd: 0,
+      interstitialSessionAdCount: 0,
+      interstitialLastTime: 0,
+      lastRewardedAdTime: 0,
 
       lastSaveTimestamp: Date.now(),
       moneyPerSecond: 0,
@@ -598,9 +646,14 @@ export const useGameStore = create<GameState>()(
       _autoTapAccum: 0,
       _benchmarkActive: false,
 
+      pendingWorldUnlock: null,
+
       sfxEnabled: true,
       musicEnabled: true,
       hapticsEnabled: true,
+
+      setPendingWorldUnlock: (from, to) => set({ pendingWorldUnlock: { from, to } }),
+      clearPendingWorldUnlock: () => set({ pendingWorldUnlock: null }),
 
       toggleSetting: (key) => set((state) => ({ [key]: !state[key] })),
 
@@ -650,17 +703,9 @@ export const useGameStore = create<GameState>()(
         const starBonus = stars === 3 ? 1.5 : stars === 2 ? 1.2 : 1;
         const finalMoney = Math.floor(rewards.money * starBonus);
 
-        const hintToShow = state.activeHint;
-        // Hint triggers disabled for now
-        // if (!hintToShow) {
-        //   const world = getWorldForLevel(state.currentLevel);
-        //   const worldIdx = WORLDS.indexOf(world);
-        //   if (worldIdx > 0 && !state.completedHints.includes('worlds_hint')) {
-        //     hintToShow = 'worlds_hint';
-        //   } else if (!state.completedHints.includes('money_hint')) {
-        //     hintToShow = 'money_hint';
-        //   }
-        // }
+        const world = getWorldForLevel(state.currentLevel);
+        const isWorldBoss = Number.isFinite(world.levelRange[1]) && world.levelRange[1] === state.currentLevel;
+        const worldsInc = isWorldBoss ? 1 : 0;
 
         return {
           levelStars: stars,
@@ -669,13 +714,14 @@ export const useGameStore = create<GameState>()(
           essence: state.essence + (rewards.essence || 0),
           gems: state.gems + (rewards.gems || 0),
           currentRunMoney: state.currentRunMoney + finalMoney,
-          activeHint: hintToShow,
+          interstitialLevelsSinceAd: state.interstitialLevelsSinceAd + 1,
           stats: {
             ...state.stats,
             totalLevelsCompleted: state.stats.totalLevelsCompleted + 1,
             totalStarsEarned: state.stats.totalStarsEarned + stars,
             totalMoneyEarned: state.stats.totalMoneyEarned + finalMoney,
             highestLevel: Math.max(state.stats.highestLevel, state.currentLevel),
+            worldsCompleted: state.stats.worldsCompleted + worldsInc,
           },
         };
       }),
@@ -817,6 +863,15 @@ export const useGameStore = create<GameState>()(
         skillFlashEvents: state.skillFlashEvents.filter((event) => event !== id),
       })),
 
+      buySuggestedAndRetry: (nodeId) => {
+        get().unlockSkillNode(nodeId);
+        get().retryLevel();
+      },
+
+      buySuggestedUpgrade: (nodeId) => {
+        get().unlockSkillNode(nodeId);
+      },
+
       activateBoost: () => set({ boostActive: true, boostTimer: 10 }),
       activateStarBoost: () => set({ starBoostActive: true, starBoostTimer: 5 }),
 
@@ -827,6 +882,12 @@ export const useGameStore = create<GameState>()(
         if (ab.cooldown > 0 || ab.active) return state;
         if (state.levelComplete || state.levelFailed) return state;
         if (state.highestLevelReached < def.unlockLevel) return state;
+        if (state.abilityCharges[id] <= 0) return state;
+
+        const newCharges = {
+          ...state.abilityCharges,
+          [id]: state.abilityCharges[id] - 1,
+        };
 
         if (id === 'food') {
           const skillFx = getSkillEffects(state.unlockedSkillNodes);
@@ -852,6 +913,7 @@ export const useGameStore = create<GameState>()(
           return {
             items: newItems,
             hunger: Math.min(state.hunger + hungerRestore, maxHunger),
+            abilityCharges: newCharges,
             abilities: {
               ...state.abilities,
               food: { cooldown: def.cooldown, active: false, timer: 0 },
@@ -860,12 +922,62 @@ export const useGameStore = create<GameState>()(
         }
 
         return {
+          abilityCharges: newCharges,
           abilities: {
             ...state.abilities,
             [id]: { cooldown: def.cooldown, active: true, timer: def.duration },
           },
         };
       }),
+
+      rechargeAbility: async (id) => {
+        const state = get();
+        if (!canShowAdForAbility(id, state.lastAdRechargeTime)) return false;
+        if (state.abilityCharges[id] >= ABILITY_CHARGES[id].maxCharges) return false;
+
+        const success = await showRewardedAd();
+        if (!success) return false;
+
+        set((s) => ({
+          abilityCharges: {
+            ...s.abilityCharges,
+            [id]: Math.min(
+              s.abilityCharges[id] + ABILITY_CHARGES[id].adRefillAmount,
+              ABILITY_CHARGES[id].maxCharges,
+            ),
+          },
+          lastAdRechargeTime: { ...s.lastAdRechargeTime, [id]: Date.now() },
+          lastRewardedAdTime: Date.now(),
+        }));
+        return true;
+      },
+
+      rechargeAllAbilities: async () => {
+        const success = await showRewardedAd();
+        if (!success) return false;
+
+        set(() => ({
+          abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
+          lastAdRechargeTime: {
+            magnet: Date.now(), speed: Date.now(),
+            size: Date.now(), food: Date.now(),
+          },
+          lastRewardedAdTime: Date.now(),
+        }));
+        return true;
+      },
+
+      checkDailyChargeRefill: () => {
+        const today = new Date().toISOString().split('T')[0];
+        const state = get();
+        if (state.lastDailyChargeRefill === today) return false;
+
+        set({
+          abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
+          lastDailyChargeRefill: today,
+        });
+        return true;
+      },
 
       prestige: () => set((state) => {
         const essenceGained = Math.max(1, Math.floor(Math.sqrt(state.currentRunMoney / 500)));
@@ -902,6 +1014,7 @@ export const useGameStore = create<GameState>()(
           comboTimer: 0,
           lastTapTime: 0,
           abilities: { ...DEFAULT_ABILITIES },
+          abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
           _moneyBuffer: 0,
           _moneyBufferTime: 0,
           moneyPerSecond: 0,
@@ -1107,6 +1220,12 @@ export const useGameStore = create<GameState>()(
           : [...state.completedHints, id],
       })),
 
+      recordInterstitialShown: () => set((state) => ({
+        interstitialLevelsSinceAd: 0,
+        interstitialSessionAdCount: state.interstitialSessionAdCount + 1,
+        interstitialLastTime: Date.now(),
+      })),
+
       openSkillTree: () => set({ skillTreeOpen: true }),
       closeSkillTree: () => set({ skillTreeOpen: false }),
       openCustomizer: () => set({ customizerOpen: true }),
@@ -1197,8 +1316,15 @@ export const useGameStore = create<GameState>()(
         skillFlashEvents: [],
         skillTelemetry: { ...DEFAULT_SKILL_TELEMETRY, runStartTimestamp: Date.now() },
         tutorialStep: 0, tutorialComplete: false,
-        sessionCount: 0, completedHints: [], activeHint: null, skillTreeOpen: false, customizerOpen: false,
+        sessionCount: 0, completedHints: [], activeHint: null,
+        lastRunEatRatio: 0, lastRunSurvivalTime: 0,
+        skillTreeOpen: false, customizerOpen: false,
         abilities: { ...DEFAULT_ABILITIES },
+        abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
+        lastAdRechargeTime: { ...DEFAULT_AD_RECHARGE_TIME },
+        lastDailyChargeRefill: '',
+        interstitialLevelsSinceAd: 0, interstitialSessionAdCount: 0,
+        interstitialLastTime: 0, lastRewardedAdTime: 0,
         lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
         lastTapTime: 0,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
@@ -1279,10 +1405,14 @@ export const useGameStore = create<GameState>()(
         }
 
         if (newHunger <= 0) {
+          const deathContext = {
+            lastRunEatRatio: state.levelItemsTotal > 0 ? state.levelItemsEaten / state.levelItemsTotal : 0,
+            lastRunSurvivalTime: (Date.now() - state.levelStartTime) / 1000,
+          };
           if (!state.reviveUsedThisAttempt) {
-            return { hunger: 0, reviveOffered: true, _shieldCooldown: 0, _minHungerPct: 0 };
+            return { hunger: 0, reviveOffered: true, _shieldCooldown: 0, _minHungerPct: 0, ...deathContext };
           }
-          return { hunger: 0, levelFailed: true, _shieldCooldown: 0, _minHungerPct: 0 };
+          return { hunger: 0, levelFailed: true, _shieldCooldown: 0, _minHungerPct: 0, ...deathContext };
         }
 
         const hungerPctNow = newHunger / maxHunger;
@@ -1680,6 +1810,9 @@ export const useGameStore = create<GameState>()(
         sfxEnabled: state.sfxEnabled,
         musicEnabled: state.musicEnabled,
         hapticsEnabled: state.hapticsEnabled,
+        abilityCharges: state.abilityCharges,
+        lastDailyChargeRefill: state.lastDailyChargeRefill,
+        interstitialLevelsSinceAd: state.interstitialLevelsSinceAd,
       }),
       merge: (persisted: any, current) => {
         const migratedLevel = persisted?.currentLevel || persisted?.level || 1;
@@ -1715,6 +1848,13 @@ export const useGameStore = create<GameState>()(
           unlockedFaces: persisted?.unlockedFaces || [],
           highestLevelReached: persisted?.highestLevelReached || migratedLevel,
           blobGrowth: persisted?.blobGrowth || 0,
+          abilityCharges: { ...DEFAULT_ABILITY_CHARGES, ...(persisted?.abilityCharges || {}) },
+          lastDailyChargeRefill: persisted?.lastDailyChargeRefill || '',
+          lastAdRechargeTime: { ...DEFAULT_AD_RECHARGE_TIME },
+          interstitialLevelsSinceAd: persisted?.interstitialLevelsSinceAd || 0,
+          interstitialSessionAdCount: 0,
+          interstitialLastTime: 0,
+          lastRewardedAdTime: 0,
           _levelInitialized: false,
         };
       },

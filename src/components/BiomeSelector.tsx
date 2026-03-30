@@ -49,65 +49,79 @@ export function WorldViewer() {
                 </button>
               </div>
 
-              <div className="p-3 space-y-2 flex-1 overflow-auto">
-                {WORLDS.map(world => {
-                  const isReached = highestLevel >= world.levelRange[0];
-                  const isCurrent = world.id === currentWorld.id;
-                  const maxLevelInWorld = world.levelRange[1] === Infinity ? '...' : world.levelRange[1];
-                  const levelsInWorld = world.levelRange[1] === Infinity
-                    ? Math.max(0, highestLevel - world.levelRange[0] + 1)
-                    : world.levelRange[1] - world.levelRange[0] + 1;
-                  const levelsCleared = Math.max(0, Math.min(
-                    highestLevel - world.levelRange[0] + 1,
-                    world.levelRange[1] === Infinity ? Infinity : levelsInWorld
-                  ));
-                  const progress = world.levelRange[1] === Infinity
-                    ? -1
-                    : Math.min(100, Math.max(0, (levelsCleared / levelsInWorld) * 100));
+              <div className="p-3 space-y-1.5 flex-1 overflow-auto">
+                {[
+                  { label: 'Micro', worlds: WORLDS.slice(0, 3) },
+                  { label: 'Small', worlds: WORLDS.slice(3, 6) },
+                  { label: 'Medium', worlds: WORLDS.slice(6, 10) },
+                  { label: 'Large', worlds: WORLDS.slice(10, 14) },
+                  { label: 'Giant', worlds: WORLDS.slice(14, 19) },
+                  { label: 'Epic', worlds: WORLDS.slice(19) },
+                ].map(tier => (
+                  <div key={tier.label}>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2 pb-1">{tier.label}</div>
+                    <div className="space-y-1.5">
+                      {tier.worlds.map(world => {
+                        const isReached = highestLevel >= world.levelRange[0];
+                        const isCurrent = world.id === currentWorld.id;
+                        const maxLevelInWorld = world.levelRange[1] === Infinity ? '...' : world.levelRange[1];
+                        const levelsInWorld = world.levelRange[1] === Infinity
+                          ? Math.max(0, highestLevel - world.levelRange[0] + 1)
+                          : world.levelRange[1] - world.levelRange[0] + 1;
+                        const levelsCleared = Math.max(0, Math.min(
+                          highestLevel - world.levelRange[0] + 1,
+                          world.levelRange[1] === Infinity ? Infinity : levelsInWorld
+                        ));
+                        const progress = world.levelRange[1] === Infinity
+                          ? -1
+                          : Math.min(100, Math.max(0, (levelsCleared / levelsInWorld) * 100));
 
-                  return (
-                    <div
-                      key={world.id}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${
-                        isCurrent
-                          ? 'bg-emerald-50 border-2 border-emerald-400'
-                          : isReached
-                            ? 'border-2 border-slate-200'
-                            : 'opacity-50 border-2 border-slate-200'
-                      }`}
-                    >
-                      <div
-                        className="w-10 h-10 rounded-lg flex-shrink-0 border border-slate-200 flex items-center justify-center"
-                        style={{ backgroundColor: world.bgColor }}
-                      >
-                        {!isReached ? (
-                          <Lock size={16} className="text-slate-400" />
-                        ) : isCurrent ? (
-                          <MapPin size={16} className="text-emerald-600" />
-                        ) : null}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-700">{world.name}</span>
-                          {isCurrent && (
-                            <span className="text-[10px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">NOW</span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          Levels {world.levelRange[0]} - {maxLevelInWorld}
-                        </div>
-                        {isReached && progress >= 0 && (
-                          <div className="w-full bg-emerald-100 rounded-full h-1.5 mt-1 overflow-hidden border border-emerald-200">
+                        return (
+                          <div
+                            key={world.id}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${
+                              isCurrent
+                                ? 'bg-emerald-50 border-2 border-emerald-400'
+                                : isReached
+                                  ? 'border-2 border-slate-200'
+                                  : 'opacity-50 border-2 border-slate-200'
+                            }`}
+                          >
                             <div
-                              className="bg-emerald-400 h-full transition-all duration-300"
-                              style={{ width: `${progress}%` }}
-                            />
+                              className="w-9 h-9 rounded-lg flex-shrink-0 border border-slate-200 flex items-center justify-center"
+                              style={{ backgroundColor: world.bgColor }}
+                            >
+                              {!isReached ? (
+                                <Lock size={14} className="text-slate-400" />
+                              ) : isCurrent ? (
+                                <MapPin size={14} className="text-emerald-600" />
+                              ) : null}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-700">{world.name}</span>
+                                {isCurrent && (
+                                  <span className="text-[9px] font-bold bg-emerald-500 text-white px-1.5 py-0.5 rounded-full">NOW</span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-400">
+                                Levels {world.levelRange[0]} - {maxLevelInWorld}
+                              </div>
+                              {isReached && progress >= 0 && (
+                                <div className="w-full bg-emerald-100 rounded-full h-1.5 mt-1 overflow-hidden border border-emerald-200">
+                                  <div
+                                    className="bg-emerald-400 h-full transition-all duration-300"
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </motion.div>
           </motion.div>

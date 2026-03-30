@@ -28,6 +28,10 @@ export function HUD() {
   }, [money]);
 
   const world = getWorldForLevel(currentLevel);
+  const worldProgress = currentLevel - world.levelRange[0] + 1;
+  const worldTotal = Number.isFinite(world.levelRange[1])
+    ? world.levelRange[1] - world.levelRange[0] + 1
+    : null;
 
   const hungerSyn = 1 + (upgrades.hungerSynergy || 0) * 0.5;
   const maxHunger = (BASE_MAX_HUNGER + softCap(upgrades.hungerMax || 0) * 20) * hungerSyn;
@@ -46,8 +50,13 @@ export function HUD() {
           <div className="text-2xl font-black text-slate-800 drop-shadow-sm">
             Level {currentLevel}
           </div>
-          <div className="text-xs font-semibold text-slate-500 -mt-0.5 font-body">
-            {world.name}
+          <div className="text-xs font-semibold text-slate-500 -mt-0.5 font-body flex items-center gap-1.5">
+            <span>{world.name}</span>
+            {worldTotal && (
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                {worldProgress}/{worldTotal}
+              </span>
+            )}
           </div>
           {essence > 0 && (
             <div className="flex items-center gap-1 text-purple-500 text-xs font-bold mt-0.5">

@@ -1,8 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CaretRight, ArrowCounterClockwise, ArrowUp, SmileyXEyes } from '@phosphor-icons/react';
+import { CaretRight, ArrowCounterClockwise, ArrowUp, SmileyXEyes, Lightning, SpinnerGap } from '@phosphor-icons/react';
 import { useGameStore } from '../store/gameStore';
 import { getWorldForLevel } from '../lib/levels';
+import { getSuggestedUpgrade, getSuggestionReason, type RunContext } from '../lib/suggestUpgrade';
+import { shouldShowInterstitial, showInterstitialAd, type InterstitialContext } from '../lib/ads';
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -29,13 +31,22 @@ export function LevelCompleteModal() {
   const {
     levelComplete, levelFailed, levelStars, levelRewards, currentLevel,
     completeLevel, advanceToNextLevel, retryLevel, openSkillTree,
+    money, unlockedSkillNodes, lastRunEatRatio, lastRunSurvivalTime,
+    buySuggestedAndRetry, buySuggestedUpgrade,
+    highestLevelReached, interstitialLevelsSinceAd, interstitialSessionAdCount,
+    interstitialLastTime, lastRewardedAdTime, recordInterstitialShown,
+    setPendingWorldUnlock,
   } = useGameStore();
   const [hasCollected, setHasCollected] = useState(false);
+  const [justBought, setJustBought] = useState(false);
+  const [showingAd, setShowingAd] = useState(false);
   const advancingRef = useRef(false);
 
   useEffect(() => {
     if (!levelComplete && !levelFailed) {
       advancingRef.current = false;
+      setJustBought(false);
+      setShowingAd(false);
     }
   }, [levelComplete, levelFailed]);
 
@@ -46,11 +57,36 @@ export function LevelCompleteModal() {
     }
   }, [levelComplete]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (advancingRef.current) return;
     advancingRef.current = true;
+
+    const ctx: InterstitialContext = {
+      highestLevelReached,
+      currentLevel,
+      levelsSinceLastAd: interstitialLevelsSinceAd,
+      sessionAdCount: interstitialSessionAdCount,
+      lastInterstitialTime: interstitialLastTime,
+      lastRewardedAdTime,
+    };
+
+    if (shouldShowInterstitial(ctx)) {
+      setShowingAd(true);
+      try {
+        await showInterstitialAd();
+        recordInterstitialShown();
+      } catch {
+        // Ad failed -- skip gracefully
+      }
+      setShowingAd(false);
+    }
+
     setHasCollected(false);
-    advanceToNextLevel();
+    if (worldChanged) {
+      setPendingWorldUnlock(currentWorld, nextWorld);
+    } else {
+      advanceToNextLevel();
+    }
   };
 
   const handleRetry = () => {
@@ -59,9 +95,37 @@ export function LevelCompleteModal() {
     retryLevel();
   };
 
+  const runContext: RunContext | undefined = (lastRunEatRatio > 0 || lastRunSurvivalTime > 0)
+    ? { eatRatio: lastRunEatRatio, survivalTime: lastRunSurvivalTime }
+    : undefined;
+
+  const failSuggestion = useMemo(
+    () => levelFailed ? getSuggestedUpgrade(money, unlockedSkillNodes, runContext) : null,
+    [levelFailed, money, unlockedSkillNodes, lastRunEatRatio, lastRunSurvivalTime],
+  );
+
+  const successSuggestion = useMemo(
+    () => (hasCollected && levelRewards) ? getSuggestedUpgrade(money, unlockedSkillNodes) : null,
+    [hasCollected, levelRewards, money, unlockedSkillNodes],
+  );
+
+  const handleBuyAndRetry = () => {
+    if (advancingRef.current || !failSuggestion) return;
+    advancingRef.current = true;
+    buySuggestedAndRetry(failSuggestion.id);
+  };
+
+  const handleBuyOnSuccess = () => {
+    if (!successSuggestion) return;
+    buySuggestedUpgrade(successSuggestion.id);
+    setJustBought(true);
+    setTimeout(() => setJustBought(false), 1200);
+  };
+
   const nextWorld = getWorldForLevel(currentLevel + 1);
   const currentWorld = getWorldForLevel(currentLevel);
   const worldChanged = nextWorld.id !== currentWorld.id;
+  const isBossLevel = Number.isFinite(currentWorld.levelRange[1]) && currentWorld.levelRange[1] === currentLevel;
 
   const showSuccess = hasCollected && levelRewards;
   const showFailure = levelFailed;
@@ -103,31 +167,56 @@ export function LevelCompleteModal() {
             <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-4 py-3 w-full border-2 border-amber-200">
               <ArrowUp size={18} className="text-amber-600 shrink-0" />
               <span className="text-sm text-amber-800 font-body">
-                Try upgrading Speed, Suction, or Hunger to clear faster!
+                {failSuggestion ? getSuggestionReason(failSuggestion) : 'Try upgrading Speed, Suction, or Hunger to clear faster!'}
               </span>
             </div>
 
-            <div className="flex gap-3 w-full">
-              <button
-                onClick={openSkillTree}
-                className="btn-game flex-1 bg-slate-100 text-slate-700 font-bold text-base py-3 rounded-2xl border-b-4 border-slate-300 flex items-center justify-center gap-2 transition-all"
-              >
-                <SkillTreeIcon size={18} />
-                Skills
-              </button>
-              <button
-                onClick={handleRetry}
-                className="btn-game flex-1 bg-red-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-red-700 flex items-center justify-center gap-2 transition-all"
-              >
-                <ArrowCounterClockwise size={18} />
-                Retry
-              </button>
-            </div>
+            {failSuggestion ? (
+              <div className="flex flex-col gap-2 w-full">
+                <motion.button
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  onClick={handleBuyAndRetry}
+                  className="btn-game w-full bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-2xl border-b-4 border-emerald-700 flex flex-col items-center justify-center transition-all"
+                >
+                  <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-wide">Recommended Upgrade</span>
+                  <span className="flex items-center gap-1.5 text-sm mt-0.5">
+                    <Lightning size={14} className="shrink-0" />
+                    <span className="truncate">{failSuggestion.title}</span>
+                    <span className="text-emerald-200 text-xs font-black shrink-0">${fmt(failSuggestion.cost)}</span>
+                  </span>
+                </motion.button>
+                <button
+                  onClick={handleRetry}
+                  className="btn-game w-full bg-red-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-red-700 flex items-center justify-center gap-2 transition-all"
+                >
+                  <ArrowCounterClockwise size={18} />
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={openSkillTree}
+                  className="btn-game flex-1 bg-slate-100 text-slate-700 font-bold text-base py-3 rounded-2xl border-b-4 border-slate-300 flex items-center justify-center gap-2 transition-all"
+                >
+                  <SkillTreeIcon size={18} />
+                  Skills
+                </button>
+                <button
+                  onClick={handleRetry}
+                  className="btn-game flex-1 bg-red-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-red-700 flex items-center justify-center gap-2 transition-all"
+                >
+                  <ArrowCounterClockwise size={18} />
+                  Retry
+                </button>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
 
-      {showSuccess && (
+      {showSuccess && !showingAd && (
         <motion.div
           key="success"
           initial={{ opacity: 0 }}
@@ -147,7 +236,7 @@ export function LevelCompleteModal() {
             </div>
 
             <div className="text-3xl font-black text-slate-800">
-              Level Clear!
+              {isBossLevel ? 'World Clear!' : 'Level Clear!'}
             </div>
 
             <div className="flex flex-col items-center gap-1 bg-emerald-50 rounded-xl px-6 py-3 w-full border-2 border-emerald-300">
@@ -163,34 +252,83 @@ export function LevelCompleteModal() {
               </div>
             </div>
 
-            {worldChanged && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="bg-indigo-50 rounded-xl px-4 py-2 text-center border-2 border-indigo-200"
-              >
-                <div className="text-xs font-bold text-indigo-400 uppercase">New World Unlocked</div>
-                <div className="text-lg font-black text-indigo-700">{nextWorld.name}</div>
-              </motion.div>
+            {successSuggestion && !justBought ? (
+              <div className="flex flex-col gap-2 w-full mt-1">
+                <motion.button
+                  key={successSuggestion.id}
+                  initial={{ scale: 0.95 }}
+                  animate={{ scale: 1 }}
+                  onClick={handleBuyOnSuccess}
+                  className="btn-game w-full bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-2xl border-b-4 border-emerald-700 flex flex-col items-center justify-center transition-all"
+                >
+                  <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-wide">Recommended Upgrade</span>
+                  <span className="flex items-center gap-1.5 text-sm mt-0.5">
+                    <Lightning size={14} className="shrink-0" />
+                    <span className="truncate">{successSuggestion.title}</span>
+                    <span className="text-emerald-200 text-xs font-black shrink-0">${fmt(successSuggestion.cost)}</span>
+                  </span>
+                </motion.button>
+                <button
+                  onClick={handleNext}
+                  className="btn-game w-full bg-blue-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-blue-700 flex items-center justify-center gap-2 transition-all"
+                >
+                  Next Level
+                  <CaretRight size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-3 w-full mt-1">
+                {justBought ? (
+                  <motion.div
+                    initial={{ scale: 1.1, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="flex-1 bg-emerald-100 text-emerald-700 font-bold text-base py-3 rounded-2xl border-b-4 border-emerald-300 flex items-center justify-center gap-2"
+                  >
+                    Purchased!
+                  </motion.div>
+                ) : (
+                  <button
+                    onClick={openSkillTree}
+                    className="btn-game flex-1 bg-slate-100 text-slate-700 font-bold text-base py-3 rounded-2xl border-b-4 border-slate-300 flex items-center justify-center gap-2 transition-all"
+                  >
+                    <SkillTreeIcon size={18} />
+                    Skills
+                  </button>
+                )}
+                <button
+                  onClick={handleNext}
+                  className="btn-game flex-1 bg-blue-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-blue-700 flex items-center justify-center gap-2 transition-all"
+                >
+                  Next Level
+                  <CaretRight size={18} />
+                </button>
+              </div>
             )}
+          </motion.div>
+        </motion.div>
+      )}
 
-            <div className="flex gap-3 w-full mt-1">
-              <button
-                onClick={openSkillTree}
-                className="btn-game flex-1 bg-slate-100 text-slate-700 font-bold text-base py-3 rounded-2xl border-b-4 border-slate-300 flex items-center justify-center gap-2 transition-all"
-              >
-                <SkillTreeIcon size={18} />
-                Skills
-              </button>
-              <button
-                onClick={handleNext}
-                className="btn-game flex-1 bg-blue-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-blue-700 flex items-center justify-center gap-2 transition-all"
-              >
-                Next Level
-                <CaretRight size={18} />
-              </button>
-            </div>
+      {showingAd && (
+        <motion.div
+          key="interstitial"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 z-40 flex items-center justify-center bg-black/70"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl p-8 w-[80%] max-w-xs mx-auto flex flex-col items-center gap-4"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+            >
+              <SpinnerGap size={40} className="text-blue-500" />
+            </motion.div>
+            <div className="text-base font-bold text-slate-600">Loading ad...</div>
+            <div className="text-xs text-slate-400">Game will continue shortly</div>
           </motion.div>
         </motion.div>
       )}

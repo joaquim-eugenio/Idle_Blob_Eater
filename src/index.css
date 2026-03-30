@@ -48,6 +48,14 @@
   animation: money-flash 0.4s ease-out;
 }
 
+@keyframes world-glow-pulse {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 12px currentColor); }
+  50%      { filter: brightness(1.15) drop-shadow(0 0 28px currentColor); }
+}
+.world-glow-pulse {
+  animation: world-glow-pulse 2s ease-in-out infinite;
+}
+
 body {
   overscroll-behavior-y: none;
   -webkit-user-select: none;

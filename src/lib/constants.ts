@@ -91,6 +91,10 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'combo_legend', name: 'Combo Legend', desc: 'Reach a 25x combo', category: 'special', stat: 'highestCombo', threshold: 25, reward: { type: 'gems', value: 5 } },
   { id: 'speed_demon', name: 'Speed Demon', desc: 'Reach 1000+ speed', category: 'special', stat: 'highestSpeed', threshold: 1000, reward: { type: 'speed_mult', value: 0.05 } },
   { id: 'tap_master', name: 'Tap Master', desc: 'Tap 500 times', category: 'special', stat: 'totalTaps', threshold: 500, reward: { type: 'gems', value: 3 } },
+  { id: 'world_hopper', name: 'World Hopper', desc: 'Complete 5 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 5, reward: { type: 'gems', value: 5 } },
+  { id: 'globe_trotter', name: 'Globe Trotter', desc: 'Complete 10 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 10, reward: { type: 'gems', value: 10 } },
+  { id: 'world_conqueror', name: 'World Conqueror', desc: 'Complete 15 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 15, reward: { type: 'gems', value: 15 } },
+  { id: 'dimension_master', name: 'Dimension Master', desc: 'Complete 20 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 20, reward: { type: 'gems', value: 25 } },
 ];
 
 export interface BiomeDef {
@@ -238,7 +242,7 @@ export const GEM_SHOP_ITEMS = [
   { id: 'instant_level', name: 'Skip Level', desc: 'Skip current level (1-star rewards)', cost: 15, type: 'consumable' as const },
 ];
 
-export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 40, 50, 75, 100];
+export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 76, 82, 88, 94, 100];
 
 export type SkillBranchId = 'hunt' | 'feast' | 'survival' | 'automation' | 'evolution';
 export type SkillNodeType = 'minor' | 'trait' | 'mechanic' | 'conditional' | 'choice' | 'keystone' | 'gate';
@@ -366,6 +370,30 @@ export const ACTIVE_ABILITIES = [
 ] as const;
 
 export type AbilityId = typeof ACTIVE_ABILITIES[number]['id'];
+
+export const ABILITY_CHARGES: Record<AbilityId, {
+  maxCharges: number;
+  adRefillAmount: number;
+}> = {
+  magnet: { maxCharges: 5, adRefillAmount: 3 },
+  speed:  { maxCharges: 4, adRefillAmount: 2 },
+  size:   { maxCharges: 4, adRefillAmount: 3 },
+  food:   { maxCharges: 3, adRefillAmount: 2 },
+};
+
+export const AD_RECHARGE_COOLDOWN_MS = 60_000;
+
+export const INTERSTITIAL_CONFIG = {
+  graceLevels: 3,
+  baseInterval: 3,
+  baseProbability: 0.30,
+  probabilityStep: 0.25,
+  maxProbability: 0.90,
+  cooldownMs: 120_000,
+  sessionCap: 4,
+  rewardedAdGraceMs: 90_000,
+  worldTransitionExempt: true,
+};
 
 export const SKILL_BRANCH_LABELS: Record<SkillBranchId, string> = {
   hunt: 'Hunt',

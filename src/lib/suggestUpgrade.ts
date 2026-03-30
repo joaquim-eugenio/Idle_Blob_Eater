@@ -6,6 +6,7 @@ import {
 export interface RunContext {
   eatRatio: number;       // levelItemsEaten / levelItemsTotal (0..1)
   survivalTime: number;   // seconds survived before death
+  oversizedVomitCount?: number;
 }
 
 function getChoiceLock(node: SkillNodeDef, unlockedNodeIds: string[]) {
@@ -38,6 +39,7 @@ function canUnlockNode(node: SkillNodeDef, unlockedNodeIds: string[]): boolean {
 
   if (node.gateRequired === 'gateA' && !unlockedNodeIds.includes('gate_a_unlock')) return false;
   if (node.gateRequired === 'gateB' && !unlockedNodeIds.includes('gate_b_unlock')) return false;
+  if (node.gateRequired === 'gateC' && !unlockedNodeIds.includes('gate_c_unlock')) return false;
   if (getChoiceLock(node, unlockedNodeIds)) return false;
   return true;
 }
@@ -47,7 +49,7 @@ const BRANCH_BASE_WEIGHT: Record<SkillBranchId, number> = {
   hunt: 3,
   feast: 2,
   automation: 1,
-  evolution: 0,
+  evolution: 2.5,
 };
 
 const NODE_TYPE_BONUS: Record<SkillNodeType, number> = {
@@ -85,16 +87,18 @@ function scoreNode(
   let score = BRANCH_BASE_WEIGHT[node.branch];
   if (score === 0) return 0;
 
-  // Branch balancing: boost under-invested branches, dampen over-invested ones
-  const branchCount = branchCounts[node.branch];
-  if (avgBranchCount > 0) {
-    const deficit = avgBranchCount - branchCount;
-    score += deficit * 0.8;
-  } else if (branchCount === 0) {
-    score += 1.5;
+  if (node.branch !== 'evolution') {
+    const branchCount = branchCounts[node.branch];
+    if (avgBranchCount > 0) {
+      const deficit = avgBranchCount - branchCount;
+      score += deficit * 0.8;
+    } else if (branchCount === 0) {
+      score += 1.5;
+    }
+  } else {
+    score += 1.0;
   }
 
-  // Run context adjustments
   if (runContext) {
     if (runContext.eatRatio < 0.4 && node.branch === 'hunt') {
       score += 2;
@@ -102,12 +106,16 @@ function scoreNode(
     if (runContext.survivalTime < 8 && node.branch === 'survival') {
       score += 2;
     }
+    if (runContext.oversizedVomitCount && runContext.oversizedVomitCount > 0) {
+      if (node.id === 'auto_split_drone') score += 3;
+      if (runContext.oversizedVomitCount >= 3) {
+        if (node.id === 'auto_split_elite' || node.id === 'feast_gulper') score += 2;
+      }
+    }
   }
 
   score *= NODE_TYPE_BONUS[node.type];
 
-  // Cost efficiency: prefer affordable nodes, with a bonus for being within budget
-  // but penalize nodes that are trivially cheap when the player has lots of money
   const costRatio = node.cost / Math.max(1, money);
   if (costRatio <= 0.5) {
     score *= 1.1;
@@ -116,6 +124,8 @@ function scoreNode(
   } else {
     score *= 0.9;
   }
+
+  if (node.cost >= 100000) score *= 1.2;
 
   return score;
 }
@@ -129,7 +139,6 @@ export function getSuggestedUpgrade(
 
   const candidates = SKILL_TREE_NODES.filter((node) =>
     node.type !== 'gate' &&
-    node.branch !== 'evolution' &&
     !unlocked.has(node.id) &&
     money >= node.cost &&
     canUnlockNode(node, unlockedSkillNodes)

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useGameStore, Item, getCurrentWorld, computeTapCooldown } from '../store/gameStore';
-import { BASE_SUCTION, BLOB_SKINS } from '../lib/constants';
+import { BASE_SUCTION, BLOB_SKINS, OVERSIZED_SIZE_MULT, OVERSIZED_VOMIT_STAGES, getOversizedConfig } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
@@ -27,7 +27,7 @@ interface FloatingText {
 
 interface Ripple {
   x: number; y: number; birth: number;
-  type: 'normal' | 'cooldown' | 'blob';
+  type: 'normal' | 'cooldown' | 'blob' | 'crack';
 }
 
 const NUM_NODES = 16;
@@ -97,6 +97,7 @@ export function GameCanvas() {
   const prevComboRef = useRef(0);
   const ripplesRef = useRef<Ripple[]>([]);
   const eatPopRef = useRef(0);
+  const vomitAnimRef = useRef(0);
   const displayedSizeScaleRef = useRef(0);
   const introRef = useRef({
     level: 0,
@@ -136,6 +137,34 @@ export function GameCanvas() {
     const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
 
     const now = performance.now() / 1000;
+
+    const worldForTap = getWorldForLevel(state.currentLevel);
+    const wIdx = WORLDS.indexOf(worldForTap);
+    const nextWorldForTap = wIdx < WORLDS.length - 1 ? WORLDS[wIdx + 1] : worldForTap;
+    for (const item of state.items) {
+      if (!item.isOversized || item.splitState === 'splitting' || item.splitState === 'swallowing') continue;
+      const catalogItem = ITEM_LOOKUP[item.type];
+      if (!catalogItem) continue;
+      const tapStage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
+      const tapStageFrac = tapStage / OVERSIZED_VOMIT_STAGES;
+      const tapSizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * tapStageFrac;
+      const itemSize = (6 + catalogItem.sizeTier * 4) * nextWorldForTap.blobScale * tapSizeMult;
+      const hitDist = Math.hypot(worldX - item.x, worldY - item.y);
+      if (hitDist < itemSize * 0.8) {
+        ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'crack' });
+        const tapsAfter = (item.splitTapsReceived || 0) + 1;
+        const osCfg = getOversizedConfig(wIdx);
+        const total = item.splitTapsRequired || (osCfg?.tapsRequired ?? 3);
+        floatingTextsRef.current.push({
+          x: item.x, y: item.y - itemSize * 0.5,
+          text: tapsAfter >= total ? 'SPLIT!' : `${tapsAfter}/${total}`,
+          birth: now, value: -1,
+        });
+        state.tapOversizedItem(item.id);
+        return;
+      }
+    }
+
     const bx = state.blobPosition.x;
     const by = state.blobPosition.y;
     const tapDist = Math.hypot(worldX - bx, worldY - by);
@@ -362,6 +391,10 @@ export function GameCanvas() {
           ripRadius = 15 + progress * 40;
           color = `rgba(255, 255, 255, ${0.5 * (1 - progress)})`;
           lineW = (2.5 / zoom) * (1 - progress);
+        } else if (rip.type === 'crack') {
+          ripRadius = 10 + progress * 35;
+          color = `rgba(255, 200, 50, ${0.6 * (1 - progress)})`;
+          lineW = (3 / zoom) * (1 - progress);
         } else {
           ripRadius = 20 + progress * 60;
           color = `rgba(59, 130, 246, ${0.5 * (1 - progress)})`;
@@ -383,17 +416,92 @@ export function GameCanvas() {
 
         if (item.type === 'star') {
           const worldIdx = Math.max(0, WORLDS.indexOf(world));
-          const starSizeTier = worldIdx + 1;
+          const starSizeTier = Math.min(worldIdx + 1, 5);
           const starScale = (6 + starSizeTier * 4) * world.blobScale / 36;
           ctx.scale(starScale, starScale);
           drawStarItem(ctx, item);
         } else if (item.isTapFood) {
-          const worldIdx = Math.max(0, WORLDS.indexOf(world));
-          const tapSizeTier = worldIdx + 1;
-          const tapSize = (6 + tapSizeTier * 4) * world.blobScale;
+          const tapSize = (6 + 2 * 4) * world.blobScale;
           const tapScale = tapSize / 20;
           ctx.scale(tapScale, tapScale);
           drawTapFood(ctx);
+        } else if (item.isOversized) {
+          const catalogItem = ITEM_LOOKUP[item.type];
+          if (catalogItem) {
+            const worldIdx = Math.max(0, WORLDS.indexOf(world));
+            const nextW = worldIdx < WORLDS.length - 1 ? WORLDS[worldIdx + 1] : world;
+            const stage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
+            const stageFraction = stage / OVERSIZED_VOMIT_STAGES;
+            const sizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * stageFraction;
+            const sizeBase = (6 + catalogItem.sizeTier * 4) * nextW.blobScale * sizeMult;
+            const itemPalette = nextW.palette;
+            const crackProgress = (item.splitTapsReceived || 0) / (item.splitTapsRequired || 3);
+            const animTime = performance.now() / 1000;
+
+            // Swallowing animation: shrink and fade as item enters blob
+            if (item.splitState === 'swallowing') {
+              const swallowProgress = Math.min(1, (animTime - (item.swallowTime || 0)) / 0.4);
+              const swallowScale = 1 - swallowProgress * 0.8;
+              ctx.scale(swallowScale, swallowScale);
+              ctx.globalAlpha = 1 - swallowProgress;
+            }
+
+            const shakeAmp = crackProgress * 2;
+            if (shakeAmp > 0) {
+              ctx.translate(
+                (Math.random() - 0.5) * shakeAmp,
+                (Math.random() - 0.5) * shakeAmp,
+              );
+            }
+
+            const glowPulse = 0.3 + Math.sin(animTime * 3) * 0.15;
+            ctx.save();
+            ctx.globalAlpha = Math.min(ctx.globalAlpha, glowPulse);
+            ctx.beginPath();
+            ctx.arc(0, 0, sizeBase * 0.8, 0, Math.PI * 2);
+            ctx.fillStyle = itemPalette[0];
+            ctx.fill();
+            ctx.restore();
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, sizeBase * 0.65, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255,255,255,${0.4 + Math.sin(animTime * 2) * 0.2})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            catalogItem.draw(ctx, sizeBase, itemPalette);
+
+            if (crackProgress > 0) {
+              ctx.save();
+              ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+              ctx.shadowColor = 'rgba(0,0,0,0.5)';
+              ctx.shadowBlur = 2;
+              ctx.lineWidth = 1.5;
+              const crackCount = Math.ceil(crackProgress * 5);
+              for (let ci = 0; ci < crackCount; ci++) {
+                const ca = (ci / crackCount) * Math.PI * 2 + ci * 1.3;
+                const len = sizeBase * 0.3 * crackProgress;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(ca) * sizeBase * 0.1, Math.sin(ca) * sizeBase * 0.1);
+                const mx = Math.cos(ca + 0.3) * len * 0.5;
+                const my = Math.sin(ca + 0.3) * len * 0.5;
+                ctx.lineTo(mx, my);
+                ctx.lineTo(Math.cos(ca) * len, Math.sin(ca) * len);
+                ctx.stroke();
+              }
+              ctx.restore();
+            }
+          }
+        } else if (item.isOversizedFragment) {
+          const catalogItem = ITEM_LOOKUP[item.type];
+          if (catalogItem) {
+            const sizeBase = (6 + catalogItem.sizeTier * 4) * world.blobScale;
+            catalogItem.draw(ctx, sizeBase, world.palette);
+          }
         } else {
           const catalogItem = ITEM_LOOKUP[item.type];
           if (catalogItem) {
@@ -473,6 +581,25 @@ export function GameCanvas() {
       }
       prevItemsRef.current = currentItems;
 
+      // Vomit detection: items that were swallowing in previous frame but are now gone
+      const VOMIT_TEXTS = ['BLEURGH!', 'Too big!', "Can't swallow!", 'URK!', 'NOPE!', '*gag*'];
+      const currentIds = new Set(currentItems.map(i => i.id));
+      const prevSwallowing = prevItems.filter(i => i.isOversized && i.splitState === 'swallowing');
+      for (const swallowed of prevSwallowing) {
+        if (!currentIds.has(swallowed.id)) {
+          vomitAnimRef.current = now;
+          const text = VOMIT_TEXTS[Math.floor(Math.random() * VOMIT_TEXTS.length)];
+          floatingTextsRef.current.push({
+            x: blobPosition.x, y: blobPosition.y - radius * 1.5,
+            text, birth: now, value: -1,
+          });
+          for (let ni = 0; ni < NUM_NODES; ni++) {
+            nodes[ni].vx += (Math.random() - 0.5) * 12 * blobVisualScale;
+            nodes[ni].vy += (Math.random() - 0.5) * 12 * blobVisualScale;
+          }
+        }
+      }
+
       // Combo floating text
       if (comboCount >= 2 && comboCount > prevComboRef.current) {
         floatingTextsRef.current.push({
@@ -531,6 +658,24 @@ export function GameCanvas() {
         ctx.fill();
       }
       ctx.shadowBlur = 0;
+
+      const vomitAge = now - vomitAnimRef.current;
+      if (vomitAge < 0.6) {
+        const vAlpha = 0.3 * (1 - vomitAge / 0.6);
+        ctx.save();
+        ctx.globalAlpha = vAlpha;
+        ctx.fillStyle = 'rgba(100, 220, 80, 1)';
+        ctx.beginPath();
+        let vPrev = nodes[NUM_NODES - 1];
+        ctx.moveTo((vPrev.x + nodes[0].x) / 2, (vPrev.y + nodes[0].y) / 2);
+        for (let vi = 0; vi < NUM_NODES; vi++) {
+          const vCurr = nodes[vi];
+          const vNext = nodes[(vi + 1) % NUM_NODES];
+          ctx.quadraticCurveTo(vCurr.x, vCurr.y, (vCurr.x + vNext.x) / 2, (vCurr.y + vNext.y) / 2);
+        }
+        ctx.fill();
+        ctx.restore();
+      }
 
       // Active ability VFX
       if (abState.magnet.active) {

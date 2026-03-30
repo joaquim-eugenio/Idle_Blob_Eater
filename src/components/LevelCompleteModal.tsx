@@ -32,6 +32,7 @@ export function LevelCompleteModal() {
     levelComplete, levelFailed, levelStars, levelRewards, currentLevel,
     completeLevel, advanceToNextLevel, retryLevel, openSkillTree,
     money, unlockedSkillNodes, lastRunEatRatio, lastRunSurvivalTime,
+    _oversizedVomitCount,
     buySuggestedAndRetry, buySuggestedUpgrade,
     highestLevelReached, interstitialLevelsSinceAd, interstitialSessionAdCount,
     interstitialLastTime, lastRewardedAdTime, recordInterstitialShown,
@@ -96,12 +97,12 @@ export function LevelCompleteModal() {
   };
 
   const runContext: RunContext | undefined = (lastRunEatRatio > 0 || lastRunSurvivalTime > 0)
-    ? { eatRatio: lastRunEatRatio, survivalTime: lastRunSurvivalTime }
+    ? { eatRatio: lastRunEatRatio, survivalTime: lastRunSurvivalTime, oversizedVomitCount: _oversizedVomitCount }
     : undefined;
 
   const failSuggestion = useMemo(
     () => levelFailed ? getSuggestedUpgrade(money, unlockedSkillNodes, runContext) : null,
-    [levelFailed, money, unlockedSkillNodes, lastRunEatRatio, lastRunSurvivalTime],
+    [levelFailed, money, unlockedSkillNodes, lastRunEatRatio, lastRunSurvivalTime, _oversizedVomitCount],
   );
 
   const successSuggestion = useMemo(

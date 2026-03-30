@@ -8,6 +8,8 @@ import {
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
   ACTIVE_ABILITIES, type AbilityId, ABILITY_CHARGES,
   SPECIAL_SKINS, BLOB_ITEMS, BLOB_FACES,
+  getOversizedConfig, OVERSIZED_MIN_LEVEL_IN_WORLD, OVERSIZED_PROACTIVE_VALUE_MULT,
+  OVERSIZED_VOMIT_STAGES,
 } from '../lib/constants';
 import { showRewardedAd, canShowAdForAbility } from '../lib/ads';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
@@ -27,6 +29,17 @@ export interface Item {
   isTapFood?: boolean;
   isAutoTap?: boolean;
   isLegacy?: boolean;
+  isOversized?: boolean;
+  isOversizedFragment?: boolean;
+  splitTapsRequired?: number;
+  splitTapsReceived?: number;
+  splitState?: 'whole' | 'cracking' | 'splitting' | 'swallowing';
+  vomitAttempts?: number;
+  lastVomitTime?: number;
+  _ignoreUntil?: number;
+  oversizedStage?: number;
+  swallowTime?: number;
+  _fragmentsRemaining?: number;
 }
 
 export interface Upgrades {
@@ -106,12 +119,21 @@ export interface SkillEffects {
   overkillCashRatio: number;
   weightReduction: number;
   magnetRadius: number;
+  comboValueScale: number;
+  multiEatRadius: number;
+  critEatChance: number;
+  hungerOnEat: number;
+  speedPerCombo: number;
+  passiveMoneyRate: number;
+  autoSplitRate: number;
+  splitTapReduction: number;
+  oversizedValueMult: number;
 }
 
 export interface SkillTelemetry {
   runStartTimestamp: number;
   firstKeystoneAt: number | null;
-  gateUnlockTimes: Partial<Record<'gateA' | 'gateB', number>>;
+  gateUnlockTimes: Partial<Record<'gateA' | 'gateB' | 'gateC', number>>;
   nodePickCount: Record<string, number>;
   lastAbandonPoint: string;
 }
@@ -124,6 +146,9 @@ const EMPTY_SKILL_EFFECTS: SkillEffects = {
   lowHungerFrenzyMult: 0, lowHungerThreshold: 0.3,
   frenzyShieldSeconds: 0, chainVacuumRadius: 0, overkillCashRatio: 0,
   weightReduction: 0, magnetRadius: 0,
+  comboValueScale: 0, multiEatRadius: 0, critEatChance: 0,
+  hungerOnEat: 0, speedPerCombo: 0, passiveMoneyRate: 0,
+  autoSplitRate: 0, splitTapReduction: 0, oversizedValueMult: 0,
 };
 
 const DEFAULT_UPGRADES: Upgrades = {
@@ -270,8 +295,19 @@ function canUnlockNode(node: SkillNodeDef, unlockedNodeIds: string[]): boolean {
 
   if (node.gateRequired === 'gateA' && !unlockedNodeIds.includes('gate_a_unlock')) return false;
   if (node.gateRequired === 'gateB' && !unlockedNodeIds.includes('gate_b_unlock')) return false;
+  if (node.gateRequired === 'gateC' && !unlockedNodeIds.includes('gate_c_unlock')) return false;
   if (getChoiceLock(node, unlockedNodeIds)) return false;
   return true;
+}
+
+const MASTERY_CHOICE_GROUPS = ['hunt_mastery', 'feast_mastery', 'survival_mastery', 'auto_mastery'];
+const BRANCH_MASTERY_NODES = ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node'];
+
+function hasMasteryChoice(unlockedNodeIds: string[], branch: string): boolean {
+  const groupMap: Record<string, string> = { hunt: 'hunt_mastery', feast: 'feast_mastery', survival: 'survival_mastery', automation: 'auto_mastery' };
+  const group = groupMap[branch];
+  if (!group) return false;
+  return SKILL_TREE_NODES.some((n) => n.choiceGroup === group && unlockedNodeIds.includes(n.id));
 }
 
 function checkGateUnlocks(
@@ -283,7 +319,7 @@ function checkGateUnlocks(
 ): number {
   let bonusMoney = 0;
 
-  const unlockGate = (gateNodeId: string, gateKey: 'gateA' | 'gateB') => {
+  const unlockGate = (gateNodeId: string, gateKey: 'gateA' | 'gateB' | 'gateC') => {
     if (!nextUnlocked.includes(gateNodeId)) {
       nextUnlocked.push(gateNodeId);
       nextFlash.unshift(`gate:${gateKey}`);
@@ -300,12 +336,54 @@ function checkGateUnlocks(
   ).length;
   if (ch1Keystones >= 2) unlockGate('gate_a_unlock', 'gateA');
 
-  const allBranchesCh2 = SKILL_BRANCH_ORDER.every((branch) =>
-    hasChapterProgress(nextUnlocked, branch, 2)
+  const allBranchesMastery = SKILL_BRANCH_ORDER.every((branch) =>
+    hasMasteryChoice(nextUnlocked, branch)
   );
-  if (allBranchesCh2 && nextUnlocked.includes('gate_a_unlock')) unlockGate('gate_b_unlock', 'gateB');
+  if (allBranchesMastery && nextUnlocked.includes('gate_a_unlock')) unlockGate('gate_b_unlock', 'gateB');
+
+  const allMasteryNodes = BRANCH_MASTERY_NODES.every((id) => nextUnlocked.includes(id));
+  const hasTranscendence = nextUnlocked.includes('apex_transcendence');
+  if (allMasteryNodes && hasTranscendence && nextUnlocked.includes('gate_b_unlock')) {
+    unlockGate('gate_c_unlock', 'gateC');
+  }
 
   return bonusMoney;
+}
+
+function splitOversizedItem(
+  item: Item,
+  allItems: Item[],
+  worldIdx: number,
+  valueMult: number,
+  skillOversizedValueMult: number,
+): { newItems: Item[]; removedId: string } {
+  const config = getOversizedConfig(worldIdx)!;
+  const fragmentCount = config.fragmentCount;
+  const effectiveValueMult = valueMult + skillOversizedValueMult;
+  const perFragValue = (item.value * effectiveValueMult) / fragmentCount;
+  const world = WORLDS[worldIdx];
+  const blobScale = world.blobScale;
+
+  const fragments: Item[] = [];
+  for (let i = 0; i < fragmentCount; i++) {
+    const angle = (i / fragmentCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+    fragments.push({
+      id: Math.random().toString(36).substr(2, 9),
+      x: item.x,
+      y: item.y,
+      vx: Math.cos(angle) * 90 * blobScale,
+      vy: Math.sin(angle) * 90 * blobScale,
+      rotation: Math.random() * Math.PI * 2,
+      rotationSpeed: (Math.random() - 0.5) * 2,
+      type: item.type,
+      value: perFragValue,
+      weight: item.weight * 0.5,
+      isOversizedFragment: true,
+    });
+  }
+
+  const newItems = allItems.filter(i => i.id !== item.id).concat(fragments);
+  return { newItems, removedId: item.id };
 }
 
 function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[] {
@@ -384,6 +462,44 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
           value: pick.baseValue,
           weight: pick.weight * 0.3,
           isLegacy: true,
+        });
+      }
+    }
+  }
+
+  const levelInWorld = levelNum - world.levelRange[0];
+  const oversizedConfig = getOversizedConfig(worldIdx);
+  if (oversizedConfig && levelInWorld >= OVERSIZED_MIN_LEVEL_IN_WORLD && worldIdx < WORLDS.length - 1) {
+    const nextWorld = WORLDS[worldIdx + 1];
+    const nextPool = getItemsForWorld(nextWorld.id);
+    const isFirstEligible = levelInWorld === OVERSIZED_MIN_LEVEL_IN_WORLD;
+    const shouldSpawn = isFirstEligible || Math.random() < oversizedConfig.spawnChance;
+    if (nextPool.length > 0 && shouldSpawn) {
+      const count = isFirstEligible ? 1 : 1 + Math.floor(Math.random() * oversizedConfig.maxCount);
+      const spawnCount = Math.min(count, oversizedConfig.maxCount);
+      for (let oi = 0; oi < spawnCount; oi++) {
+        const pick = nextPool[Math.floor(Math.random() * nextPool.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = minDist * 1.5 + Math.random() * spacing * 2;
+        items.push({
+          id: Math.random().toString(36).substr(2, 9),
+          x: blobX + Math.cos(angle) * dist,
+          y: blobY + Math.sin(angle) * dist,
+          vx: (Math.random() - 0.5) * 1,
+          vy: (Math.random() - 0.5) * 1,
+          rotation: Math.random() * Math.PI * 2,
+          rotationSpeed: (Math.random() - 0.5) * 0.5,
+          type: pick.id,
+          value: pick.baseValue * (1 + (levelNum - 1) * 0.03) * 2,
+          weight: pick.weight * 1.5,
+          isOversized: true,
+          splitTapsRequired: oversizedConfig.tapsRequired,
+          splitTapsReceived: 0,
+          splitState: 'whole',
+          vomitAttempts: 0,
+          oversizedStage: OVERSIZED_VOMIT_STAGES,
+          _fragmentsRemaining: oversizedConfig.fragmentCount,
+          lastVomitTime: 0,
         });
       }
     }
@@ -484,6 +600,8 @@ interface GameState {
   _minHungerPct: number;
   _introPlaying: boolean;
   _autoTapAccum: number;
+  _autoSplitAccum: number;
+  _oversizedVomitCount: number;
   _benchmarkActive: boolean;
 
   pendingWorldUnlock: { from: WorldDef; to: WorldDef } | null;
@@ -512,6 +630,7 @@ interface GameState {
   prestige: () => void;
   buyEvolutionUpgrade: (id: string) => void;
   tapFood: (worldX: number, worldY: number) => void;
+  tapOversizedItem: (itemId: string) => void;
   claimDailyReward: () => void;
   buyGemShopItem: (id: string) => void;
   buyBlobSkin: (id: string) => void;
@@ -644,6 +763,8 @@ export const useGameStore = create<GameState>()(
       _minHungerPct: 1,
       _introPlaying: false,
       _autoTapAccum: 0,
+      _autoSplitAccum: 0,
+      _oversizedVomitCount: 0,
       _benchmarkActive: false,
 
       pendingWorldUnlock: null,
@@ -661,11 +782,21 @@ export const useGameStore = create<GameState>()(
         const def = getLevel(levelNum);
         const levelItems = buildLevelItems(levelNum, 200, 300);
 
+        const worldForLevel = getWorldForLevel(levelNum);
+        const wIdx = WORLDS.indexOf(worldForLevel);
+        const osCfg = getOversizedConfig(wIdx);
+        let oversizedFragTotal = 0;
+        for (const item of levelItems) {
+          if (item.isOversized && osCfg) {
+            oversizedFragTotal += osCfg.fragmentCount;
+          }
+        }
+
         return {
           currentLevel: levelNum,
           items: levelItems,
           levelItemsEaten: 0,
-          levelItemsTotal: def.totalItems,
+          levelItemsTotal: def.totalItems + oversizedFragTotal,
           levelComplete: false,
           levelFailed: false,
           reviveOffered: false,
@@ -685,6 +816,8 @@ export const useGameStore = create<GameState>()(
           _shieldCooldown: 0,
           _minHungerPct: 1,
           _introPlaying: true,
+          _autoSplitAccum: 0,
+          _oversizedVomitCount: 0,
         };
       }),
 
@@ -834,15 +967,23 @@ export const useGameStore = create<GameState>()(
           case 'hunt_dash_on_star': nextUpgrades.boostSpawnRate = (nextUpgrades.boostSpawnRate || 0) + 1; break;
           case 'hunt_suction_cone': nextUpgrades.suction = (nextUpgrades.suction || 0) + 1; break;
           case 'hunt_target_lock': nextUpgrades.suctionStrength = (nextUpgrades.suctionStrength || 0) + 1; break;
+          case 'hunt_tracker_elite': nextUpgrades.speed = (nextUpgrades.speed || 0) + 1; break;
+          case 'hunt_apex': nextUpgrades.suctionStrength = (nextUpgrades.suctionStrength || 0) + 1; break;
           case 'feast_combo_timer': nextUpgrades.spawnValue = (nextUpgrades.spawnValue || 0) + 1; break;
           case 'feast_overkill': nextUpgrades.spawnSynergy = (nextUpgrades.spawnSynergy || 0) + 1; break;
+          case 'feast_epicurean': nextUpgrades.spawnValue = (nextUpgrades.spawnValue || 0) + 1; break;
+          case 'feast_apex': nextUpgrades.spawnSynergy = (nextUpgrades.spawnSynergy || 0) + 1; break;
           case 'survival_digestive': nextUpgrades.hungerDrain = (nextUpgrades.hungerDrain || 0) + 1; break;
           case 'survival_shield': nextUpgrades.hungerSynergy = (nextUpgrades.hungerSynergy || 0) + 1; break;
           case 'survival_keystone': nextUpgrades.hungerMax = (nextUpgrades.hungerMax || 0) + 1; break;
+          case 'survival_adaptation': nextUpgrades.hungerDrain = (nextUpgrades.hungerDrain || 0) + 1; break;
+          case 'survival_apex': nextUpgrades.hungerMax = (nextUpgrades.hungerMax || 0) + 1; break;
           case 'auto_tap_drone': nextUpgrades.tapSynergy = (nextUpgrades.tapSynergy || 0) + 1; break;
           case 'auto_tap_optimizer': nextUpgrades.tapValue = (nextUpgrades.tapValue || 0) + 1; break;
           case 'auto_offline_core': nextUpgrades.tapCooldown = (nextUpgrades.tapCooldown || 0) + 1; break;
           case 'auto_keystone': nextUpgrades.spawnRate = (nextUpgrades.spawnRate || 0) + 1; break;
+          case 'auto_neural_net': nextUpgrades.tapValue = (nextUpgrades.tapValue || 0) + 1; break;
+          case 'auto_apex': nextUpgrades.spawnRate = (nextUpgrades.spawnRate || 0) + 1; break;
           default: break;
         }
 
@@ -1083,6 +1224,33 @@ export const useGameStore = create<GameState>()(
           items: [...state.items, newItem],
           lastTapTime: now,
           stats: { ...state.stats, totalTaps: state.stats.totalTaps + 1 },
+        };
+      }),
+
+      tapOversizedItem: (itemId) => set((state) => {
+        const item = state.items.find(i => i.id === itemId && i.isOversized);
+        if (!item || item.splitState === 'splitting') return state;
+
+        const skillFx = getSkillEffects(state.unlockedSkillNodes);
+        const effectiveTaps = Math.max(1, (item.splitTapsRequired || 3) - skillFx.splitTapReduction);
+        const newTaps = (item.splitTapsReceived || 0) + 1;
+
+        if (newTaps >= effectiveTaps) {
+          const world = getWorldForLevel(state.currentLevel);
+          const wIdx = WORLDS.indexOf(world);
+          const { newItems } = splitOversizedItem(
+            item, state.items, wIdx,
+            OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
+          );
+          return { items: newItems };
+        }
+
+        return {
+          items: state.items.map(i =>
+            i.id === itemId
+              ? { ...i, splitTapsReceived: newTaps, splitState: 'cracking' as const }
+              : i
+          ),
         };
       }),
 
@@ -1426,10 +1594,11 @@ export const useGameStore = create<GameState>()(
         const frenzyActive = (newHunger / Math.max(1, maxHunger)) <= skillFx.lowHungerThreshold;
         const frenzySpeedMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult : 1;
         const abilitySpeedMult = state.abilities.speed.active ? 4 : 1;
+        const comboSpeedMult = skillFx.speedPerCombo > 0 ? 1 + skillFx.speedPerCombo * state.comboCount : 1;
         const speed = (BASE_SPEED + softCap(state.upgrades.speed || 0) * 25)
           * adBoostMultiplier * starSpeedMultiplier * speedSyn
           * evoSpeedMult * achBonuses.speedMult
-          * (1 + skillFx.speedMult) * frenzySpeedMult * abilitySpeedMult
+          * (1 + skillFx.speedMult) * frenzySpeedMult * abilitySpeedMult * comboSpeedMult
           + skillFx.speedFlat;
 
         // --- Suction ---
@@ -1445,10 +1614,12 @@ export const useGameStore = create<GameState>()(
         let { x, y } = state.blobPosition;
         let targetItem: Item | null = null;
         const hasTargetLock = state.unlockedSkillNodes.includes('hunt_target_lock');
+        const targetNow = performance.now() / 1000;
 
         if (hasTargetLock) {
           let bestScore = -Infinity;
           for (const item of state.items) {
+            if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
             if (item.type === 'star' || !item.isTapFood) {
               const dist = Math.max(1, Math.hypot(item.x - x, item.y - y));
               const score = (item.value || 1) / (dist * 0.5);
@@ -1457,6 +1628,7 @@ export const useGameStore = create<GameState>()(
           }
           if (!targetItem) {
             for (const item of state.items) {
+              if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
               const dist = Math.max(1, Math.hypot(item.x - x, item.y - y));
               const score = (item.value || 1) / (dist * 0.5);
               if (score > bestScore) { bestScore = score; targetItem = item; }
@@ -1465,6 +1637,7 @@ export const useGameStore = create<GameState>()(
         } else {
           let minDist = Infinity;
           for (const item of state.items) {
+            if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
             if (item.type === 'star' || !item.isTapFood) {
               const dist = Math.hypot(item.x - x, item.y - y);
               if (dist < minDist) { minDist = dist; targetItem = item; }
@@ -1472,6 +1645,7 @@ export const useGameStore = create<GameState>()(
           }
           if (!targetItem) {
             for (const item of state.items) {
+              if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
               const dist = Math.hypot(item.x - x, item.y - y);
               if (dist < minDist) { minDist = dist; targetItem = item; }
             }
@@ -1506,8 +1680,84 @@ export const useGameStore = create<GameState>()(
         const evoValueMult = 1 + evo.spawnValueMult * 0.15;
         const gemMoneyMult = hasDoubleMoney ? 2 : 1;
 
+        const eatenSet = new Set<string>();
+        let vomitCount = 0;
+        let vomitHungerLost = 0;
+
+        const osWorldIdx = WORLDS.indexOf(getWorldForLevel(state.currentLevel));
+        const osCfg = getOversizedConfig(osWorldIdx);
+        const swallowDuration = 0.4;
+        const tickNow = performance.now() / 1000;
+
         for (const item of state.items) {
           const dist = Math.hypot(item.x - x, item.y - y);
+
+          // Handle items currently being swallowed by the blob
+          if (item.isOversized && item.splitState === 'swallowing') {
+            const elapsed = tickNow - (item.swallowTime || 0);
+            if (elapsed >= swallowDuration && osCfg) {
+              vomitCount++;
+              vomitHungerLost += osCfg.vomitHungerPenalty;
+              const currentStage = item.oversizedStage || 1;
+
+              if (currentStage > 1) {
+                const newStage = currentStage - 1;
+                const totalFrags = item._fragmentsRemaining || osCfg.fragmentCount;
+                const fragsA = Math.ceil(totalFrags / 2);
+                const fragsB = Math.floor(totalFrags / 2);
+                const reducedTaps = Math.max(1, Math.ceil((item.splitTapsRequired || 3) * newStage / OVERSIZED_VOMIT_STAGES));
+                for (let vi = 0; vi < 2; vi++) {
+                  const vAngle = (vi === 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.0;
+                  remainingItems.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    x, y,
+                    vx: Math.cos(vAngle) * 70 * blobScale,
+                    vy: Math.sin(vAngle) * 70 * blobScale,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 2,
+                    type: item.type,
+                    value: item.value / 2,
+                    weight: item.weight * 0.7,
+                    isOversized: true,
+                    oversizedStage: newStage,
+                    splitTapsRequired: reducedTaps,
+                    splitTapsReceived: 0,
+                    splitState: 'whole',
+                    vomitAttempts: 0,
+                    lastVomitTime: 0,
+                    _ignoreUntil: tickNow + osCfg.postVomitIgnoreTime,
+                    _fragmentsRemaining: vi === 0 ? fragsA : fragsB,
+                  });
+                }
+              } else {
+                const fragCount = item._fragmentsRemaining || osCfg.fragmentCount;
+                const effectiveVomitMult = osCfg.vomitValueMult + skillFx.oversizedValueMult;
+                const perFragValue = (item.value * effectiveVomitMult) / Math.max(1, fragCount);
+                for (let fi = 0; fi < fragCount; fi++) {
+                  const fAngle = (fi / fragCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+                  remainingItems.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    x, y,
+                    vx: Math.cos(fAngle) * 90 * blobScale,
+                    vy: Math.sin(fAngle) * 90 * blobScale,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 2,
+                    type: item.type,
+                    value: perFragValue,
+                    weight: item.weight * 0.3,
+                    isOversizedFragment: true,
+                  });
+                }
+              }
+              continue;
+            }
+            item.vx = (x - item.x) * 10;
+            item.vy = (y - item.y) * 10;
+            item.x += item.vx * delta;
+            item.y += item.vy * delta;
+            remainingItems.push(item);
+            continue;
+          }
 
           item.x += item.vx * delta;
           item.y += item.vy * delta;
@@ -1546,12 +1796,24 @@ export const useGameStore = create<GameState>()(
           }
 
           if (dist < suction) {
+            if (item.isOversized && item.splitState !== 'splitting' && item.splitState !== 'swallowing') {
+              if (item._ignoreUntil && tickNow < item._ignoreUntil) {
+                remainingItems.push(item);
+                continue;
+              }
+              item.splitState = 'swallowing';
+              item.swallowTime = tickNow;
+              remainingItems.push(item);
+              continue;
+            }
+            eatenSet.add(item.id);
             if (item.type === 'star') {
               newStarBoostActive = true;
               newStarBoostTimer = 5;
               starsEaten++;
             } else {
-              moneyGained += item.value;
+              const critRoll = skillFx.critEatChance > 0 && Math.random() < skillFx.critEatChance ? 3 : 1;
+              moneyGained += item.value * critRoll;
               if (!item.isTapFood) {
                 hungerFoodGained += item.value * 0.20;
               }
@@ -1562,6 +1824,25 @@ export const useGameStore = create<GameState>()(
           } else if (dist < maxDespawnDist) {
             remainingItems.push(item);
           }
+        }
+
+        if (skillFx.multiEatRadius > 0 && eatenSet.size > 0) {
+          const multiRadius = skillFx.multiEatRadius * blobScale;
+          const stillRemaining: Item[] = [];
+          for (const item of remainingItems) {
+            if (item.type === 'star' || item.isOversized) { stillRemaining.push(item); continue; }
+            const distToBlob = Math.hypot(item.x - x, item.y - y);
+            if (distToBlob < suction + multiRadius) {
+              const critRoll = skillFx.critEatChance > 0 && Math.random() < skillFx.critEatChance ? 3 : 1;
+              moneyGained += item.value * critRoll;
+              if (!item.isTapFood) hungerFoodGained += item.value * 0.20;
+              if (!item.isTapFood && !item.isLegacy) itemsEaten++;
+            } else {
+              stillRemaining.push(item);
+            }
+          }
+          remainingItems.length = 0;
+          remainingItems.push(...stillRemaining);
         }
 
         // --- Combo ---
@@ -1580,14 +1861,19 @@ export const useGameStore = create<GameState>()(
         }
         const comboCap = Math.max(10, skillFx.comboCap);
         const comboMult = 1 + (Math.max(0, Math.min(newComboCount, comboCap) - 1)) * 0.06;
+        const comboScaleMult = skillFx.comboValueScale > 0 ? 1 + skillFx.comboValueScale * Math.min(newComboCount, comboCap) : 1;
 
         const frenzyValueMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult * 0.5 : 1;
         moneyGained *= adBoostMultiplier * achBonuses.moneyMult * gemMoneyMult
-          * evoValueMult * comboMult * (1 + skillFx.valueMult) * frenzyValueMult;
+          * evoValueMult * comboMult * comboScaleMult * (1 + skillFx.valueMult) * frenzyValueMult;
 
         let newMoney = state.money + moneyGained;
         let newRunMoney = state.currentRunMoney + moneyGained;
         let newLevelUpTime = state.levelUpTime;
+
+        if (skillFx.hungerOnEat > 0 && itemsEaten > 0) {
+          hungerFoodGained += skillFx.hungerOnEat * itemsEaten;
+        }
 
         if (hungerFoodGained > 0) {
           const hungerDeficit = maxHunger - newHunger;
@@ -1605,9 +1891,15 @@ export const useGameStore = create<GameState>()(
           }
         }
 
+        if (vomitHungerLost > 0) {
+          newHunger = Math.max(0, newHunger - vomitHungerLost);
+        }
+
+        const newOversizedVomitCount = state._oversizedVomitCount + vomitCount;
+
         // --- Level completion detection ---
         const newLevelItemsEaten = state.levelItemsEaten + itemsEaten;
-        const nonStarItems = remainingItems.filter(i => i.type !== 'star' && !i.isTapFood && !i.isLegacy);
+        const nonStarItems = remainingItems.filter(i => i.type !== 'star' && !i.isTapFood && !i.isLegacy && !i.isOversized);
         let newLevelComplete = state.levelComplete;
         if (nonStarItems.length === 0 && newLevelItemsEaten >= state.levelItemsTotal && state.levelItemsTotal > 0) {
           newLevelComplete = true;
@@ -1657,6 +1949,13 @@ export const useGameStore = create<GameState>()(
             }
           }
           newAbilities[aid] = ab;
+        }
+
+        if (skillFx.passiveMoneyRate > 0) {
+          const passiveIncome = skillFx.passiveMoneyRate * delta;
+          newMoney += passiveIncome;
+          newRunMoney += passiveIncome;
+          moneyGained += passiveIncome;
         }
 
         // --- $/sec tracking ---
@@ -1735,6 +2034,35 @@ export const useGameStore = create<GameState>()(
           }
         }
 
+        let newAutoSplitAccum = state._autoSplitAccum;
+        if (skillFx.autoSplitRate > 0) {
+          newAutoSplitAccum += skillFx.autoSplitRate * delta;
+          while (newAutoSplitAccum >= 1) {
+            newAutoSplitAccum -= 1;
+            let closestDist = Infinity;
+            let target: Item | null = null;
+            for (const item of remainingItems) {
+              if (!item.isOversized || item.splitState === 'splitting') continue;
+              const d = Math.hypot(item.x - x, item.y - y);
+              if (d < closestDist) { closestDist = d; target = item; }
+            }
+            if (target) {
+              const effectiveTaps = Math.max(1, (target.splitTapsRequired || 3) - skillFx.splitTapReduction);
+              target.splitTapsReceived = (target.splitTapsReceived || 0) + 1;
+              target.splitState = 'cracking';
+              if (target.splitTapsReceived >= effectiveTaps) {
+                const wIdx = WORLDS.indexOf(getWorldForLevel(state.currentLevel));
+                const { newItems } = splitOversizedItem(
+                  target, remainingItems, wIdx,
+                  OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
+                );
+                remainingItems.length = 0;
+                remainingItems.push(...newItems);
+              }
+            }
+          }
+        }
+
         const newSaveTimestamp = Date.now();
 
         return {
@@ -1769,6 +2097,8 @@ export const useGameStore = create<GameState>()(
           _shieldCooldown: newShieldCooldown,
           _minHungerPct: newMinHungerPct,
           _autoTapAccum: newAutoTapAccum,
+          _autoSplitAccum: newAutoSplitAccum,
+          _oversizedVomitCount: newOversizedVomitCount,
         };
       })
     }),

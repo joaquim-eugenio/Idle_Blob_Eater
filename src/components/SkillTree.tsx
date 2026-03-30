@@ -22,10 +22,10 @@ function SkillTreeIcon({ size = 26 }: { size?: number }) {
   );
 }
 
-const CANVAS_W = 2200;
-const CANVAS_H = 1700;
-const CX = 1100;
-const CY = 1550;
+const CANVAS_W = 2600;
+const CANVAS_H = 2200;
+const CX = 1300;
+const CY = 2050;
 const HUB_DIST = 160;
 const NODE_START = 250;
 const ROW_GAP = 68;
@@ -33,7 +33,8 @@ const ZIGZAG = 48;
 const CHOICE_SPREAD = 72;
 const GATE_A_R = 660;
 const GATE_B_R = 900;
-const MIN_ZOOM = 0.35;
+const GATE_C_R = 1140;
+const MIN_ZOOM = 0.30;
 const MAX_ZOOM = 2.5;
 
 const GATE_ARC_START = -160 * Math.PI / 180;
@@ -80,6 +81,13 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
   return `M ${sx} ${sy} A ${r} ${r} 0 ${largeArc} 1 ${ex} ${ey}`;
 }
 
+const FUSION_ANGLE_OFFSETS: Record<string, number> = {
+  fusion_predator_feast: -130 * Math.PI / 180,
+  fusion_hunt_survival: -110 * Math.PI / 180,
+  fusion_feast_auto:    -70  * Math.PI / 180,
+  fusion_survival_auto: -50  * Math.PI / 180,
+};
+
 function buildPositions(): Record<string, { x: number; y: number }> {
   const map: Record<string, { x: number; y: number }> = {};
 
@@ -117,9 +125,24 @@ function buildPositions(): Record<string, { x: number; y: number }> {
     }
   }
 
+  for (const [nodeId, angle] of Object.entries(FUSION_ANGLE_OFFSETS)) {
+    const fusionR = GATE_B_R + 40;
+    map[nodeId] = { x: CX + Math.cos(angle) * fusionR, y: CY + Math.sin(angle) * fusionR };
+  }
+
   map['apex_transcendence'] = { x: CX, y: CY };
   map['gate_a_unlock'] = { x: CX, y: CY };
   map['gate_b_unlock'] = { x: CX, y: CY };
+  map['gate_c_unlock'] = { x: CX, y: CY };
+
+  const ultimateSpread = 100;
+  const ultimateDist = GATE_C_R + 80;
+  const ultimateAngle = -90 * Math.PI / 180;
+  const uax = Math.cos(ultimateAngle), uay = Math.sin(ultimateAngle);
+  const upx = -uay, upy = uax;
+  map['ultimate_singularity'] = { x: CX + uax * ultimateDist + upx * (-ultimateSpread), y: CY + uay * ultimateDist + upy * (-ultimateSpread) };
+  map['ultimate_omnivore'] = { x: CX + uax * ultimateDist + upx * ultimateSpread, y: CY + uay * ultimateDist + upy * ultimateSpread };
+
   return map;
 }
 
@@ -141,6 +164,7 @@ function isNodeVisible(node: SkillNodeDef, u: Set<string>): boolean {
   }
   if (node.gateRequired === 'gateA' && !u.has('gate_a_unlock')) return false;
   if (node.gateRequired === 'gateB' && !u.has('gate_b_unlock')) return false;
+  if (node.gateRequired === 'gateC' && !u.has('gate_c_unlock')) return false;
   return true;
 }
 
@@ -178,6 +202,7 @@ export function SkillTree() {
   const uSet = useMemo(() => new Set(unlockedIds), [unlockedIds]);
   const gateA = uSet.has('gate_a_unlock');
   const gateB = uSet.has('gate_b_unlock');
+  const gateC = uSet.has('gate_c_unlock');
 
   const pos = useMemo(buildPositions, []);
 
@@ -229,6 +254,23 @@ export function SkillTree() {
       }
     }
 
+    for (const ulId of ['ultimate_singularity', 'ultimate_omnivore']) {
+      const ulNode = SKILL_NODE_LOOKUP[ulId];
+      if (ulNode && vIds.has(ulId)) {
+        const ulPos = pos[ulId];
+        if (!ulPos) continue;
+        out.push({ x1: CX, y1: CY, x2: ulPos.x, y2: ulPos.y, color: uSet.has(ulId) ? '#a855f7' : '#c4b5fd', bright: uSet.has(ulId) });
+        for (const rId of ulNode.requires) {
+          if (rId === 'apex_transcendence') continue;
+          if (!vIds.has(rId)) continue;
+          const from = pos[rId];
+          if (!from) continue;
+          const both = uSet.has(ulId) && uSet.has(rId);
+          out.push({ x1: from.x, y1: from.y, x2: ulPos.x, y2: ulPos.y, color: both ? '#a855f7' : '#c4b5fd', bright: both });
+        }
+      }
+    }
+
     return out;
   }, [visible, pos, uSet, hubs]);
 
@@ -244,8 +286,8 @@ export function SkillTree() {
 
   useEffect(() => {
     if (!isOpen) { setSelectedId(null); return; }
-    setZoom(0.65);
-    requestAnimationFrame(() => centerOn({ x: CX, y: CY - 350 }, 0.65, false));
+    setZoom(0.55);
+    requestAnimationFrame(() => centerOn({ x: CX, y: CY - 400 }, 0.55, false));
   }, [isOpen, centerOn]);
 
   useEffect(() => {
@@ -352,6 +394,7 @@ export function SkillTree() {
                       <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
                         <path d={describeArc(CX, CY, GATE_A_R, GATE_ARC_START, GATE_ARC_END)} fill="none" stroke={gateA ? '#818cf8' : '#94a3b8'} strokeWidth={gateA ? 3 : 2} strokeDasharray={gateA ? undefined : '10 8'} opacity={gateA ? 0.65 : 0.2} />
                         <path d={describeArc(CX, CY, GATE_B_R, GATE_ARC_START, GATE_ARC_END)} fill="none" stroke={gateB ? '#818cf8' : '#94a3b8'} strokeWidth={gateB ? 3 : 2} strokeDasharray={gateB ? undefined : '10 8'} opacity={gateB ? 0.65 : 0.2} />
+                        <path d={describeArc(CX, CY, GATE_C_R, GATE_ARC_START, GATE_ARC_END)} fill="none" stroke={gateC ? '#a855f7' : '#94a3b8'} strokeWidth={gateC ? 3 : 2} strokeDasharray={gateC ? undefined : '10 8'} opacity={gateC ? 0.65 : 0.15} />
                         {lines.map((l, i) => (
                           <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color} strokeWidth={l.bright ? 5 : 4} strokeLinecap="round" opacity={l.bright ? 1 : 0.4} />
                         ))}
@@ -430,7 +473,7 @@ export function SkillTree() {
                       })}
 
                       {/* Skill nodes */}
-                      {visible.filter((n) => n.id !== 'apex_transcendence').map((nd) => {
+                      {visible.filter((n) => n.id !== 'apex_transcendence' && n.id !== 'gate_c_unlock').map((nd) => {
                         const p = pos[nd.id];
                         if (!p) return null;
                         const unlocked = uSet.has(nd.id);
@@ -479,7 +522,7 @@ export function SkillTree() {
 
                             {!unlocked && !cLocked && (
                               <span className="absolute -bottom-2.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style={{ background: buyable ? '#3b82f6' : '#64748b' }}>
-                                ${nd.cost}
+                                ${fmt(nd.cost)}
                               </span>
                             )}
                             {isKS && !unlocked && (

@@ -12,6 +12,41 @@ export const BASE_TAP_VALUE_MULT = 1.5;
 export const OFFLINE_BASE_EFFICIENCY = 0.1;
 export const OFFLINE_MAX_HOURS = 8;
 
+export const OVERSIZED_SIZE_MULT = 1.6;
+export const OVERSIZED_MIN_WORLD_IDX = 1;
+export const OVERSIZED_MIN_LEVEL_IN_WORLD = 2;
+export const OVERSIZED_PROACTIVE_VALUE_MULT = 1.5;
+export const OVERSIZED_VOMIT_STAGES = 2;
+
+export interface OversizedConfig {
+  spawnChance: number;
+  maxCount: number;
+  tapsRequired: number;
+  vomitMax: number;
+  vomitCooldown: number;
+  vomitHungerPenalty: number;
+  vomitValueMult: number;
+  fragmentCount: number;
+  postVomitIgnoreTime: number;
+}
+
+export function getOversizedConfig(worldIndex: number): OversizedConfig | null {
+  if (worldIndex < OVERSIZED_MIN_WORLD_IDX) return null;
+  const p = Math.min(1, (worldIndex - 1) / 22);
+
+  return {
+    spawnChance: Math.min(1.0, 0.55 + p * 0.45),
+    maxCount: Math.min(3, 1 + Math.floor(p * 2.5)),
+    tapsRequired: Math.min(6, 2 + Math.floor(p * 4.5)),
+    vomitMax: Math.max(3, 5 - Math.floor(p * 2.5)),
+    vomitCooldown: Math.max(1.0, 2.0 - p * 1.0),
+    vomitHungerPenalty: Math.round(3 + p * 19),
+    vomitValueMult: +(0.70 - p * 0.45).toFixed(2),
+    fragmentCount: Math.min(5, 3 + Math.floor(p * 2.5)),
+    postVomitIgnoreTime: Math.max(2.0, 4.0 - p * 2.0),
+  };
+}
+
 export function softCap(rawLevel: number, threshold: number = 5): number {
   if (rawLevel <= threshold) return rawLevel;
   const excess = rawLevel - threshold;
@@ -257,7 +292,7 @@ export interface SkillNodeDef {
   cost: number;
   row: number;
   requires: string[];
-  gateRequired?: 'gateA' | 'gateB';
+  gateRequired?: 'gateA' | 'gateB' | 'gateC';
   choiceGroup?: string;
   effects?: Partial<{
     speedFlat: number;
@@ -282,6 +317,15 @@ export interface SkillNodeDef {
     overkillCashRatio: number;
     weightReduction: number;
     magnetRadius: number;
+    comboValueScale: number;
+    multiEatRadius: number;
+    critEatChance: number;
+    hungerOnEat: number;
+    speedPerCombo: number;
+    passiveMoneyRate: number;
+    autoSplitRate: number;
+    splitTapReduction: number;
+    oversizedValueMult: number;
   }>;
 }
 
@@ -295,8 +339,14 @@ export const SKILL_GATES = {
   gateB: {
     id: 'gateB',
     name: 'Evolution Gate B',
-    desc: 'All branches must reach chapter 2',
+    desc: 'All branches must reach mastery choices',
     moneyBurstMultiplier: 220,
+  },
+  gateC: {
+    id: 'gateC',
+    name: 'Ascension Gate',
+    desc: 'All branch masteries + Transcendence',
+    moneyBurstMultiplier: 400,
   },
 } as const;
 
@@ -310,9 +360,13 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'hunt_suction_cone', title: 'Gravitational Pull', shortDesc: 'Expanded pull field and reduced item drag', branch: 'hunt', chapter: 1, type: 'mechanic', cost: 900, row: 5, requires: ['hunt_keen'], effects: { suctionFlat: 8, weightReduction: 0.4 } },
   { id: 'hunt_target_lock',  title: 'Target Lock',        shortDesc: 'Prioritize highest value items nearby', branch: 'hunt', chapter: 1, type: 'keystone', cost: 2250, row: 6, requires: ['hunt_suction_cone'], effects: { valueMult: 0.08 } },
   { id: 'hunt_agile',        title: 'Agile Pursuit',      shortDesc: '+6% speed',                    branch: 'hunt', chapter: 2, type: 'minor',    cost: 4500,   row: 8, requires: ['hunt_target_lock'],  gateRequired: 'gateA', effects: { speedMult: 0.06 } },
-  { id: 'hunt_vector_shift', title: 'Vector Shift',       shortDesc: 'Extra accel after turns',      branch: 'hunt', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['hunt_agile'],        gateRequired: 'gateA', choiceGroup: 'hunt_style', effects: { speedMult: 0.14, suctionMult: 0.08 } },
-  { id: 'hunt_chain_vacuum', title: 'Chain Vacuum',       shortDesc: 'Nearby food chains into pull', branch: 'hunt', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['hunt_agile'],        gateRequired: 'gateA', choiceGroup: 'hunt_style', effects: { chainVacuumRadius: 70 } },
-  { id: 'hunt_apex',         title: 'Apex Hunter',        shortDesc: 'Massive chase and pickup boost', branch: 'hunt', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['hunt_vector_shift', 'hunt_chain_vacuum'], gateRequired: 'gateB', effects: { speedMult: 0.28, suctionMult: 0.2, valueMult: 0.06 } },
+  { id: 'hunt_vector_shift', title: 'Vector Shift',       shortDesc: 'Extra accel after turns',      branch: 'hunt', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['hunt_agile'],        gateRequired: 'gateA', choiceGroup: 'hunt_style', effects: { speedMult: 0.18, suctionMult: 0.12 } },
+  { id: 'hunt_chain_vacuum', title: 'Chain Vacuum',       shortDesc: 'Nearby food chains into pull', branch: 'hunt', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['hunt_agile'],        gateRequired: 'gateA', choiceGroup: 'hunt_style', effects: { chainVacuumRadius: 90 } },
+  { id: 'hunt_tracker_elite', title: 'Elite Tracker',     shortDesc: 'Refined target priority and area awareness', branch: 'hunt', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['hunt_vector_shift', 'hunt_chain_vacuum'], gateRequired: 'gateA', effects: { speedMult: 0.12, suctionFlat: 15, starSpawnRateMult: 0.15, weightReduction: 0.25 } },
+  { id: 'hunt_ambush',       title: 'Ambush Predator',    shortDesc: 'Devastating first strikes with critical eating', branch: 'hunt', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['hunt_tracker_elite'], gateRequired: 'gateA', choiceGroup: 'hunt_mastery', effects: { valueMult: 0.14, critEatChance: 0.12, weightReduction: 0.3, speedMult: 0.06 } },
+  { id: 'hunt_relentless',   title: 'Relentless Pursuit', shortDesc: 'Unmatched chase speed that accelerates with combos', branch: 'hunt', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['hunt_tracker_elite'], gateRequired: 'gateA', choiceGroup: 'hunt_mastery', effects: { speedMult: 0.20, suctionMult: 0.18, speedPerCombo: 0.02, chainVacuumRadius: 35 } },
+  { id: 'hunt_apex',         title: 'Apex Hunter',        shortDesc: 'Massive chase and pickup boost', branch: 'hunt', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['hunt_ambush', 'hunt_relentless'], gateRequired: 'gateB', effects: { speedMult: 0.40, suctionMult: 0.30, valueMult: 0.12, weightReduction: 0.35 } },
+  { id: 'hunt_mastery_node', title: 'Alpha Predator',     shortDesc: 'Multi-eat and ultimate predator power', branch: 'hunt', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['hunt_apex'], gateRequired: 'gateB', effects: { speedMult: 0.40, suctionMult: 0.30, valueMult: 0.15, multiEatRadius: 30, weightReduction: 0.5 } },
 
   // ── Feast branch ──
   { id: 'feast_bites',        title: 'Bigger Bites',       shortDesc: '+2% food value',               branch: 'feast', chapter: 1, type: 'minor',    cost: 38,     row: 1, requires: [],                    effects: { valueMult: 0.02 } },
@@ -322,9 +376,14 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'feast_digest',       title: 'Quick Digestion',    shortDesc: '+0.15s combo window',          branch: 'feast', chapter: 1, type: 'minor',    cost: 225,    row: 4, requires: ['feast_combo_floor', 'feast_speed_eater'], effects: { comboWindow: 0.15 } },
   { id: 'feast_overkill',     title: 'Overkill Conversion', shortDesc: 'Overflow food grants cash',   branch: 'feast', chapter: 1, type: 'mechanic', cost: 900,    row: 5, requires: ['feast_digest'],       effects: { overkillCashRatio: 0.1 } },
   { id: 'feast_keystone',     title: 'Golden Appetite',    shortDesc: 'Combo cap raised + value spike', branch: 'feast', chapter: 1, type: 'keystone', cost: 2250, row: 6, requires: ['feast_overkill'],    effects: { comboCap: 18, valueMult: 0.09 } },
-  { id: 'feast_choice_cash',  title: 'Cashout Burst',      shortDesc: 'Huge single-hit value spikes', branch: 'feast', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['feast_keystone'],    gateRequired: 'gateA', choiceGroup: 'feast_style', effects: { valueMult: 0.13 } },
-  { id: 'feast_choice_chain', title: 'Infinite Chain',     shortDesc: 'Sustained combo power',        branch: 'feast', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['feast_keystone'],    gateRequired: 'gateA', choiceGroup: 'feast_style', effects: { comboWindow: 0.75, comboCap: 24 } },
-  { id: 'feast_apex',         title: 'Banquet Protocol',   shortDesc: 'Permanent combo economy',      branch: 'feast', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['feast_choice_cash', 'feast_choice_chain'], gateRequired: 'gateB', effects: { valueMult: 0.17, comboWindow: 0.6 } },
+  { id: 'feast_choice_cash',  title: 'Cashout Burst',      shortDesc: 'Huge single-hit value spikes', branch: 'feast', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['feast_keystone'],    gateRequired: 'gateA', choiceGroup: 'feast_style', effects: { valueMult: 0.18 } },
+  { id: 'feast_choice_chain', title: 'Infinite Chain',     shortDesc: 'Sustained combo power',        branch: 'feast', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['feast_keystone'],    gateRequired: 'gateA', choiceGroup: 'feast_style', effects: { comboWindow: 1.0, comboCap: 26 } },
+  { id: 'feast_gulper',       title: 'Iron Stomach',       shortDesc: 'Fewer taps to split and vomit splits yield more value', branch: 'feast', chapter: 2, type: 'trait', cost: 15000, row: 9.5, requires: ['feast_keystone'], gateRequired: 'gateA', effects: { splitTapReduction: 1, oversizedValueMult: 0.25 } },
+  { id: 'feast_epicurean',    title: 'Epicurean Palette',  shortDesc: 'Refined eating with combo-value scaling', branch: 'feast', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['feast_choice_cash', 'feast_choice_chain'], gateRequired: 'gateA', effects: { valueMult: 0.10, comboCap: 22, comboValueScale: 0.015, overkillCashRatio: 0.05 } },
+  { id: 'feast_critical_mass', title: 'Critical Mass',     shortDesc: 'Chance for massive value explosions on each eat', branch: 'feast', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['feast_epicurean'], gateRequired: 'gateA', choiceGroup: 'feast_mastery', effects: { critEatChance: 0.15, valueMult: 0.16, overkillCashRatio: 0.12 } },
+  { id: 'feast_perpetual',    title: 'Perpetual Feast',    shortDesc: 'Combo never dies, value scales infinitely', branch: 'feast', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['feast_epicurean'], gateRequired: 'gateA', choiceGroup: 'feast_mastery', effects: { comboWindow: 1.2, comboCap: 30, comboValueScale: 0.025, hungerOnEat: 3 } },
+  { id: 'feast_apex',         title: 'Banquet Protocol',   shortDesc: 'Permanent combo economy',      branch: 'feast', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['feast_critical_mass', 'feast_perpetual'], gateRequired: 'gateB', effects: { valueMult: 0.28, comboWindow: 0.8, comboCap: 28, overkillCashRatio: 0.10, comboValueScale: 0.02 } },
+  { id: 'feast_mastery_node', title: 'Endless Banquet',    shortDesc: 'Infinite combo scaling and value', branch: 'feast', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['feast_apex'], gateRequired: 'gateB', effects: { valueMult: 0.28, comboCap: 40, comboWindow: 1.0, comboValueScale: 0.03, overkillCashRatio: 0.15 } },
 
   // ── Survival branch ──
   { id: 'survival_skin',       title: 'Thick Skin',            shortDesc: '+20 max hunger',                  branch: 'survival', chapter: 1, type: 'minor',       cost: 38,     row: 1, requires: [],                        effects: { hungerMaxFlat: 20 } },
@@ -334,9 +393,13 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'survival_endurance',  title: 'Endurance',             shortDesc: '-4% hunger drain',                branch: 'survival', chapter: 1, type: 'minor',        cost: 225,    row: 4, requires: ['survival_shield', 'survival_iron'], effects: { hungerDrainMult: -0.04 } },
   { id: 'survival_frenzy',     title: 'Low-Hunger Frenzy',     shortDesc: 'Speed/value boost when starving', branch: 'survival', chapter: 1, type: 'conditional',  cost: 900,    row: 5, requires: ['survival_endurance'],     effects: { lowHungerThreshold: 0.3, lowHungerFrenzyMult: 0.3 } },
   { id: 'survival_keystone',   title: 'Last Stand Metabolism', shortDesc: 'High hunger tank + frenzy',       branch: 'survival', chapter: 1, type: 'keystone',     cost: 2250,   row: 6, requires: ['survival_frenzy'],        effects: { hungerMaxFlat: 55, hungerDrainMult: -0.1 } },
-  { id: 'survival_tradeoff',   title: 'Risk Reactor',          shortDesc: 'More risk, bigger frenzy',        branch: 'survival', chapter: 2, type: 'conditional',  cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { lowHungerFrenzyMult: 0.24, lowHungerThreshold: 0.4 } },
-  { id: 'survival_reservoir',  title: 'Deep Reservoir',        shortDesc: 'Large hunger capacity',           branch: 'survival', chapter: 2, type: 'trait',        cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { hungerMaxFlat: 80 } },
-  { id: 'survival_apex',       title: 'Immortal Core',         shortDesc: 'Late run stamina + economy',      branch: 'survival', chapter: 3, type: 'keystone',     cost: 120000, row: 12, requires: ['survival_tradeoff', 'survival_reservoir'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.22, valueMult: 0.1 } },
+  { id: 'survival_tradeoff',   title: 'Risk Reactor',          shortDesc: 'More risk, bigger frenzy',        branch: 'survival', chapter: 2, type: 'conditional',  cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { lowHungerFrenzyMult: 0.32, lowHungerThreshold: 0.42 } },
+  { id: 'survival_reservoir',  title: 'Deep Reservoir',        shortDesc: 'Large hunger capacity',           branch: 'survival', chapter: 2, type: 'trait',        cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { hungerMaxFlat: 110 } },
+  { id: 'survival_adaptation', title: 'Metabolic Adaptation',  shortDesc: 'Body sustains itself and heals through eating', branch: 'survival', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['survival_tradeoff', 'survival_reservoir'], gateRequired: 'gateA', effects: { hungerDrainMult: -0.12, hungerMaxFlat: 50, hungerOnEat: 2, lowHungerFrenzyMult: 0.10 } },
+  { id: 'survival_berserker',  title: 'Berserker Core',        shortDesc: 'Living on the edge grants explosive power', branch: 'survival', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['survival_adaptation'], gateRequired: 'gateA', choiceGroup: 'survival_mastery', effects: { lowHungerFrenzyMult: 0.40, lowHungerThreshold: 0.45, speedMult: 0.15, valueMult: 0.10 } },
+  { id: 'survival_fortress',   title: 'Fortress Metabolism',   shortDesc: 'Nearly unkillable with passive hunger regen', branch: 'survival', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['survival_adaptation'], gateRequired: 'gateA', choiceGroup: 'survival_mastery', effects: { hungerMaxFlat: 130, hungerDrainMult: -0.20, frenzyShieldSeconds: 2.5, hungerOnEat: 5 } },
+  { id: 'survival_apex',       title: 'Immortal Core',         shortDesc: 'Late run stamina + economy',      branch: 'survival', chapter: 3, type: 'keystone',     cost: 120000, row: 12, requires: ['survival_berserker', 'survival_fortress'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.30, valueMult: 0.15, hungerMaxFlat: 80, frenzyShieldSeconds: 1.2, lowHungerFrenzyMult: 0.15 } },
+  { id: 'survival_mastery_node', title: 'Undying Core',        shortDesc: 'Ultimate survival and hunger mastery', branch: 'survival', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['survival_apex'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.30, hungerMaxFlat: 160, lowHungerFrenzyMult: 0.30, valueMult: 0.15, hungerOnEat: 4, frenzyShieldSeconds: 1.5 } },
 
   // ── Automation branch ──
   { id: 'auto_servo',          title: 'Basic Servo',       shortDesc: '+0.1 auto-tap rate',             branch: 'automation', chapter: 1, type: 'minor',    cost: 38,     row: 1, requires: [],                    effects: { autoTapRate: 0.1 } },
@@ -344,16 +407,31 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'auto_tap_optimizer',  title: 'Efficient Systems', shortDesc: 'Improved tap output and reduced hunger drain', branch: 'automation', chapter: 1, type: 'trait', cost: 375, row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { tapValueMult: 0.25, tapCooldownMult: -0.1, hungerDrainMult: -0.03 } },
   { id: 'auto_power_grid',     title: 'Power Grid',        shortDesc: 'Passive tapping and offline gains', branch: 'automation', chapter: 1, type: 'choice', cost: 375, row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { autoTapRate: 0.25, offlineEfficiency: 0.08 } },
   { id: 'auto_signal',         title: 'Proximity Sensors', shortDesc: 'Slight suction expansion and tap boost', branch: 'automation', chapter: 1, type: 'minor', cost: 225, row: 4, requires: ['auto_tap_optimizer', 'auto_power_grid'], effects: { tapValueMult: 0.08, suctionFlat: 5 } },
+  { id: 'auto_split_drone',    title: 'Splitter Drone',    shortDesc: 'Drone automatically cracks oversized food', branch: 'automation', chapter: 1, type: 'mechanic', cost: 600, row: 4.5, requires: ['auto_signal'], effects: { autoSplitRate: 0.5 } },
   { id: 'auto_offline_core',   title: 'Offline Core',      shortDesc: 'Offline efficiency increase',    branch: 'automation', chapter: 1, type: 'mechanic', cost: 900,    row: 5, requires: ['auto_signal'],        effects: { offlineEfficiency: 0.15 } },
   { id: 'auto_keystone',       title: 'Autopilot Brain',   shortDesc: 'Supercharged auto-tap',          branch: 'automation', chapter: 1, type: 'keystone', cost: 2250,   row: 6, requires: ['auto_offline_core'],  effects: { autoTapRate: 0.5, offlineEfficiency: 0.1 } },
-  { id: 'auto_choice_builder', title: 'Builder AI',        shortDesc: 'Tap efficiency focus',            branch: 'automation', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { autoTapRate: 0.3, valueMult: 0.05 } },
-  { id: 'auto_choice_farmer',  title: 'Magnetic Field',    shortDesc: 'Items across the level drift toward the blob', branch: 'automation', chapter: 2, type: 'choice', cost: 12000, row: 9, requires: ['auto_keystone'], gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { magnetRadius: 1.0, autoTapRate: 0.2 } },
-  { id: 'auto_apex',           title: 'Singularity Ops',   shortDesc: 'Massive passive scaling',        branch: 'automation', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateB', effects: { offlineEfficiency: 0.2, autoTapRate: 0.8, magnetRadius: 0.5, suctionMult: 0.1 } },
+  { id: 'auto_choice_builder', title: 'Builder AI',        shortDesc: 'Tap efficiency focus',            branch: 'automation', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { autoTapRate: 0.45, valueMult: 0.08 } },
+  { id: 'auto_choice_farmer',  title: 'Magnetic Field',    shortDesc: 'Items across the level drift toward the blob', branch: 'automation', chapter: 2, type: 'choice', cost: 12000, row: 9, requires: ['auto_keystone'], gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { magnetRadius: 1.3, autoTapRate: 0.35 } },
+  { id: 'auto_split_elite',    title: 'Crusher Protocol',  shortDesc: 'Faster auto-splitting and reduced taps needed', branch: 'automation', chapter: 2, type: 'trait', cost: 18000, row: 9.5, requires: ['auto_split_drone', 'auto_keystone'], gateRequired: 'gateA', effects: { autoSplitRate: 1.5, splitTapReduction: 1 } },
+  { id: 'auto_neural_net',     title: 'Neural Network',    shortDesc: 'AI systems optimize all automation pipelines', branch: 'automation', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateA', effects: { autoTapRate: 0.5, tapValueMult: 0.15, offlineEfficiency: 0.10, passiveMoneyRate: 0.5 } },
+  { id: 'auto_swarm',          title: 'Drone Swarm',       shortDesc: 'Flood the field with micro-drones', branch: 'automation', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { autoTapRate: 1.0, magnetRadius: 0.8, suctionFlat: 12, multiEatRadius: 20 } },
+  { id: 'auto_overclock',      title: 'Overclock Protocol', shortDesc: 'Each tap and auto-eat is massively amplified', branch: 'automation', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { tapValueMult: 0.45, tapCooldownMult: -0.25, valueMult: 0.10, passiveMoneyRate: 1.0 } },
+  { id: 'auto_apex',           title: 'Singularity Ops',   shortDesc: 'Massive passive scaling',        branch: 'automation', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['auto_swarm', 'auto_overclock'], gateRequired: 'gateB', effects: { offlineEfficiency: 0.30, autoTapRate: 1.2, magnetRadius: 0.8, suctionMult: 0.15, tapValueMult: 0.15 } },
+  { id: 'auto_mastery_node',   title: 'Singularity Engine', shortDesc: 'Ultimate passive automation power', branch: 'automation', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['auto_apex'], gateRequired: 'gateB', effects: { autoTapRate: 1.5, offlineEfficiency: 0.25, magnetRadius: 1.0, tapValueMult: 0.30, passiveMoneyRate: 2.0 } },
+
+  // ── Cross-branch Fusion ──
+  { id: 'fusion_predator_feast', title: 'Devouring Strike',  shortDesc: 'The predator becomes a gourmet', branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['hunt_target_lock', 'feast_keystone'], gateRequired: 'gateA', effects: { valueMult: 0.18, speedMult: 0.12, comboWindow: 0.4, critEatChance: 0.08 } },
+  { id: 'fusion_hunt_survival',  title: 'Survival Instinct', shortDesc: 'Desperation fuels the hunt',    branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['hunt_target_lock', 'survival_keystone'], gateRequired: 'gateA', effects: { speedMult: 0.14, hungerDrainMult: -0.10, lowHungerFrenzyMult: 0.18, speedPerCombo: 0.015 } },
+  { id: 'fusion_feast_auto',     title: 'Automated Harvest', shortDesc: 'Automation optimizes food-to-cash', branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['feast_keystone', 'auto_keystone'], gateRequired: 'gateA', effects: { autoTapRate: 0.5, valueMult: 0.10, overkillCashRatio: 0.08, comboValueScale: 0.01 } },
+  { id: 'fusion_survival_auto',  title: 'Perpetual Engine',  shortDesc: 'Self-sustaining automation',    branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['survival_keystone', 'auto_keystone'], gateRequired: 'gateA', effects: { hungerDrainMult: -0.12, autoTapRate: 0.4, offlineEfficiency: 0.15, hungerOnEat: 3, passiveMoneyRate: 0.8 } },
 
   // ── Gates and Apex ──
   { id: 'gate_a_unlock',       title: 'Gate A',             shortDesc: '2 keystones required',         branch: 'evolution', chapter: 2, type: 'gate',     cost: 0,      row: 7,  requires: [] },
-  { id: 'gate_b_unlock',       title: 'Gate B',             shortDesc: 'All branches at chapter 2',    branch: 'evolution', chapter: 3, type: 'gate',     cost: 0,      row: 11, requires: [] },
-  { id: 'apex_transcendence',  title: 'Apex Transcendence', shortDesc: 'Cross-branch capstone',        branch: 'evolution', chapter: 3, type: 'keystone', cost: 375000, row: 13, requires: ['hunt_apex', 'feast_apex', 'survival_apex', 'auto_apex'], gateRequired: 'gateB', effects: { valueMult: 0.18, speedMult: 0.18, suctionMult: 0.18, offlineEfficiency: 0.15 } },
+  { id: 'gate_b_unlock',       title: 'Gate B',             shortDesc: 'All branches at mastery',      branch: 'evolution', chapter: 3, type: 'gate',     cost: 0,      row: 11, requires: [] },
+  { id: 'apex_transcendence',  title: 'Apex Transcendence', shortDesc: 'Cross-branch capstone',        branch: 'evolution', chapter: 3, type: 'keystone', cost: 375000, row: 13, requires: ['hunt_apex', 'feast_apex', 'survival_apex', 'auto_apex'], gateRequired: 'gateB', effects: { valueMult: 0.30, speedMult: 0.25, suctionMult: 0.25, offlineEfficiency: 0.20, hungerDrainMult: -0.10, multiEatRadius: 20 } },
+  { id: 'gate_c_unlock',       title: 'Gate C',             shortDesc: 'All masteries + Transcendence', branch: 'evolution', chapter: 3, type: 'gate',    cost: 0,      row: 15, requires: [] },
+  { id: 'ultimate_singularity', title: 'The Singularity',   shortDesc: 'Everything is consumed simultaneously', branch: 'evolution', chapter: 3, type: 'keystone', cost: 750000, row: 16, requires: ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node', 'apex_transcendence'], gateRequired: 'gateC', choiceGroup: 'ultimate_path', effects: { speedMult: 0.50, suctionMult: 0.45, multiEatRadius: 50, magnetRadius: 1.5, weightReduction: 0.6 } },
+  { id: 'ultimate_omnivore',   title: 'Omnivore Transcendence', shortDesc: 'Every bite is worth a fortune', branch: 'evolution', chapter: 3, type: 'keystone', cost: 750000, row: 16, requires: ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node', 'apex_transcendence'], gateRequired: 'gateC', choiceGroup: 'ultimate_path', effects: { valueMult: 0.55, comboValueScale: 0.05, critEatChance: 0.20, hungerOnEat: 8, passiveMoneyRate: 5.0 } },
 ];
 
 export const SKILL_NODE_LOOKUP = Object.fromEntries(

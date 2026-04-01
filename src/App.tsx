@@ -12,7 +12,7 @@ import { LevelCompleteModal } from './components/LevelCompleteModal';
 import { RevivePanel } from './components/RevivePanel';
 import { AchievementPanel } from './components/AchievementPanel';
 import { StatsPanel } from './components/StatsPanel';
-import { GemShop } from './components/GemShop';
+import { Store } from './components/Store';
 import { BlobCustomizer } from './components/BlobCustomizer';
 import { WorldViewer } from './components/BiomeSelector';
 import { WorldUnlockCelebration } from './components/WorldUnlockCelebration';
@@ -80,7 +80,7 @@ export default function App() {
         <div className="flex justify-evenly items-center px-4 py-2.5">
           <AchievementPanel />
           <StatsPanel />
-          <GemShop />
+          <Store />
           <BlobCustomizer />
           <WorldViewer />
         </div>

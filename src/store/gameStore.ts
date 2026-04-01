@@ -4,7 +4,7 @@ import {
   BASE_MAX_HUNGER, BASE_HUNGER_DRAIN, BASE_SPEED, BASE_SUCTION,
   BASE_TAP_COOLDOWN, BASE_TAP_VALUE_MULT, UPGRADE_SOFT_CAP, softCap,
   EVOLUTION_UPGRADES, ACHIEVEMENTS,
-  DAILY_REWARDS, STREAK_MULTIPLIERS, GEM_SHOP_ITEMS, BLOB_SKINS, SKILL_TREE_NODES,
+  DAILY_REWARDS, STREAK_MULTIPLIERS, BLOB_SKINS, SKILL_TREE_NODES,
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
   ACTIVE_ABILITIES, type AbilityId, ABILITY_CHARGES,
   SPECIAL_SKINS, BLOB_ITEMS, BLOB_FACES,
@@ -17,6 +17,15 @@ import {
 import { showRewardedAd, canShowAdForAbility } from '../lib/ads';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
 import { ITEM_LOOKUP, getItemsForWorld } from '../lib/itemCatalog';
+import {
+  CONSUMABLES, PERMANENT_BOOSTS, IAP_BOOSTS,
+  FEATURED_PACKS, MILESTONE_PACKS, GEM_PACKS,
+  GEM_BUNDLES, IAP_BUNDLES,
+  FREE_GIFT_COOLDOWN_MS, FREE_GIFT_MAX_DAILY, FREE_GIFT_POOL,
+  getDailyDealForDate, getTimedBoostForConsumable,
+  type FreeGiftReward,
+} from '../lib/storeItems';
+import { purchaseProduct } from '../lib/iap';
 
 export interface Item {
   id: string;
@@ -598,7 +607,6 @@ interface GameState {
   evolutionUpgrades: EvolutionUpgrades;
 
   gems: number;
-  purchasedGemItems: string[];
   unlockedSkins: string[];
   currentSkin: string;
   currentSpecialSkin: string;
@@ -645,6 +653,20 @@ interface GameState {
   interstitialSessionAdCount: number;
   interstitialLastTime: number;
   lastRewardedAdTime: number;
+
+  // Store state
+  purchasedPacks: string[];
+  purchasedPermanentBoosts: string[];
+  noInterstitialAds: boolean;
+  consumableInventory: Record<string, number>;
+  activeTimedBoosts: Array<{ id: string; expiresAt: number }>;
+  freeGiftLastClaim: number;
+  freeGiftClaimsToday: number;
+  lastFreeGiftDate: string;
+  dailyDealDate: string;
+  dailyDealPurchased: boolean;
+  spicyMealActive: boolean;
+  offlineBoost24hExpires: number;
 
   lastSaveTimestamp: number;
   moneyPerSecond: number;
@@ -694,7 +716,13 @@ interface GameState {
   tapFood: (worldX: number, worldY: number) => void;
   tapOversizedItem: (itemId: string) => void;
   claimDailyReward: () => void;
-  buyGemShopItem: (id: string) => void;
+  buyPermanentBoost: (id: string) => void;
+  buyConsumable: (id: string) => void;
+  useConsumable: (id: string) => void;
+  buyGemBundle: (id: string) => void;
+  buyIAPProduct: (productId: string) => Promise<boolean>;
+  claimFreeGift: () => FreeGiftReward | null;
+  buyDailyDeal: () => void;
   buyBlobSkin: (id: string) => void;
   setSkin: (id: string) => void;
   buySpecialSkin: (id: string) => void;
@@ -771,7 +799,6 @@ export const useGameStore = create<GameState>()(
       evolutionUpgrades: { ...DEFAULT_EVOLUTION },
 
       gems: 0,
-      purchasedGemItems: [],
       unlockedSkins: ['default'],
       currentSkin: 'default',
       currentSpecialSkin: '',
@@ -818,6 +845,19 @@ export const useGameStore = create<GameState>()(
       interstitialSessionAdCount: 0,
       interstitialLastTime: 0,
       lastRewardedAdTime: 0,
+
+      purchasedPacks: [],
+      purchasedPermanentBoosts: [],
+      noInterstitialAds: false,
+      consumableInventory: {},
+      activeTimedBoosts: [],
+      freeGiftLastClaim: 0,
+      freeGiftClaimsToday: 0,
+      lastFreeGiftDate: '',
+      dailyDealDate: '',
+      dailyDealPurchased: false,
+      spicyMealActive: false,
+      offlineBoost24hExpires: 0,
 
       lastSaveTimestamp: Date.now(),
       moneyPerSecond: 0,
@@ -1193,7 +1233,8 @@ export const useGameStore = create<GameState>()(
       },
 
       prestige: () => set((state) => {
-        const essenceGained = Math.max(1, Math.floor(Math.sqrt(state.currentRunMoney / 500)));
+        const spicyMult = state.spicyMealActive ? 2 : 1;
+        const essenceGained = Math.max(1, Math.floor(Math.sqrt(state.currentRunMoney / 500))) * spicyMult;
         const newTotalPrestiges = state.stats.totalPrestiges + 1;
         const startMoney = 5 * Math.pow(2, state.evolutionUpgrades.startingMoney);
         const startLevel = 1 + state.evolutionUpgrades.startingLevel;
@@ -1223,6 +1264,7 @@ export const useGameStore = create<GameState>()(
           levelUpTime: 0,
           essence: state.essence + essenceGained,
           currentRunMoney: 0,
+          spicyMealActive: false,
           comboCount: 0,
           comboTimer: 0,
           lastTapTime: 0,
@@ -1351,23 +1393,199 @@ export const useGameStore = create<GameState>()(
         return updates as any;
       }),
 
-      buyGemShopItem: (id) => set((state) => {
-        const item = GEM_SHOP_ITEMS.find(i => i.id === id);
+      buyPermanentBoost: (id) => set((state) => {
+        const boost = PERMANENT_BOOSTS.find(b => b.id === id);
+        if (!boost) return state;
+        if (state.purchasedPermanentBoosts.includes(id)) return state;
+        if (state.gems < boost.cost) return state;
+        return {
+          gems: state.gems - boost.cost,
+          purchasedPermanentBoosts: [...state.purchasedPermanentBoosts, id],
+        };
+      }),
+
+      buyConsumable: (id) => set((state) => {
+        const item = CONSUMABLES.find(c => c.id === id);
         if (!item) return state;
-        if (item.type === 'permanent' && state.purchasedGemItems.includes(id)) return state;
         if (state.gems < item.cost) return state;
+        return {
+          gems: state.gems - item.cost,
+          consumableInventory: {
+            ...state.consumableInventory,
+            [id]: (state.consumableInventory[id] || 0) + 1,
+          },
+        };
+      }),
 
-        const updates: any = { gems: state.gems - item.cost };
+      useConsumable: (id) => set((state) => {
+        const count = state.consumableInventory[id] || 0;
+        if (count <= 0) return state;
 
-        if (item.type === 'permanent') {
-          updates.purchasedGemItems = [...state.purchasedGemItems, id];
-        } else if (id === 'time_warp') {
+        const updates: any = {
+          consumableInventory: {
+            ...state.consumableInventory,
+            [id]: count - 1,
+          },
+        };
+
+        if (id === 'power_nap') {
           updates.money = state.money + state.moneyPerSecond * 7200;
-        } else if (id === 'instant_level') {
+        } else if (id === 'gulp_and_go') {
           updates.levelComplete = true;
           updates.levelItemsEaten = state.levelItemsTotal;
           updates.levelUpTime = Date.now();
+        } else if (id === 'spicy_meal') {
+          updates.spicyMealActive = true;
+        } else if (id === 'feeding_frenzy') {
+          const timedBoost = getTimedBoostForConsumable('feeding_frenzy');
+          if (timedBoost) {
+            updates.activeTimedBoosts = [
+              ...state.activeTimedBoosts.filter(b => b.id !== timedBoost.id),
+              { id: timedBoost.id, expiresAt: Date.now() + timedBoost.durationMs },
+            ];
+          }
+        } else if (id === 'big_burp') {
+          updates.abilityCharges = {
+            magnet: ABILITY_CHARGES.magnet.maxCharges,
+            speed: ABILITY_CHARGES.speed.maxCharges,
+            size: ABILITY_CHARGES.size.maxCharges,
+            food: ABILITY_CHARGES.food.maxCharges,
+          };
         }
+
+        return updates;
+      }),
+
+      buyGemBundle: (id) => set((state) => {
+        const bundle = GEM_BUNDLES.find(b => b.id === id);
+        if (!bundle) return state;
+        if (state.gems < bundle.cost) return state;
+
+        const updates: any = {
+          gems: state.gems - bundle.cost + (bundle.rewards.gems || 0),
+          money: state.money + (bundle.rewards.money || 0),
+        };
+
+        if (bundle.rewards.consumables) {
+          const newInv = { ...state.consumableInventory };
+          for (const [cid, qty] of Object.entries(bundle.rewards.consumables)) {
+            newInv[cid] = (newInv[cid] || 0) + qty;
+          }
+          updates.consumableInventory = newInv;
+        }
+
+        return updates;
+      }),
+
+      buyIAPProduct: async (productId) => {
+        const success = await purchaseProduct(productId);
+        if (!success) return false;
+
+        const state = get();
+
+        const featuredPack = [...FEATURED_PACKS, ...MILESTONE_PACKS].find(p => p.id === productId);
+        if (featuredPack && featuredPack.oneTime && state.purchasedPacks.includes(productId)) return false;
+
+        const gemPack = GEM_PACKS.find(p => p.id === productId);
+        const iapBoost = IAP_BOOSTS.find(b => b.id === productId);
+        const iapBundle = IAP_BUNDLES.find(b => b.id === productId);
+
+        set((s) => {
+          const updates: any = {};
+
+          if (featuredPack) {
+            updates.purchasedPacks = [...s.purchasedPacks, productId];
+            if (featuredPack.rewards.gems) updates.gems = (s.gems || 0) + featuredPack.rewards.gems;
+            if (featuredPack.rewards.money) updates.money = (s.money || 0) + featuredPack.rewards.money;
+            if (featuredPack.rewards.essence) updates.essence = (s.essence || 0) + featuredPack.rewards.essence;
+            if (featuredPack.rewards.noInterstitialAds) updates.noInterstitialAds = true;
+            if (featuredPack.rewards.offlineBoost24h) updates.offlineBoost24hExpires = Date.now() + 24 * 60 * 60 * 1000;
+            if (featuredPack.rewards.skinId) {
+              updates.unlockedSpecialSkins = [...s.unlockedSpecialSkins, featuredPack.rewards.skinId];
+            }
+          } else if (gemPack) {
+            updates.gems = (s.gems || 0) + gemPack.gems + gemPack.bonus;
+          } else if (iapBoost) {
+            if (!s.purchasedPermanentBoosts.includes(productId)) {
+              updates.purchasedPermanentBoosts = [...s.purchasedPermanentBoosts, productId];
+            }
+          } else if (iapBundle) {
+            if (iapBundle.oneTime) {
+              updates.purchasedPacks = [...s.purchasedPacks, productId];
+            }
+            if (iapBundle.rewards.gems) updates.gems = (s.gems || 0) + iapBundle.rewards.gems;
+            if (iapBundle.rewards.money) updates.money = (s.money || 0) + iapBundle.rewards.money;
+            if (iapBundle.rewards.skinId) {
+              updates.unlockedSpecialSkins = [...s.unlockedSpecialSkins, iapBundle.rewards.skinId];
+            }
+            if (iapBundle.rewards.consumables) {
+              const newInv = { ...s.consumableInventory };
+              for (const [cid, qty] of Object.entries(iapBundle.rewards.consumables)) {
+                newInv[cid] = (newInv[cid] || 0) + qty;
+              }
+              updates.consumableInventory = newInv;
+            }
+          }
+
+          return updates;
+        });
+
+        return true;
+      },
+
+      claimFreeGift: () => {
+        const state = get();
+        const today = new Date().toISOString().split('T')[0];
+        const isNewDay = state.lastFreeGiftDate !== today;
+        const claimsToday = isNewDay ? 0 : state.freeGiftClaimsToday;
+
+        if (claimsToday >= FREE_GIFT_MAX_DAILY) return null;
+        if (!isNewDay && Date.now() - state.freeGiftLastClaim < FREE_GIFT_COOLDOWN_MS) return null;
+
+        const reward = FREE_GIFT_POOL[Math.floor(Math.random() * FREE_GIFT_POOL.length)];
+
+        set((s) => {
+          const updates: any = {
+            freeGiftLastClaim: Date.now(),
+            freeGiftClaimsToday: claimsToday + 1,
+            lastFreeGiftDate: today,
+          };
+
+          if (reward.type === 'money') updates.money = s.money + reward.amount;
+          else if (reward.type === 'gems') updates.gems = s.gems + reward.amount;
+          else if (reward.type === 'consumable' && reward.consumableId) {
+            updates.consumableInventory = {
+              ...s.consumableInventory,
+              [reward.consumableId]: (s.consumableInventory[reward.consumableId] || 0) + reward.amount,
+            };
+          }
+
+          return updates;
+        });
+
+        return reward;
+      },
+
+      buyDailyDeal: () => set((state) => {
+        const today = new Date().toISOString().split('T')[0];
+        if (state.dailyDealPurchased && state.dailyDealDate === today) return state;
+
+        const deal = getDailyDealForDate(today);
+        if (state.gems < deal.dealCost) return state;
+
+        const updates: any = {
+          gems: state.gems - deal.dealCost,
+          dailyDealPurchased: true,
+          dailyDealDate: today,
+        };
+
+        if (deal.itemType === 'consumable') {
+          updates.consumableInventory = {
+            ...state.consumableInventory,
+            [deal.itemId]: (state.consumableInventory[deal.itemId] || 0) + 1,
+          };
+        }
+
         return updates;
       }),
 
@@ -1546,7 +1764,7 @@ export const useGameStore = create<GameState>()(
         let died = false;
 
         const achBonuses = getAchievementBonuses(state.achievements);
-        const hasDoubleMoney = state.purchasedGemItems.includes('double_money');
+        const hasDoubleMoney = state.purchasedPermanentBoosts.includes('double_digest');
         const evo = state.evolutionUpgrades;
         const evoValueMult = 1 + evo.spawnValueMult * 0.15;
         const gemMoneyMult = hasDoubleMoney ? 2 : 1;
@@ -1721,7 +1939,7 @@ export const useGameStore = create<GameState>()(
         wanderAngle: Math.random() * Math.PI * 2, levelUpTime: 0,
         essence: 0, currentRunMoney: 0,
         evolutionUpgrades: { ...DEFAULT_EVOLUTION },
-        gems: 0, purchasedGemItems: [], unlockedSkins: ['default'], currentSkin: 'default',
+        gems: 0, unlockedSkins: ['default'], currentSkin: 'default',
         achievements: [], newAchievements: [],
         stats: { ...DEFAULT_STATS },
         comboCount: 0, comboTimer: 0,
@@ -1742,6 +1960,11 @@ export const useGameStore = create<GameState>()(
         lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
         lastTapTime: 0,
         autopilotActive: false, autopilotSnapshot: null,
+        purchasedPacks: [], purchasedPermanentBoosts: [], noInterstitialAds: false,
+        consumableInventory: {}, activeTimedBoosts: [],
+        freeGiftLastClaim: 0, freeGiftClaimsToday: 0, lastFreeGiftDate: '',
+        dailyDealDate: '', dailyDealPurchased: false,
+        spicyMealActive: false, offlineBoost24hExpires: 0,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
         _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
         _autoTapAccum: 0, _benchmarkActive: false,
@@ -1794,8 +2017,13 @@ export const useGameStore = create<GameState>()(
         const evo = state.evolutionUpgrades;
         const world = getWorldForLevel(state.currentLevel);
         const achBonuses = getAchievementBonuses(state.achievements);
-        const hasDoubleMoney = state.purchasedGemItems.includes('double_money');
+        const hasDoubleMoney = state.purchasedPermanentBoosts.includes('double_digest');
         const skillFx = getSkillEffects(state.unlockedSkillNodes);
+
+        const newTimedBoosts = state.activeTimedBoosts.filter(b => b.expiresAt > Date.now());
+        const feedingFrenzyActive = newTimedBoosts.some(b => b.id === 'feeding_frenzy_active');
+        const storeFrenzyMult = feedingFrenzyActive ? 3 : 1;
+        const goldenGutMult = state.purchasedPermanentBoosts.includes('golden_gut') ? 1.3 : 1;
 
         const blobScale = world.blobScale;
 
@@ -1853,19 +2081,21 @@ export const useGameStore = create<GameState>()(
         const frenzySpeedMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult : 1;
         const abilitySpeedMult = state.abilities.speed.active ? 4 : 1;
         const comboSpeedMult = skillFx.speedPerCombo > 0 ? 1 + skillFx.speedPerCombo * state.comboCount : 1;
+        const turboTummyMult = state.purchasedPermanentBoosts.includes('turbo_tummy') ? 1.25 : 1;
         const speed = (BASE_SPEED + softCap(state.upgrades.speed || 0) * 25)
           * adBoostMultiplier * starSpeedMultiplier * speedSyn
           * evoSpeedMult * achBonuses.speedMult
-          * (1 + skillFx.speedMult) * frenzySpeedMult * abilitySpeedMult * comboSpeedMult
+          * (1 + skillFx.speedMult) * frenzySpeedMult * abilitySpeedMult * comboSpeedMult * turboTummyMult
           + skillFx.speedFlat;
 
         // --- Suction ---
         const suctionSyn = 1 + (state.upgrades.suctionSynergy || 0) * 0.5;
         const evoSuctionMult = 1 + evo.globalSuction * 0.1;
         const abilitySuctionMult = state.abilities.size.active ? 2 : 1;
+        const stickyTongueMult = state.purchasedPermanentBoosts.includes('sticky_tongue') ? 1.5 : 1;
         const suction = (BASE_SUCTION + softCap(state.upgrades.suction || 0) * 15)
           * suctionSyn * Math.sqrt(blobScale) * evoSuctionMult
-          * (1 + skillFx.suctionMult) * abilitySuctionMult + skillFx.suctionFlat;
+          * (1 + skillFx.suctionMult) * abilitySuctionMult * stickyTongueMult + skillFx.suctionFlat;
         const suctionStrength = (1 + softCap(state.upgrades.suctionStrength || 0) * 0.18) * suctionSyn;
 
         // --- Movement ---
@@ -2123,7 +2353,8 @@ export const useGameStore = create<GameState>()(
 
         const frenzyValueMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult * 0.5 : 1;
         moneyGained *= adBoostMultiplier * achBonuses.moneyMult * gemMoneyMult
-          * evoValueMult * comboMult * comboScaleMult * (1 + skillFx.valueMult) * frenzyValueMult;
+          * evoValueMult * comboMult * comboScaleMult * (1 + skillFx.valueMult) * frenzyValueMult
+          * storeFrenzyMult * goldenGutMult;
 
         let newMoney = state.money + moneyGained;
         let newRunMoney = state.currentRunMoney + moneyGained;
@@ -2357,6 +2588,7 @@ export const useGameStore = create<GameState>()(
           _autoTapAccum: newAutoTapAccum,
           _autoSplitAccum: newAutoSplitAccum,
           _oversizedVomitCount: newOversizedVomitCount,
+          activeTimedBoosts: newTimedBoosts,
         };
       })
     }),
@@ -2375,7 +2607,6 @@ export const useGameStore = create<GameState>()(
         currentRunMoney: state.currentRunMoney,
         evolutionUpgrades: state.evolutionUpgrades,
         gems: state.gems,
-        purchasedGemItems: state.purchasedGemItems,
         unlockedSkins: state.unlockedSkins,
         currentSkin: state.currentSkin,
         currentSpecialSkin: state.currentSpecialSkin,
@@ -2403,6 +2634,18 @@ export const useGameStore = create<GameState>()(
         interstitialLevelsSinceAd: state.interstitialLevelsSinceAd,
         autopilotActive: state.autopilotActive,
         autopilotSnapshot: state.autopilotSnapshot,
+        purchasedPacks: state.purchasedPacks,
+        purchasedPermanentBoosts: state.purchasedPermanentBoosts,
+        noInterstitialAds: state.noInterstitialAds,
+        consumableInventory: state.consumableInventory,
+        activeTimedBoosts: state.activeTimedBoosts,
+        freeGiftLastClaim: state.freeGiftLastClaim,
+        freeGiftClaimsToday: state.freeGiftClaimsToday,
+        lastFreeGiftDate: state.lastFreeGiftDate,
+        dailyDealDate: state.dailyDealDate,
+        dailyDealPurchased: state.dailyDealPurchased,
+        spicyMealActive: state.spicyMealActive,
+        offlineBoost24hExpires: state.offlineBoost24hExpires,
       }),
       merge: (persisted: any, current) => {
         const migratedLevel = persisted?.currentLevel || persisted?.level || 1;
@@ -2428,7 +2671,6 @@ export const useGameStore = create<GameState>()(
           activeHint: null,
           achievements: persisted?.achievements || [],
           newAchievements: [],
-          purchasedGemItems: persisted?.purchasedGemItems || [],
           unlockedSkins: persisted?.unlockedSkins || ['default'],
           currentSpecialSkin: persisted?.currentSpecialSkin || '',
           unlockedSpecialSkins: persisted?.unlockedSpecialSkins || [],
@@ -2447,6 +2689,25 @@ export const useGameStore = create<GameState>()(
           lastRewardedAdTime: 0,
           autopilotActive: persisted?.autopilotActive || false,
           autopilotSnapshot: persisted?.autopilotSnapshot || null,
+          purchasedPacks: persisted?.purchasedPacks || [],
+          purchasedPermanentBoosts: (() => {
+            const boosts = persisted?.purchasedPermanentBoosts || [];
+            const legacyGemItems: string[] = (persisted as any)?.purchasedGemItems || [];
+            if (legacyGemItems.includes('double_money') && !boosts.includes('double_digest')) {
+              return [...boosts, 'double_digest'];
+            }
+            return boosts;
+          })(),
+          noInterstitialAds: persisted?.noInterstitialAds || false,
+          consumableInventory: persisted?.consumableInventory || {},
+          activeTimedBoosts: (persisted?.activeTimedBoosts || []).filter((b: any) => b.expiresAt > Date.now()),
+          freeGiftLastClaim: persisted?.freeGiftLastClaim || 0,
+          freeGiftClaimsToday: persisted?.freeGiftClaimsToday || 0,
+          lastFreeGiftDate: persisted?.lastFreeGiftDate || '',
+          dailyDealDate: persisted?.dailyDealDate || '',
+          dailyDealPurchased: persisted?.dailyDealPurchased || false,
+          spicyMealActive: persisted?.spicyMealActive || false,
+          offlineBoost24hExpires: persisted?.offlineBoost24hExpires || 0,
           _levelInitialized: false,
         };
       },

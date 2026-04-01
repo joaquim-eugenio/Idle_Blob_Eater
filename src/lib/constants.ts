@@ -278,12 +278,6 @@ export const RARITY_COLORS: Record<CosmeticRarity, { bg: string; border: string;
   legendary: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600', badge: 'bg-amber-200 text-amber-800' },
 };
 
-export const GEM_SHOP_ITEMS = [
-  { id: 'double_money', name: '2x Money', desc: 'Permanent 2x money multiplier', cost: 50, type: 'permanent' as const },
-  { id: 'time_warp', name: 'Time Warp', desc: 'Earn 2 hours of offline income', cost: 10, type: 'consumable' as const },
-  { id: 'instant_level', name: 'Skip Level', desc: 'Skip current level (1-star rewards)', cost: 15, type: 'consumable' as const },
-];
-
 export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 76, 82, 88, 94, 100];
 
 export type SkillBranchId = 'hunt' | 'feast' | 'survival' | 'automation' | 'evolution';

@@ -36,7 +36,7 @@ export function LevelCompleteModal() {
     buySuggestedAndRetry, buySuggestedUpgrade,
     highestLevelReached, interstitialLevelsSinceAd, interstitialSessionAdCount,
     interstitialLastTime, lastRewardedAdTime, recordInterstitialShown,
-    setPendingWorldUnlock,
+    setPendingWorldUnlock, noInterstitialAds,
   } = useGameStore();
   const [hasCollected, setHasCollected] = useState(false);
   const [justBought, setJustBought] = useState(false);
@@ -69,6 +69,7 @@ export function LevelCompleteModal() {
       sessionAdCount: interstitialSessionAdCount,
       lastInterstitialTime: interstitialLastTime,
       lastRewardedAdTime,
+      noInterstitialAds,
     };
 
     if (shouldShowInterstitial(ctx)) {

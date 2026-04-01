@@ -14,6 +14,7 @@ export function RevivePanel() {
   const currentLevel = useGameStore((s) => s.currentLevel);
   const reviveBlob = useGameStore((s) => s.reviveBlob);
   const declineRevive = useGameStore((s) => s.declineRevive);
+  const hasPhoenixBelch = useGameStore((s) => s.purchasedPermanentBoosts.includes('phoenix_belch'));
 
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [showDecline, setShowDecline] = useState(false);
@@ -66,6 +67,14 @@ export function RevivePanel() {
 
   const handleRevive = async () => {
     if (hasActed.current || adLoading) return;
+
+    if (hasPhoenixBelch) {
+      hasActed.current = true;
+      cleanup();
+      reviveBlob();
+      return;
+    }
+
     setAdLoading(true);
     cleanup();
 
@@ -185,6 +194,8 @@ export function RevivePanel() {
             >
               {adLoading ? (
                 <span>Loading Ad...</span>
+              ) : hasPhoenixBelch ? (
+                <span>Phoenix Belch!</span>
               ) : (
                 <>
                   <TVIcon size={20} />

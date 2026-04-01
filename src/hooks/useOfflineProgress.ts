@@ -21,13 +21,18 @@ function resolveOffline() {
     }
   }
 
-  const maxSeconds = OFFLINE_MAX_HOURS * 3600;
+  const hasDeepFoodComa = state.purchasedPermanentBoosts?.includes('deep_food_coma');
+  const maxHours = hasDeepFoodComa ? 16 : OFFLINE_MAX_HOURS;
+  const maxSeconds = maxHours * 3600;
   const cappedSeconds = Math.min(elapsed, maxSeconds);
   const skillOfflineBonus = state.unlockedSkillNodes.reduce((acc, id) => (
     acc + (SKILL_NODE_LOOKUP[id]?.effects?.offlineEfficiency || 0)
   ), 0);
   const offlineRate = OFFLINE_BASE_EFFICIENCY + state.evolutionUpgrades.offlineRate * 0.1 + skillOfflineBonus;
-  const earnings = Math.floor(state.moneyPerSecond * cappedSeconds * offlineRate);
+  const hasSleepEating = state.purchasedPermanentBoosts?.includes('sleep_eating');
+  const has24hBoost = (state.offlineBoost24hExpires || 0) > Date.now();
+  const offlineBoostMult = (hasSleepEating || has24hBoost) ? 2 : 1;
+  const earnings = Math.floor(state.moneyPerSecond * cappedSeconds * offlineRate * offlineBoostMult);
 
   if (earnings > 0) {
     return { offlineData: { earnings, timeAway: elapsed }, autopilotResult: null };

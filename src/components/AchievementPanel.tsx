@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { ACHIEVEMENTS } from '../lib/constants';
 import { Trophy, X, Diamond, CurrencyDollar, Lightning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,6 +12,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function AchievementPanel() {
   const [isOpen, setIsOpen] = useState(false);
+  usePanelPause(isOpen);
   const achievements = useGameStore(s => s.achievements);
   const stats = useGameStore(s => s.stats);
 

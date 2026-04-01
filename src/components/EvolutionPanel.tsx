@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { EVOLUTION_UPGRADES } from '../lib/constants';
 import { Sparkle, X, ArrowUp, Warning } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function EvolutionPanel() {
   const [isOpen, setIsOpen] = useState(false);
+  usePanelPause(isOpen);
   const essence = useGameStore(s => s.essence);
   const currentRunMoney = useGameStore(s => s.currentRunMoney);
   const evo = useGameStore(s => s.evolutionUpgrades);

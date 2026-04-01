@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { GEM_SHOP_ITEMS } from '../lib/constants';
 import { Diamond, X } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function GemShop() {
   const [isOpen, setIsOpen] = useState(false);
+  usePanelPause(isOpen);
   const gems = useGameStore(s => s.gems);
   const purchased = useGameStore(s => s.purchasedGemItems);
   const buyGemShopItem = useGameStore(s => s.buyGemShopItem);

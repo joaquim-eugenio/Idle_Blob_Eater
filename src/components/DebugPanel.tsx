@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { WORLDS } from '../lib/levels';
 import { Bug, X, CaretDown, CaretRight } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,6 +43,7 @@ function BtnRow({ label, buttons }: { label: string; buttons: { text: string; on
 export function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [jumpLevel, setJumpLevel] = useState('');
+  usePanelPause(isOpen);
 
   const debugAddResources = useGameStore(s => s.debugAddResources);
   const debugFillHunger = useGameStore(s => s.debugFillHunger);

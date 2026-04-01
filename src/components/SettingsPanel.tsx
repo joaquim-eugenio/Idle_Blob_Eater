@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { X, ArrowCounterClockwise, Envelope, ArrowSquareOut } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -20,6 +21,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 
 export function SettingsPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [confirmReset, setConfirmReset] = useState(false);
+  usePanelPause(isOpen);
   const sfxEnabled = useGameStore(s => s.sfxEnabled);
   const musicEnabled = useGameStore(s => s.musicEnabled);
   const hapticsEnabled = useGameStore(s => s.hapticsEnabled);

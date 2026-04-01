@@ -634,6 +634,7 @@ interface GameState {
 
   skillTreeOpen: boolean;
   customizerOpen: boolean;
+  _openPanelCount: number;
 
   abilities: AbilitiesMap;
   abilityCharges: AbilityChargesMap;
@@ -718,6 +719,8 @@ interface GameState {
   closeSkillTree: () => void;
   openCustomizer: () => void;
   closeCustomizer: () => void;
+  panelOpened: () => void;
+  panelClosed: () => void;
   activateAutopilot: () => void;
   deactivateAutopilot: () => void;
   resolveAutopilot: () => AutopilotResult | null;
@@ -804,6 +807,7 @@ export const useGameStore = create<GameState>()(
 
       skillTreeOpen: false,
       customizerOpen: false,
+      _openPanelCount: 0,
 
       abilities: { ...DEFAULT_ABILITIES },
       abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
@@ -1464,10 +1468,12 @@ export const useGameStore = create<GameState>()(
         interstitialLastTime: Date.now(),
       })),
 
-      openSkillTree: () => set({ skillTreeOpen: true }),
-      closeSkillTree: () => set({ skillTreeOpen: false }),
-      openCustomizer: () => set({ customizerOpen: true }),
-      closeCustomizer: () => set({ customizerOpen: false }),
+      openSkillTree: () => set((s) => ({ skillTreeOpen: true, _openPanelCount: s._openPanelCount + 1 })),
+      closeSkillTree: () => set((s) => ({ skillTreeOpen: false, _openPanelCount: Math.max(0, s._openPanelCount - 1) })),
+      openCustomizer: () => set((s) => ({ customizerOpen: true, _openPanelCount: s._openPanelCount + 1 })),
+      closeCustomizer: () => set((s) => ({ customizerOpen: false, _openPanelCount: Math.max(0, s._openPanelCount - 1) })),
+      panelOpened: () => set((s) => ({ _openPanelCount: s._openPanelCount + 1 })),
+      panelClosed: () => set((s) => ({ _openPanelCount: Math.max(0, s._openPanelCount - 1) })),
 
       activateAutopilot: () => set((state) => {
         const hasAutopilot = state.unlockedSkillNodes.includes('auto_autopilot_unlock');
@@ -1726,7 +1732,7 @@ export const useGameStore = create<GameState>()(
         tutorialStep: 0, tutorialComplete: false,
         sessionCount: 0, completedHints: [], activeHint: null,
         lastRunEatRatio: 0, lastRunSurvivalTime: 0,
-        skillTreeOpen: false, customizerOpen: false,
+        skillTreeOpen: false, customizerOpen: false, _openPanelCount: 0,
         abilities: { ...DEFAULT_ABILITIES },
         abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
         lastAdRechargeTime: { ...DEFAULT_AD_RECHARGE_TIME },
@@ -1778,11 +1784,7 @@ export const useGameStore = create<GameState>()(
           return { levelStartTime: Date.now() };
         }
 
-        if (state.skillTreeOpen) {
-          return { levelStartTime: Date.now() };
-        }
-
-        if (state.customizerOpen) {
+        if (state._openPanelCount > 0) {
           return { levelStartTime: Date.now() };
         }
 

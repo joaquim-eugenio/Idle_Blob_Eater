@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { WORLDS, getWorldForLevel } from '../lib/levels';
 import { Globe, Lock, MapPin, X } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function WorldViewer() {
   const [isOpen, setIsOpen] = useState(false);
+  usePanelPause(isOpen);
   const currentLevel = useGameStore(s => s.currentLevel);
   const highestLevel = useGameStore(s => s.highestLevelReached);
   const currentWorld = getWorldForLevel(currentLevel);

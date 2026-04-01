@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
+import { usePanelPause } from '../hooks/usePanelPause';
 import { ChartBar, ArrowCounterClockwise, X } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -20,6 +21,7 @@ function fmtTime(seconds: number): string {
 export function StatsPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  usePanelPause(isOpen);
   const stats = useGameStore(s => s.stats);
   const mps = useGameStore(s => s.moneyPerSecond);
   const level = useGameStore(s => s.currentLevel);

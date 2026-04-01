@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { usePanelPause } from '../hooks/usePanelPause';
 import { GEM_SHOP_ITEMS } from '../lib/constants';
-import { Diamond, X } from '@phosphor-icons/react';
+import { GemIcon, CloseIcon } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function GemShop() {
@@ -17,9 +17,9 @@ export function GemShop() {
       <div className="flex flex-col items-center gap-1">
         <button
           onClick={() => setIsOpen(true)}
-          className="relative p-2.5 bg-purple-500 text-white rounded-full border-2 border-purple-600 shadow-md shadow-purple-200/30 hover:bg-purple-400 active:scale-95 transition-all"
+          className="btn-bar-icon relative p-2.5 bg-purple-500 text-white rounded-full border-2 border-purple-600 border-b-purple-700 hover:bg-purple-400 active:scale-95"
         >
-          <Diamond size={18} />
+          <GemIcon size={18} />
           <div className="absolute -top-1 -right-1 bg-purple-300 text-purple-900 text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
             {gems}
           </div>
@@ -43,15 +43,15 @@ export function GemShop() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white w-full max-w-lg rounded-3xl border-3 border-purple-400 shadow-lg shadow-purple-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 flex justify-between items-center bg-purple-500 text-white">
+              <div className="panel-header-game p-5 flex justify-between items-center bg-purple-500 text-white">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Gem Shop</h2>
                   <div className="text-sm opacity-90 flex items-center gap-1.5 mt-0.5 font-body">
-                    <Diamond size={14} /><span>{gems} Gems</span>
+                    <GemIcon size={14} /><span>{gems} Gems</span>
                   </div>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={22} weight="bold" />
+                  <CloseIcon size={22} />
                 </button>
               </div>
 
@@ -76,7 +76,7 @@ export function GemShop() {
                               : 'bg-slate-100 text-slate-400 border-b-4 border-slate-200 cursor-not-allowed'
                         }`}
                       >
-                        {owned ? 'Owned' : <><Diamond size={14} />{item.cost}</>}
+                        {owned ? 'Owned' : <><GemIcon size={14} />{item.cost}</>}
                       </button>
                     </div>
                   );

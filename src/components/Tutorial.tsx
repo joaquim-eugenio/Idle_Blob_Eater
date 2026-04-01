@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { motion, AnimatePresence } from 'motion/react';
-import { Hand, CurrencyDollar, Sparkle, Globe } from '@phosphor-icons/react';
+import { TapHandIcon, CoinIcon, StarIcon, GlobeIcon } from './icons';
 
 interface HintConfig {
   message: string;
@@ -14,29 +14,29 @@ const HINT_CONFIGS: Record<string, HintConfig> = {
   blob_intro: {
     message: "This is your Blob! It eats all items to clear each level.",
     position: 'top-center',
-    icon: <Sparkle size={20} className="text-blue-300 shrink-0" />,
+    icon: <StarIcon size={20} className="text-blue-300 shrink-0" />,
   },
   tap_hint: {
     message: "Tap the screen to drop extra items for your Blob!",
     position: 'top-center',
-    icon: <Hand size={20} className="text-amber-300 shrink-0" />,
+    icon: <TapHandIcon size={20} className="text-amber-300 shrink-0" />,
   },
   money_hint: {
     message: "You earned cash! Use it to buy upgrades.",
     position: 'top-center',
-    icon: <CurrencyDollar size={20} className="text-emerald-300 shrink-0" />,
+    icon: <CoinIcon size={20} className="text-emerald-300 shrink-0" />,
     autoDismissMs: 4000,
   },
   skill_tree_hint: {
     message: "Try the Skill Tree for permanent boosts!",
     position: 'bottom-right',
-    icon: <Sparkle size={20} className="text-purple-300 shrink-0" />,
+    icon: <StarIcon size={20} className="text-purple-300 shrink-0" />,
     autoDismissMs: 5000,
   },
   worlds_hint: {
     message: "New worlds await with bigger challenges!",
     position: 'top-center',
-    icon: <Globe size={20} className="text-cyan-300 shrink-0" />,
+    icon: <GlobeIcon size={20} className="text-cyan-300 shrink-0" />,
     autoDismissMs: 4000,
   },
 };

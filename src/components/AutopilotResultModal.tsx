@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Clock, Coins, X, SmileyXEyes, CheckCircle, Hourglass, Television, ArrowCounterClockwise, CaretRight } from '@phosphor-icons/react';
+import { ClockIcon, CoinsStackIcon, CloseIcon, SadFaceIcon, CheckIcon, HourglassIcon, TVIcon, ArrowIcon, CaretIcon } from './icons';
 import { type AutopilotResult } from '../store/gameStore';
 import { useGameStore } from '../store/gameStore';
 
@@ -72,14 +72,14 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
             className="p-1.5 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors"
             aria-label="Close"
           >
-            <X size={16} weight="bold" />
+            <CloseIcon size={16} />
           </button>
         </div>
 
         {result.outcome === 'completed' && (
           <>
             <div className="text-emerald-500 flex justify-center mb-2">
-              <CheckCircle size={48} />
+              <CheckIcon size={48} />
             </div>
             <h2 className="text-2xl font-black text-slate-800 mb-1">Autopilot Complete!</h2>
             <div className="text-sm text-slate-500 font-body mb-3">
@@ -89,7 +89,7 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
             <div className="bg-emerald-50 rounded-2xl p-4 mb-4 border-2 border-emerald-300">
               <div className="text-sm text-emerald-600 font-semibold mb-1">Your blob ate all items</div>
               <div className="text-2xl font-black text-emerald-600 flex items-center justify-center gap-2">
-                <Coins size={28} />
+                <CoinsStackIcon size={28} />
                 ${fmt(result.moneyEarned)}
               </div>
               <div className="text-xs text-emerald-500 mt-1 font-body">1-star clear (autopilot)</div>
@@ -100,7 +100,7 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
               className="btn-game w-full py-2.5 sm:py-3 bg-blue-500 text-white rounded-xl font-bold text-base sm:text-lg border-b-4 border-blue-700 hover:bg-blue-600 transition-all flex items-center justify-center gap-2"
             >
               Next Level
-              <CaretRight size={18} />
+              <CaretIcon direction="right" size={18} />
             </button>
           </>
         )}
@@ -108,7 +108,7 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
         {result.outcome === 'partial' && (
           <>
             <div className="text-amber-500 flex justify-center mb-2">
-              <Hourglass size={48} />
+              <HourglassIcon size={48} />
             </div>
             <h2 className="text-2xl font-black text-slate-800 mb-1">Still Working...</h2>
             <div className="text-sm text-slate-500 font-body mb-3">
@@ -128,7 +128,7 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
                 </span>
               </div>
               <div className="text-xl font-black text-amber-600 flex items-center justify-center gap-2">
-                <Coins size={22} />
+                <CoinsStackIcon size={22} />
                 ${fmt(result.moneyEarned)}
               </div>
             </div>
@@ -147,11 +147,11 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
         {result.outcome === 'died' && (
           <>
             <div className="text-red-400 flex justify-center mb-2">
-              <SmileyXEyes size={56} />
+              <SadFaceIcon size={56} />
             </div>
             <h2 className="text-2xl font-black text-red-600 mb-1">Blob Starved!</h2>
             <div className="flex items-center justify-center gap-1.5 text-slate-500 text-sm mb-3 font-body">
-              <Clock size={14} />
+              <ClockIcon size={14} />
               <span>Survived {formatTime(result.timeAlive)} on Level {result.level}</span>
             </div>
 
@@ -168,7 +168,7 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
                 </span>
               </div>
               <div className="text-lg font-black text-red-600 flex items-center justify-center gap-2">
-                <Coins size={20} />
+                <CoinsStackIcon size={20} />
                 ${fmt(result.moneyEarned)} earned
               </div>
             </div>
@@ -184,13 +184,13 @@ export function AutopilotResultModal({ result, onDismiss, onRevive }: Props) {
                 onClick={onRevive}
                 className="btn-game w-full py-2.5 bg-amber-400 text-amber-900 rounded-xl font-bold text-sm border-b-4 border-amber-600 hover:bg-amber-300 transition-all flex items-center justify-center gap-2"
               >
-                <Television size={16} /> Watch Ad to Revive
+                <TVIcon size={16} /> Watch Ad to Revive
               </button>
               <button
                 onClick={handleRetry}
                 className="btn-game w-full py-2.5 bg-red-500 text-white rounded-xl font-bold text-base border-b-4 border-red-700 hover:bg-red-600 transition-all flex items-center justify-center gap-2"
               >
-                <ArrowCounterClockwise size={16} />
+                <ArrowIcon direction="refresh" size={16} />
                 Retry Level
               </button>
             </div>

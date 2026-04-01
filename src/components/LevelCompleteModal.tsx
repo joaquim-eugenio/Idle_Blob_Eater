@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CaretRight, ArrowCounterClockwise, ArrowUp, SmileyXEyes, Lightning, SpinnerGap } from '@phosphor-icons/react';
+import { CaretIcon, ArrowIcon, SadFaceIcon, BoltIcon, SpinnerIcon } from './icons';
 import { useGameStore } from '../store/gameStore';
 import { getWorldForLevel } from '../lib/levels';
 import { getSuggestedUpgrade, getSuggestionReason, type RunContext } from '../lib/suggestUpgrade';
@@ -156,7 +156,7 @@ export function LevelCompleteModal() {
               Starved!
             </div>
 
-            <div className="text-red-400 flex justify-center"><SmileyXEyes size={64} /></div>
+            <div className="text-red-400 flex justify-center"><SadFaceIcon size={64} /></div>
 
             <div className="bg-red-50 rounded-xl px-6 py-3 w-full text-center border-2 border-red-200">
               <div className="text-sm font-bold text-red-700 uppercase tracking-wide">Level Failed</div>
@@ -166,7 +166,7 @@ export function LevelCompleteModal() {
             </div>
 
             <div className="flex items-center gap-2 bg-amber-50 rounded-xl px-4 py-3 w-full border-2 border-amber-200">
-              <ArrowUp size={18} className="text-amber-600 shrink-0" />
+              <ArrowIcon direction="up" size={18} className="text-amber-600 shrink-0" />
               <span className="text-sm text-amber-800 font-body">
                 {failSuggestion ? getSuggestionReason(failSuggestion) : 'Try upgrading Speed, Suction, or Hunger to clear faster!'}
               </span>
@@ -182,7 +182,7 @@ export function LevelCompleteModal() {
                 >
                   <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-wide">Recommended Upgrade</span>
                   <span className="flex items-center gap-1.5 text-sm mt-0.5">
-                    <Lightning size={14} className="shrink-0" />
+                    <BoltIcon size={14} className="shrink-0" />
                     <span className="truncate">{failSuggestion.title}</span>
                     <span className="text-emerald-200 text-xs font-black shrink-0">${fmt(failSuggestion.cost)}</span>
                   </span>
@@ -191,7 +191,7 @@ export function LevelCompleteModal() {
                   onClick={handleRetry}
                   className="btn-game w-full bg-red-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-red-700 flex items-center justify-center gap-2 transition-all"
                 >
-                  <ArrowCounterClockwise size={18} />
+                  <ArrowIcon direction="refresh" size={18} />
                   Retry
                 </button>
               </div>
@@ -208,7 +208,7 @@ export function LevelCompleteModal() {
                   onClick={handleRetry}
                   className="btn-game flex-1 bg-red-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-red-700 flex items-center justify-center gap-2 transition-all"
                 >
-                  <ArrowCounterClockwise size={18} />
+                  <ArrowIcon direction="refresh" size={18} />
                   Retry
                 </button>
               </div>
@@ -264,7 +264,7 @@ export function LevelCompleteModal() {
                 >
                   <span className="text-[10px] font-bold text-emerald-200 uppercase tracking-wide">Recommended Upgrade</span>
                   <span className="flex items-center gap-1.5 text-sm mt-0.5">
-                    <Lightning size={14} className="shrink-0" />
+                    <BoltIcon size={14} className="shrink-0" />
                     <span className="truncate">{successSuggestion.title}</span>
                     <span className="text-emerald-200 text-xs font-black shrink-0">${fmt(successSuggestion.cost)}</span>
                   </span>
@@ -274,7 +274,7 @@ export function LevelCompleteModal() {
                   className="btn-game w-full bg-blue-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-blue-700 flex items-center justify-center gap-2 transition-all"
                 >
                   Next Level
-                  <CaretRight size={18} />
+                  <CaretIcon direction="right" size={18} />
                 </button>
               </div>
             ) : (
@@ -301,7 +301,7 @@ export function LevelCompleteModal() {
                   className="btn-game flex-1 bg-blue-500 text-white font-bold text-base py-3 rounded-2xl border-b-4 border-blue-700 flex items-center justify-center gap-2 transition-all"
                 >
                   Next Level
-                  <CaretRight size={18} />
+                  <CaretIcon direction="right" size={18} />
                 </button>
               </div>
             )}
@@ -326,7 +326,7 @@ export function LevelCompleteModal() {
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
             >
-              <SpinnerGap size={40} className="text-blue-500" />
+              <SpinnerIcon size={40} className="text-blue-500" />
             </motion.div>
             <div className="text-base font-bold text-slate-600">Loading ad...</div>
             <div className="text-xs text-slate-400">Game will continue shortly</div>

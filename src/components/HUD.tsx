@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useGameStore, computeAutopilotClearRate } from '../store/gameStore';
 import { BASE_MAX_HUNGER, BASE_HUNGER_DRAIN, softCap, SKILL_NODE_LOOKUP, AUTOPILOT_DRAIN_MULT } from '../lib/constants';
-import { Sparkle, GearSix, Robot } from '@phosphor-icons/react';
+import { StarIcon, GearIcon, RobotIcon } from './icons';
 import { getWorldForLevel } from '../lib/levels';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -82,7 +82,7 @@ export function HUD() {
           </div>
           {essence > 0 && (
             <div className="flex items-center gap-1 text-purple-500 text-xs font-bold mt-0.5">
-              <Sparkle size={12} />
+              <StarIcon size={12} />
               {essence} Essence
             </div>
           )}
@@ -94,7 +94,7 @@ export function HUD() {
             className="p-1.5 text-slate-400 hover:text-slate-600 pointer-events-auto transition-colors"
             aria-label="Settings"
           >
-            <GearSix size={18} />
+            <GearIcon size={18} />
           </button>
           <div key={flashKey} className="text-xl font-black text-emerald-600 bg-white border-2 border-emerald-400 px-3 py-1 rounded-full shadow-md shadow-emerald-200/30 money-flash">
             ${fmt(money)}
@@ -203,7 +203,7 @@ function AutopilotInfoToast({
 
   return (
     <div className="self-end flex items-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-1 shadow-sm border border-slate-200/80 text-[10px] font-bold">
-      <Robot size={11} className="text-indigo-400 shrink-0" />
+      <RobotIcon size={11} className="text-indigo-400 shrink-0" />
       <span className="text-slate-500">Auto ~{formatDuration(estSeconds)}</span>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
       <span className="text-slate-500">{riskLabel}</span>

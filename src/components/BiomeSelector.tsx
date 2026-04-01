@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { usePanelPause } from '../hooks/usePanelPause';
 import { WORLDS, getWorldForLevel } from '../lib/levels';
-import { Globe, Lock, MapPin, X } from '@phosphor-icons/react';
+import { GlobeIcon, LockIcon, MapPinIcon, CloseIcon } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function WorldViewer() {
@@ -17,9 +17,9 @@ export function WorldViewer() {
       <div className="flex flex-col items-center gap-1">
         <button
           onClick={() => setIsOpen(true)}
-          className="p-2.5 bg-emerald-500 text-white rounded-full border-2 border-emerald-600 shadow-md shadow-emerald-200/30 hover:bg-emerald-400 active:scale-95 transition-all"
+          className="btn-bar-icon p-2.5 bg-emerald-500 text-white rounded-full border-2 border-emerald-600 border-b-emerald-700 hover:bg-emerald-400 active:scale-95"
         >
-          <Globe size={18} />
+          <GlobeIcon size={18} />
         </button>
         <span className="text-[10px] font-bold text-emerald-600">Worlds</span>
       </div>
@@ -40,14 +40,14 @@ export function WorldViewer() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white w-full max-w-sm rounded-3xl border-3 border-emerald-400 shadow-lg shadow-emerald-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 flex justify-between items-center bg-emerald-500 text-white">
+              <div className="panel-header-game p-5 flex justify-between items-center bg-emerald-500 text-white">
                 <h2 className="text-xl font-black tracking-tight">Worlds</h2>
                 <button
                   onClick={() => setIsOpen(false)}
                   className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors"
                   aria-label="Close world viewer"
                 >
-                  <X size={20} weight="bold" />
+                  <CloseIcon size={20} />
                 </button>
               </div>
 
@@ -94,9 +94,9 @@ export function WorldViewer() {
                               style={{ backgroundColor: world.bgColor }}
                             >
                               {!isReached ? (
-                                <Lock size={14} className="text-slate-400" />
+                                <LockIcon size={14} className="text-slate-400" />
                               ) : isCurrent ? (
-                                <MapPin size={14} className="text-emerald-600" />
+                                <MapPinIcon size={14} className="text-emerald-600" />
                               ) : null}
                             </div>
                             <div className="flex-1 min-w-0">

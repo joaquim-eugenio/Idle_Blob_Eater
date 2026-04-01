@@ -5,7 +5,7 @@ import {
   RARITY_COLORS, type CosmeticRarity, type CosmeticCurrency,
 } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
-import { X, Sparkle, Diamond, CurrencyDollar, Crown, TShirt, SmileySticker } from '@phosphor-icons/react';
+import { CloseIcon, StarIcon, GemIcon, CoinIcon, CrownIcon, ShirtIcon, SmileyIcon } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
 
 const PREVIEW_NODES = 32;
@@ -287,7 +287,7 @@ export function BlobCustomizer() {
                 : 'bg-slate-100 text-slate-400 border-b-4 border-slate-200 cursor-not-allowed'
             }`}
           >
-            {item.currency === 'gems' ? <Diamond size={14} /> : <CurrencyDollar size={14} />}
+            {item.currency === 'gems' ? <GemIcon size={14} /> : <CoinIcon size={14} />}
             {formatCost(item.cost, item.currency)}
           </button>
         )}
@@ -300,9 +300,9 @@ export function BlobCustomizer() {
       <div className="flex flex-col items-center gap-1">
         <button
           onClick={openCustomizer}
-          className="relative p-2.5 bg-pink-500 text-white rounded-full border-2 border-pink-600 shadow-md shadow-pink-200/30 hover:bg-pink-400 active:scale-95 transition-all"
+          className="btn-bar-icon relative p-2.5 bg-pink-500 text-white rounded-full border-2 border-pink-600 border-b-pink-700 hover:bg-pink-400 active:scale-95"
         >
-          <Sparkle size={18} />
+          <StarIcon size={18} />
         </button>
         <span className="text-[10px] font-bold text-pink-600">Style</span>
       </div>
@@ -323,16 +323,16 @@ export function BlobCustomizer() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white w-full max-w-lg rounded-3xl border-3 border-pink-400 shadow-lg shadow-pink-200/40 overflow-hidden flex flex-col max-h-[92dvh]"
             >
-              <div className="p-4 flex justify-between items-center bg-pink-500 text-white">
+              <div className="panel-header-game p-4 flex justify-between items-center bg-pink-500 text-white">
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Customize Blob</h2>
                   <div className="text-sm opacity-90 flex items-center gap-3 mt-0.5 font-body">
-                    <span className="flex items-center gap-1"><Diamond size={13} />{gems}</span>
-                    <span className="flex items-center gap-1"><CurrencyDollar size={13} />${money >= 1000 ? `${(money / 1000).toFixed(1)}K` : money}</span>
+                    <span className="flex items-center gap-1"><GemIcon size={13} />{gems}</span>
+                    <span className="flex items-center gap-1"><CoinIcon size={13} />${money >= 1000 ? `${(money / 1000).toFixed(1)}K` : money}</span>
                   </div>
                 </div>
                 <button onClick={closeCustomizer} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={22} weight="bold" />
+                  <CloseIcon size={22} />
                 </button>
               </div>
 
@@ -353,9 +353,9 @@ export function BlobCustomizer() {
 
               <div className="flex border-b-2 border-pink-100">
                 {([
-                  { id: 'skins' as const, label: 'Skins', Icon: Crown },
-                  { id: 'items' as const, label: 'Items', Icon: TShirt },
-                  { id: 'faces' as const, label: 'Faces', Icon: SmileySticker },
+                  { id: 'skins' as const, label: 'Skins', Icon: CrownIcon },
+                  { id: 'items' as const, label: 'Items', Icon: ShirtIcon },
+                  { id: 'faces' as const, label: 'Faces', Icon: SmileyIcon },
                 ]).map(({ id, label, Icon }) => (
                   <button
                     key={id}

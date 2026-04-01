@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { usePanelPause } from '../hooks/usePanelPause';
-import { ChartBar, ArrowCounterClockwise, X } from '@phosphor-icons/react';
+import { ChartIcon, ArrowIcon, CloseIcon } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
 
 function fmt(n: number): string {
@@ -51,9 +51,9 @@ export function StatsPanel() {
       <div className="flex flex-col items-center gap-1">
         <button
           onClick={() => setIsOpen(true)}
-          className="p-2.5 bg-blue-500 text-white rounded-full border-2 border-blue-600 shadow-md shadow-blue-200/30 hover:bg-blue-400 active:scale-95 transition-all"
+          className="btn-bar-icon p-2.5 bg-blue-500 text-white rounded-full border-2 border-blue-600 border-b-blue-700 hover:bg-blue-400 active:scale-95"
         >
-          <ChartBar size={18} />
+          <ChartIcon size={18} />
         </button>
         <span className="text-[10px] font-bold text-blue-600">Stats</span>
       </div>
@@ -74,10 +74,10 @@ export function StatsPanel() {
               onClick={(e) => e.stopPropagation()}
               className="bg-white w-full max-w-sm rounded-3xl border-3 border-blue-400 shadow-lg shadow-blue-200/40 overflow-hidden flex flex-col max-h-[88dvh]"
             >
-              <div className="p-5 flex justify-between items-center bg-blue-500 text-white">
+              <div className="panel-header-game p-5 flex justify-between items-center bg-blue-500 text-white">
                 <h2 className="text-xl font-black tracking-tight">Statistics</h2>
                 <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={20} weight="bold" />
+                  <CloseIcon size={20} />
                 </button>
               </div>
               <div className="p-4 space-y-1 flex-1 overflow-auto">
@@ -94,7 +94,7 @@ export function StatsPanel() {
                     onClick={() => setConfirmReset(true)}
                     className="btn-game w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold text-red-600 bg-red-50 border-b-4 border-red-200 hover:bg-red-100 transition-all"
                   >
-                    <ArrowCounterClockwise size={15} />
+                    <ArrowIcon size={15} direction="refresh" />
                     Reset All Progress
                   </button>
                 ) : (

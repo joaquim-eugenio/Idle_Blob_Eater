@@ -5,7 +5,7 @@ import {
   SKILL_TREE_NODES, type SkillNodeDef,
 } from '../lib/constants';
 import { AnimatePresence, motion } from 'motion/react';
-import { Robot, Check, Coins, Lock, Shield, Sparkle, X, Lightning } from '@phosphor-icons/react';
+import { RobotIcon, CheckIcon, CoinsStackIcon, LockIcon, ShieldIcon, StarIcon, CloseIcon, BoltIcon } from './icons';
 
 function SkillTreeIcon({ size = 26 }: { size?: number }) {
   return (
@@ -60,8 +60,8 @@ const BRANCH_CSS: Record<string, { ring: string; fill: string; text: string }> =
   evolution:  { ring: 'border-indigo-400',  fill: 'bg-indigo-50',  text: 'text-indigo-600'  },
 };
 
-const BRANCH_ICON: Record<string, typeof Lightning> = {
-  hunt: Lightning, feast: Coins, survival: Shield, automation: Robot,
+const BRANCH_ICON: Record<string, typeof BoltIcon> = {
+  hunt: BoltIcon, feast: CoinsStackIcon, survival: ShieldIcon, automation: RobotIcon,
 };
 
 function fmt(n: number): string {
@@ -377,7 +377,7 @@ export function SkillTree() {
                   </div>
                 </div>
                 <button onClick={closeSkillTree} className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full" aria-label="Close">
-                  <X size={20} weight="bold" />
+                  <CloseIcon size={20} />
                 </button>
               </div>
 
@@ -422,10 +422,10 @@ export function SkillTree() {
                             }
                           >
                             {apexUnlocked ? (
-                              <Sparkle size={30} className="text-indigo-600" />
+                              <StarIcon size={30} className="text-indigo-600" />
                             ) : (
                               <>
-                                <Sparkle size={22} className={apexBuyable ? 'text-indigo-500' : 'text-slate-400'} />
+                                <StarIcon size={22} className={apexBuyable ? 'text-indigo-500' : 'text-slate-400'} />
                                 <span className={`text-[7px] font-black mt-0.5 ${apexBuyable ? 'text-indigo-600' : 'text-slate-400'}`}>APEX</span>
                               </>
                             )}
@@ -480,7 +480,7 @@ export function SkillTree() {
                         const buyable = canPurchase(nd, uSet, money);
                         const cLocked = choiceLocked(nd, uSet);
                         const hex = BRANCH_HEX[nd.branch] || '#6366f1';
-                        const Icon = BRANCH_ICON[nd.branch] || Sparkle;
+                        const Icon = BRANCH_ICON[nd.branch] || StarIcon;
                         const isSelected = selectedId === nd.id;
 
                         const isMinor = nd.type === 'minor';
@@ -514,7 +514,7 @@ export function SkillTree() {
                           >
                             {unlocked ? (
                               <div className="flex items-center justify-center" style={{ color: hex }}>
-                                <Check size={isMinor ? 16 : 20} strokeWidth={3} />
+                                <CheckIcon size={isMinor ? 16 : 20} />
                               </div>
                             ) : (
                               <Icon size={isMinor ? 14 : 18} style={{ color: buyable ? hex : '#94a3b8' }} />
@@ -527,14 +527,14 @@ export function SkillTree() {
                             )}
                             {isKS && !unlocked && (
                               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 border border-amber-500 flex items-center justify-center">
-                                <Sparkle size={8} className="text-amber-800" />
+                                <StarIcon size={8} className="text-amber-800" />
                               </span>
                             )}
                             {nd.choiceGroup && !unlocked && !cLocked && (
                               <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-purple-400 border border-purple-500 flex items-center justify-center text-white text-[7px] font-black">?</span>
                             )}
                             {cLocked && (
-                              <Lock size={12} className="text-slate-400" />
+                              <LockIcon size={12} className="text-slate-400" />
                             )}
                           </button>
                         );
@@ -611,7 +611,7 @@ export function SkillTree() {
                           className="p-2 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full"
                           aria-label="Deselect"
                         >
-                          <X size={16} weight="bold" />
+                          <CloseIcon size={16} />
                         </button>
                       </div>
                     </div>

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { IconContext } from '@phosphor-icons/react';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
 import { SkillTree } from './components/SkillTree';
@@ -17,7 +16,6 @@ import { GemShop } from './components/GemShop';
 import { BlobCustomizer } from './components/BlobCustomizer';
 import { WorldViewer } from './components/BiomeSelector';
 import { WorldUnlockCelebration } from './components/WorldUnlockCelebration';
-import { DebugPanel } from './components/DebugPanel';
 import { useGameLoop } from './hooks/useGameLoop';
 import { useOfflineProgress } from './hooks/useOfflineProgress';
 import { useGameStore } from './store/gameStore';
@@ -67,7 +65,6 @@ export default function App() {
   }, []);
 
   return (
-    <IconContext.Provider value={{ weight: 'fill' }}>
     <div className="relative w-full h-[100dvh] bg-white overflow-hidden select-none touch-none">
       <GameCanvas />
       <HUD />
@@ -79,14 +76,13 @@ export default function App() {
       <WorldUnlockCelebration />
 
       {/* Bottom panel bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 pb-safe">
-        <div className="flex justify-evenly items-center px-2 py-2">
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-100 to-white border-t-2 border-slate-300/60 pb-safe">
+        <div className="flex justify-evenly items-center px-4 py-2.5">
           <AchievementPanel />
           <StatsPanel />
           <GemShop />
           <BlobCustomizer />
           <WorldViewer />
-          <DebugPanel />
         </div>
       </div>
       <Tutorial />
@@ -115,6 +111,5 @@ export default function App() {
         />
       )}
     </div>
-    </IconContext.Provider>
   );
 }

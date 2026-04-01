@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { ACTIVE_ABILITIES, ABILITY_CHARGES, AD_RECHARGE_COOLDOWN_MS, type AbilityId } from '../lib/constants';
-import { Magnet, Lightning, CornersOut, CloudRain, Lock, ArrowCounterClockwise, SpinnerGap } from '@phosphor-icons/react';
+import { MagnetIcon, BoltIcon, ExpandIcon, CloudRainIcon, LockIcon, ArrowIcon, SpinnerIcon } from './icons';
+import type { GameIconProps } from './icons';
 import { canShowAdForAbility, adCooldownRemaining } from '../lib/ads';
 
-const ICON_MAP: Record<string, typeof Lightning> = {
-  Magnet, Zap: Lightning, Maximize: CornersOut, CloudRain,
+const ICON_MAP: Record<string, React.FC<GameIconProps>> = {
+  Magnet: MagnetIcon, Zap: BoltIcon, Maximize: ExpandIcon, CloudRain: CloudRainIcon,
 };
 
 const ABILITY_COLORS: Record<AbilityId, { bg: string; glow: string; active: string }> = {
@@ -105,26 +106,26 @@ export function ActionBar() {
               if (!locked) handleClick(id, charges, ready);
             }}
             disabled={locked || (!canTap && !onCooldown && !ab.active)}
-            className={`relative w-[52px] h-[52px] rounded-full flex items-center justify-center transition-all pointer-events-auto ${
+            className={`ability-btn-game relative w-[52px] h-[52px] rounded-full flex items-center justify-center pointer-events-auto ${
               locked
                 ? 'bg-slate-700/80 border-2 border-slate-600 cursor-not-allowed'
                 : isRecharging
                   ? 'bg-slate-600/90 border-2 border-amber-400 animate-pulse cursor-wait'
                   : empty
-                    ? 'bg-slate-700/90 border-2 border-amber-400/60 shadow-md shadow-amber-400/30'
+                    ? 'bg-slate-700/90 border-2 border-amber-400/60'
                     : ab.active
-                      ? `${colors.bg} border-[3px] ${colors.active} animate-pulse shadow-lg ${colors.glow} ring-2 ring-white/30`
+                      ? `${colors.bg} border-[3px] ${colors.active} animate-pulse ring-2 ring-white/30`
                       : ready
-                        ? `${colors.bg} border-2 border-white/50 shadow-lg ${colors.glow} active:scale-90 hover:brightness-110`
+                        ? `${colors.bg} border-2 border-white/50`
                         : `bg-slate-500/80 border-2 border-slate-400/30 cursor-not-allowed`
             }`}
           >
             {locked ? (
-              <Lock size={18} className="text-slate-400" />
+              <LockIcon size={18} className="text-slate-400" />
             ) : isRecharging ? (
-              <SpinnerGap size={20} className="text-amber-300 animate-spin" />
+              <SpinnerIcon size={20} className="text-amber-300 animate-spin" />
             ) : empty ? (
-              <ArrowCounterClockwise size={20} className="text-amber-300" />
+              <ArrowIcon size={20} direction="refresh" className="text-amber-300" />
             ) : (
               <Icon size={20} className="text-white drop-shadow-md" />
             )}

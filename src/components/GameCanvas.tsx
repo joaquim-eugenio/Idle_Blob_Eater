@@ -4,6 +4,7 @@ import { BASE_SUCTION, BLOB_SKINS, OVERSIZED_SIZE_MULT, OVERSIZED_VOMIT_STAGES, 
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
+import { TapHandIcon } from './icons';
 
 const GAME_FONT = "'Fredoka', sans-serif";
 
@@ -1080,19 +1081,18 @@ export function GameCanvas() {
             }}
           />
 
-          {/* Tapping hand emoji */}
+          {/* Tapping hand icon */}
           <div
             className="absolute pointer-events-none"
             style={{
               left: tp.x + tp.r * 0.3,
               top: tp.y + tp.r * 0.1,
-              fontSize: Math.min(56, window.innerWidth * 0.11),
               animation: 'tutTap 1s ease-in-out infinite',
               filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',
               transformOrigin: 'center bottom',
             }}
           >
-            👆
+            <TapHandIcon size={Math.min(56, window.innerWidth * 0.11)} />
           </div>
 
           {/* Text */}

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { SmileyXEyes, Television, Skull, WarningCircle } from '@phosphor-icons/react';
+import { SadFaceIcon, TVIcon, SkullIcon, WarningIcon } from './icons';
 import { useGameStore } from '../store/gameStore';
 import { showRewardedAd } from '../lib/ads';
 
@@ -115,7 +115,7 @@ export function RevivePanel() {
               transition={{ duration: 1.5, repeat: Infinity }}
               className="text-orange-500 flex justify-center"
             >
-              <SmileyXEyes size={56} />
+              <SadFaceIcon size={56} />
             </motion.div>
 
             <div className="text-2xl font-black text-red-600">
@@ -149,7 +149,7 @@ export function RevivePanel() {
 
             {/* Danger message */}
             <div className="bg-red-50 rounded-xl px-4 py-2.5 w-full border-2 border-red-200 flex items-start gap-2">
-              <WarningCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+              <WarningIcon size={18} className="text-red-500 shrink-0 mt-0.5" />
               <div className="text-sm text-red-800 font-body">
                 {isHighProgress
                   ? 'All your progress on this level will be lost! Save your blob before it\'s too late.'
@@ -187,7 +187,7 @@ export function RevivePanel() {
                 <span>Loading Ad...</span>
               ) : (
                 <>
-                  <Television size={20} />
+                  <TVIcon size={20} />
                   Save Your Blob!
                 </>
               )}
@@ -204,7 +204,7 @@ export function RevivePanel() {
                   onClick={handleDecline}
                   className="text-xs text-slate-400 hover:text-slate-500 transition-colors font-body flex items-center gap-1"
                 >
-                  <Skull size={12} />
+                  <SkullIcon size={12} />
                   Let it go...
                 </motion.button>
               )}

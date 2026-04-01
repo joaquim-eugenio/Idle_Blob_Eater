@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { usePanelPause } from '../hooks/usePanelPause';
 import { EVOLUTION_UPGRADES } from '../lib/constants';
-import { Sparkle, X, ArrowUp, Warning } from '@phosphor-icons/react';
+import { StarIcon, CloseIcon, ArrowIcon, WarningIcon } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function EvolutionPanel() {
@@ -25,7 +25,7 @@ export function EvolutionPanel() {
           onClick={() => setIsOpen(true)}
           className="relative w-16 h-16 bg-purple-500 text-white rounded-full border-3 border-purple-600 shadow-lg shadow-purple-200/30 flex items-center justify-center hover:bg-purple-600 active:scale-95 transition-all"
         >
-          <Sparkle size={28} />
+          <StarIcon size={28} />
           {essence > 0 && (
             <div className="absolute -top-1 -right-1 bg-purple-300 text-purple-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
               {essence}
@@ -54,19 +54,19 @@ export function EvolutionPanel() {
                 <div>
                   <h2 className="text-xl font-black tracking-tight">Evolution</h2>
                   <div className="text-sm opacity-90 flex items-center gap-1.5 mt-0.5 font-body">
-                    <Sparkle size={14} />
+                    <StarIcon size={14} />
                     <span>{essence} Essence</span>
                   </div>
                 </div>
                 <button onClick={() => setIsOpen(false)} className="p-2 border-2 border-white/50 bg-white/20 hover:bg-white/30 rounded-full transition-colors">
-                  <X size={22} weight="bold" />
+                  <CloseIcon size={22} />
                 </button>
               </div>
 
               <div className="flex-1 overflow-auto p-4 space-y-4">
                 <div className="bg-indigo-50 rounded-2xl p-4 border-2 border-indigo-200">
                   <div className="flex items-center gap-2 text-indigo-700 font-bold text-sm mb-2">
-                    <Warning size={16} />
+                    <WarningIcon size={16} />
                     <span className="font-body">Evolving resets your money, level progress, and upgrades</span>
                   </div>
                   <div className="text-center mb-3">
@@ -116,7 +116,7 @@ export function EvolutionPanel() {
                         >
                           {maxed ? 'MAX' : (
                             <>
-                              <ArrowUp size={14} />
+                              <ArrowIcon direction="up" size={14} />
                               {cost}
                             </>
                           )}

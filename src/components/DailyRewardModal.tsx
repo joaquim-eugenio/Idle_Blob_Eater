@@ -1,6 +1,6 @@
 import { useGameStore } from '../store/gameStore';
 import { DAILY_REWARDS, STREAK_MULTIPLIERS } from '../lib/constants';
-import { Gift, Fire, X } from '@phosphor-icons/react';
+import { GiftIcon, FireIcon, CloseIcon } from './icons';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -34,14 +34,14 @@ export function DailyRewardModal({ onClaim, onDismiss }: Props) {
             className="p-1.5 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors"
             aria-label="Close daily reward modal"
           >
-            <X size={16} weight="bold" />
+            <CloseIcon size={16} />
           </button>
         </div>
-        <div className="text-3xl mb-1"><Gift size={40} className="mx-auto text-amber-500" /></div>
+        <div className="text-3xl mb-1"><GiftIcon size={40} className="mx-auto text-amber-500" /></div>
         <h2 className="text-xl font-black text-slate-800 mb-1">Daily Reward</h2>
         {streak > 1 && (
           <div className="flex items-center justify-center gap-1 text-orange-500 text-sm font-bold mb-3">
-            <Fire size={16} />
+            <FireIcon size={16} />
             {streak} day streak! ({streakMult}x bonus)
           </div>
         )}

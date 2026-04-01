@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { ACHIEVEMENTS } from '../lib/constants';
-import { Trophy, Lightning } from '@phosphor-icons/react';
+import { TrophyIcon, BoltIcon } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
 
 export function AchievementToast() {
@@ -47,7 +47,7 @@ export function AchievementToast() {
             onClick={() => dismissAchievement(achDef.id)}
             className="bg-white border-2 border-amber-400 text-amber-800 rounded-2xl px-5 py-3 shadow-lg shadow-amber-200/40 flex items-center gap-3 hover:bg-amber-50 transition-colors"
           >
-            <Trophy size={22} className="text-amber-500" />
+            <TrophyIcon size={22} className="text-amber-500" />
             <div className="text-left">
               <div className="font-black text-sm">{achDef.name}</div>
               <div className="text-xs opacity-90 font-body">{achDef.desc}</div>
@@ -75,7 +75,7 @@ export function AchievementToast() {
               isGate ? 'border-2 border-purple-400 text-purple-800 shadow-purple-200/40 hover:bg-purple-50' : 'border-2 border-blue-400 text-blue-800 shadow-blue-200/40 hover:bg-blue-50'
             }`}
           >
-            <Lightning size={20} className={isGate ? 'text-purple-500' : 'text-blue-500'} />
+            <BoltIcon size={20} className={isGate ? 'text-purple-500' : 'text-blue-500'} />
             <div className="font-black text-sm">
               {isGate ? 'Gate Breakthrough!' : 'New Skill Unlocked!'}
             </div>

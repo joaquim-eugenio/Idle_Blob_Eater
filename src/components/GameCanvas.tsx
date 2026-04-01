@@ -710,21 +710,27 @@ export function GameCanvas() {
         }
       }
 
-      if (abState.speed.active) {
+      if (abState.speed.active || starBoostActive) {
         const moveAngle = Math.atan2(
           blobPosition.y - camPosRef.current.y,
           blobPosition.x - camPosRef.current.x
         );
-        for (let li = 0; li < 6; li++) {
-          const spread = (li - 2.5) * 0.3;
+        const isSpeedAbility = abState.speed.active;
+        const trailCount = isSpeedAbility ? 6 : 4;
+        const trailR = isSpeedAbility ? 250 : 216;
+        const trailG = isSpeedAbility ? 204 : 180;
+        const trailB = isSpeedAbility ? 21 : 254;
+        const trailScale = isSpeedAbility ? 1.5 : 1.2;
+        for (let li = 0; li < trailCount; li++) {
+          const spread = (li - (trailCount - 1) / 2) * 0.3;
           const trailAngle = moveAngle + Math.PI + spread;
-          const trailLen = radius * (1.5 + Math.sin(time * 12 + li) * 0.5);
+          const trailLen = radius * (trailScale + Math.sin(time * 12 + li) * 0.5);
           const tx = blobPosition.x + Math.cos(trailAngle) * trailLen;
           const ty = blobPosition.y + Math.sin(trailAngle) * trailLen;
           ctx.beginPath();
           ctx.moveTo(blobPosition.x, blobPosition.y);
           ctx.lineTo(tx, ty);
-          ctx.strokeStyle = `rgba(250, 204, 21, ${0.3 - li * 0.04})`;
+          ctx.strokeStyle = `rgba(${trailR}, ${trailG}, ${trailB}, ${0.3 - li * 0.04})`;
           ctx.lineWidth = (3 - li * 0.3) / zoom;
           ctx.stroke();
         }

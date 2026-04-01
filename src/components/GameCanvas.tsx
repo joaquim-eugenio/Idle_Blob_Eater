@@ -5,6 +5,7 @@ import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, 
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
 import { TapHandIcon } from './icons';
+import { blobGradient, darken, lighten } from '../lib/drawUtils';
 
 const GAME_FONT = "'Fredoka', sans-serif";
 
@@ -47,24 +48,50 @@ function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
   ctx.shadowBlur = 40; ctx.shadowColor = '#e9d5ff';
   const pulse = 1 + Math.sin(time * 8 + item.x) * 0.15;
   ctx.scale(pulse, pulse);
-  ctx.fillStyle = '#d8b4fe';
-  ctx.beginPath();
-  for (let si = 0; si < 10; si++) {
-    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-    const sr = si % 2 === 0 ? 18 : 7;
-    if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-    else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-  }
+
+  // Outer star with gradient fill
+  const starGrad = ctx.createRadialGradient(-4, -5, 1, 0, 0, 18);
+  starGrad.addColorStop(0, '#f0d4ff');
+  starGrad.addColorStop(0.5, '#d8b4fe');
+  starGrad.addColorStop(1, '#a855f7');
+  ctx.fillStyle = starGrad;
+
+  const buildStar = (outerR: number, innerR: number) => {
+    ctx.beginPath();
+    for (let si = 0; si < 10; si++) {
+      const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
+      const sr = si % 2 === 0 ? outerR : innerR;
+      if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+      else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+    }
+    ctx.closePath();
+  };
+
+  buildStar(18, 7);
   ctx.fill();
+
+  // Outline
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 1.8;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Inner star highlight
   ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  for (let si = 0; si < 10; si++) {
-    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-    const sr = si % 2 === 0 ? 8 : 3;
-    if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-    else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-  }
+  buildStar(8, 3);
   ctx.fill();
+
+  // Specular highlight on outer star
+  ctx.save();
+  buildStar(18, 7);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(-5, -7, 8, 5, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Sparkles
   ctx.shadowBlur = 10; ctx.shadowColor = '#ffffff';
   for (let si = 0; si < 12; si++) {
     const sp = si % 2 === 0 ? 4 : -3;
@@ -82,11 +109,46 @@ function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
 }
 
 function drawTapFood(ctx: CanvasRenderingContext2D) {
-  ctx.fillStyle = '#60a5fa';
-  ctx.fillRect(-10, -10, 20, 20);
-  ctx.strokeStyle = '#93c5fd';
+  const t = performance.now() / 1000;
+  const pulse = 1 + Math.sin(t * 5) * 0.08;
+  ctx.save();
+  ctx.scale(pulse, pulse);
+
+  // Glow
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#60a5fa';
+
+  // Rounded body with gradient
+  const r = 10;
+  const grad = ctx.createRadialGradient(-3, -3, 1, 0, 0, r);
+  grad.addColorStop(0, '#93c5fd');
+  grad.addColorStop(0.5, '#60a5fa');
+  grad.addColorStop(1, '#2563eb');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Outline
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#1d4ed8';
   ctx.lineWidth = 2;
-  ctx.strokeRect(-10, -10, 20, 20);
+  ctx.stroke();
+
+  // Highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(-3, -3.5, 4.5, 3, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner "!" mark
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = "bold 10px 'Fredoka', sans-serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('!', 0, 0.5);
+
+  ctx.restore();
 }
 
 export function GameCanvas() {
@@ -294,7 +356,14 @@ export function GameCanvas() {
         }
       }
 
-      ctx.fillStyle = world.bgColor;
+      // Background with subtle radial gradient centered on blob
+      const bgGrad = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 0,
+        canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) * 0.7
+      );
+      bgGrad.addColorStop(0, lighten(world.bgColor, 0.08));
+      bgGrad.addColorStop(1, darken(world.bgColor, 0.08));
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
@@ -336,18 +405,39 @@ export function GameCanvas() {
       ctx.scale(zoom, zoom);
       ctx.translate(-camPosRef.current.x, -camPosRef.current.y);
 
-      // Grid
-      ctx.strokeStyle = world.gridColor;
-      ctx.lineWidth = 1 / zoom;
+      // Dotted grid
       const gridSize = 100;
       const startX = Math.floor((camPosRef.current.x - canvas.width / 2 / zoom) / gridSize) * gridSize;
       const endX = startX + canvas.width / zoom + gridSize;
       const startY = Math.floor((camPosRef.current.y - canvas.height / 2 / zoom) / gridSize) * gridSize;
       const endY = startY + canvas.height / zoom + gridSize;
-      ctx.beginPath();
-      for (let gx = startX; gx <= endX; gx += gridSize) { ctx.moveTo(gx, startY); ctx.lineTo(gx, endY); }
-      for (let gy = startY; gy <= endY; gy += gridSize) { ctx.moveTo(startX, gy); ctx.lineTo(endX, gy); }
-      ctx.stroke();
+      const dotR = 1.5 / zoom;
+      ctx.fillStyle = world.gridColor;
+      for (let gx = startX; gx <= endX; gx += gridSize) {
+        for (let gy = startY; gy <= endY; gy += gridSize) {
+          ctx.beginPath();
+          ctx.arc(gx, gy, dotR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Ambient particles
+      {
+        const pTime = performance.now() / 1000;
+        const pCount = 18;
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = world.palette[0];
+        for (let pi = 0; pi < pCount; pi++) {
+          const seed = pi * 137.508;
+          const px = camPosRef.current.x + Math.sin(seed + pTime * 0.15) * (canvas.width / zoom) * 0.6;
+          const py = camPosRef.current.y + Math.cos(seed * 0.7 + pTime * 0.12) * (canvas.height / zoom) * 0.6;
+          const pr = (2 + Math.sin(seed) * 1.5) / zoom;
+          ctx.beginPath();
+          ctx.arc(px, py, pr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
 
       // Suction radius
       const gameBlobScale = blobVisualScale;
@@ -476,12 +566,17 @@ export function GameCanvas() {
             const glowPulse = 0.3 + Math.sin(animTime * 3) * 0.15;
             ctx.save();
             ctx.globalAlpha = Math.min(ctx.globalAlpha, glowPulse);
+            const glowGrad = ctx.createRadialGradient(0, 0, sizeBase * 0.3, 0, 0, sizeBase * 0.85);
+            glowGrad.addColorStop(0, itemPalette[0]);
+            glowGrad.addColorStop(0.6, itemPalette[0]);
+            glowGrad.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.beginPath();
-            ctx.arc(0, 0, sizeBase * 0.8, 0, Math.PI * 2);
-            ctx.fillStyle = itemPalette[0];
+            ctx.arc(0, 0, sizeBase * 0.85, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
             ctx.fill();
             ctx.restore();
 
+            // Pulsing dashed ring
             ctx.save();
             ctx.beginPath();
             ctx.arc(0, 0, sizeBase * 0.65, 0, Math.PI * 2);
@@ -494,24 +589,46 @@ export function GameCanvas() {
 
             catalogItem.draw(ctx, sizeBase, itemPalette);
 
+            // Pulsing thick amber outline
+            const outlinePulse = 2.5 + Math.sin(animTime * 4) * 1;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, sizeBase * 0.55, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(245,158,11,${0.5 + Math.sin(animTime * 3.5) * 0.2})`;
+            ctx.lineWidth = outlinePulse;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+
             if (crackProgress > 0) {
               ctx.save();
-              ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-              ctx.shadowColor = 'rgba(0,0,0,0.5)';
-              ctx.shadowBlur = 2;
-              ctx.lineWidth = 1.5;
               const crackCount = Math.ceil(crackProgress * 5);
               for (let ci = 0; ci < crackCount; ci++) {
                 const ca = (ci / crackCount) * Math.PI * 2 + ci * 1.3;
-                const len = sizeBase * 0.3 * crackProgress;
+                const len = sizeBase * 0.35 * crackProgress;
+                // Gradient crack line
+                const cx0 = Math.cos(ca) * sizeBase * 0.1;
+                const cy0 = Math.sin(ca) * sizeBase * 0.1;
+                const cx1 = Math.cos(ca) * len;
+                const cy1 = Math.sin(ca) * len;
+                const crackGrad = ctx.createLinearGradient(cx0, cy0, cx1, cy1);
+                crackGrad.addColorStop(0, 'rgba(255,200,50,0.95)');
+                crackGrad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+                crackGrad.addColorStop(1, 'rgba(255,200,50,0.4)');
+                ctx.strokeStyle = crackGrad;
+                ctx.shadowColor = 'rgba(255,200,50,0.6)';
+                ctx.shadowBlur = 4;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
                 ctx.beginPath();
-                ctx.moveTo(Math.cos(ca) * sizeBase * 0.1, Math.sin(ca) * sizeBase * 0.1);
+                ctx.moveTo(cx0, cy0);
                 const mx = Math.cos(ca + 0.3) * len * 0.5;
                 const my = Math.sin(ca + 0.3) * len * 0.5;
                 ctx.lineTo(mx, my);
-                ctx.lineTo(Math.cos(ca) * len, Math.sin(ca) * len);
+                ctx.lineTo(cx1, cy1);
                 ctx.stroke();
               }
+              ctx.shadowBlur = 0;
               ctx.restore();
             }
           }
@@ -646,28 +763,31 @@ export function GameCanvas() {
       // Draw blob body
       const baseColor = getBlobColor(currentLevel, currentSkin);
       const specialSkinId = state.currentSpecialSkin;
+      const blobFillColor = starBoostActive ? '#a855f7' : baseColor;
+
       if (abState.size.active) {
-        ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee'; ctx.fillStyle = baseColor;
+        ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee';
       } else if (starBoostActive) {
-        ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe'; ctx.fillStyle = '#a855f7';
+        ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe';
       } else if (boostActive) {
-        ctx.shadowBlur = 20; ctx.shadowColor = '#facc15'; ctx.fillStyle = baseColor;
-      } else if (frenzyActive) {
-        ctx.shadowBlur = 0; ctx.fillStyle = baseColor;
+        ctx.shadowBlur = 20; ctx.shadowColor = '#facc15';
       } else {
-        ctx.shadowBlur = 0; ctx.fillStyle = baseColor;
+        ctx.shadowBlur = 6; ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowOffsetY = 3 / zoom;
       }
 
-      ctx.beginPath();
-      let prevNode = nodes[NUM_NODES - 1];
-      let firstMidX = (prevNode.x + nodes[0].x) / 2;
-      let firstMidY = (prevNode.y + nodes[0].y) / 2;
-      ctx.moveTo(firstMidX, firstMidY);
-      for (let i = 0; i < NUM_NODES; i++) {
-        const currNode = nodes[i];
-        const nextNode = nodes[(i + 1) % NUM_NODES];
-        ctx.quadraticCurveTo(currNode.x, currNode.y, (currNode.x + nextNode.x) / 2, (currNode.y + nextNode.y) / 2);
-      }
+      ctx.fillStyle = blobGradient(ctx, blobPosition.x, blobPosition.y, radius, blobFillColor);
+
+      const buildBlobPath = () => {
+        ctx.beginPath();
+        const pn = nodes[NUM_NODES - 1];
+        ctx.moveTo((pn.x + nodes[0].x) / 2, (pn.y + nodes[0].y) / 2);
+        for (let i = 0; i < NUM_NODES; i++) {
+          const cn = nodes[i];
+          const nn = nodes[(i + 1) % NUM_NODES];
+          ctx.quadraticCurveTo(cn.x, cn.y, (cn.x + nn.x) / 2, (cn.y + nn.y) / 2);
+        }
+      };
+      buildBlobPath();
 
       if (specialSkinId && !starBoostActive) {
         ctx.save();
@@ -676,7 +796,30 @@ export function GameCanvas() {
       } else {
         ctx.fill();
       }
-      ctx.shadowBlur = 0;
+
+      // Outline stroke
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      buildBlobPath();
+      ctx.strokeStyle = darken(blobFillColor, 0.35);
+      ctx.lineWidth = Math.max(1.5, 2.5 / zoom);
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // Specular highlight
+      ctx.save();
+      ctx.beginPath();
+      buildBlobPath();
+      ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.beginPath();
+      ctx.ellipse(
+        blobPosition.x - radius * 0.22,
+        blobPosition.y - radius * 0.28,
+        radius * 0.45, radius * 0.3,
+        -0.4, 0, Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
 
       const vomitAge = now - vomitAnimRef.current;
       if (vomitAge < 0.6) {
@@ -789,7 +932,7 @@ export function GameCanvas() {
 
       // Face
       const equippedFace = state.currentFace;
-      ctx.fillStyle = '#1a237e';
+      const irisColor = '#1a237e';
 
       const isEating = comboCount > 0;
       const isSleepy = hungerPct < 0.25;
@@ -798,20 +941,34 @@ export function GameCanvas() {
 
       const eyeY = cy - radius * 0.1 + dy;
       const eyeSize = radius * 0.08;
+      const leftEyeX = cx - radius * 0.25 + dx;
+      const rightEyeX = cx + radius * 0.25 + dx;
+
+      const drawEye = (ex: number, ey: number, scale: number) => {
+        const r = eyeSize * scale;
+        // White sclera
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(ex, ey, r * 1.35, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+        ctx.lineWidth = Math.max(0.5, r * 0.08);
+        ctx.stroke();
+        // Iris
+        ctx.fillStyle = irisColor;
+        ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.fill();
+        // Pupil highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(ex + r * 0.3, ey - r * 0.35, r * 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath(); ctx.arc(ex - r * 0.25, ey + r * 0.3, r * 0.15, 0, Math.PI * 2); ctx.fill();
+      };
 
       if (!faceOverridesDefaultEyes(equippedFace)) {
         if (isLevelDone) {
-          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#1a237e';
+          drawEye(leftEyeX, eyeY, 1.2);
+          drawEye(rightEyeX, eyeY, 1.2);
         } else if (isSleepy) {
-          const leftEyeX = cx - radius * 0.25 + dx;
-          const rightEyeX = cx + radius * 0.25 + dx;
-          ctx.strokeStyle = '#1a237e';
-          ctx.lineWidth = Math.max(1.5, radius * 0.03);
+          ctx.strokeStyle = irisColor;
+          ctx.lineWidth = Math.max(1.5, radius * 0.035);
           ctx.lineCap = 'round';
           ctx.beginPath();
           ctx.moveTo(leftEyeX - eyeSize, eyeY + eyeSize * 0.5);
@@ -822,15 +979,11 @@ export function GameCanvas() {
           ctx.quadraticCurveTo(rightEyeX, eyeY - eyeSize * 0.2, rightEyeX + eyeSize, eyeY + eyeSize * 0.5);
           ctx.stroke();
         } else if (isExcited) {
-          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#1a237e';
+          drawEye(leftEyeX, eyeY, 1.3);
+          drawEye(rightEyeX, eyeY, 1.3);
         } else {
-          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+          drawEye(leftEyeX, eyeY, 1.0);
+          drawEye(rightEyeX, eyeY, 1.0);
         }
       }
 
@@ -838,18 +991,41 @@ export function GameCanvas() {
       const mouthY = cy + radius * 0.15 + dy;
       const mouthX = cx + dx;
       if (!faceOverridesDefaultMouth(equippedFace)) {
-        if (isLevelDone) {
+        const drawMouth = (mr: number, full: boolean) => {
+          ctx.save();
+          ctx.fillStyle = '#1a237e';
           ctx.beginPath();
-          ctx.arc(mouthX, mouthY, radius * 0.15, 0, Math.PI, false);
+          if (full) {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI * 2);
+          } else {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI, false);
+          }
           ctx.fill();
+          // Inner depth gradient
+          const mg = ctx.createRadialGradient(mouthX, mouthY, mr * 0.1, mouthX, mouthY + mr * 0.3, mr);
+          mg.addColorStop(0, 'rgba(40,0,60,0.4)');
+          mg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = mg;
+          ctx.beginPath();
+          if (full) {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI * 2);
+          } else {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI, false);
+          }
+          ctx.fill();
+          ctx.restore();
+        };
+        if (isLevelDone) {
+          drawMouth(radius * 0.15, false);
         } else if (isEating && comboCount >= 3) {
-          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.12, 0, Math.PI * 2); ctx.fill();
+          drawMouth(radius * 0.12, true);
         } else if (isSleepy) {
+          ctx.fillStyle = irisColor;
           ctx.beginPath(); ctx.arc(mouthX, mouthY + radius * 0.02, radius * 0.05, 0, Math.PI, false); ctx.fill();
         } else if (isExcited || isEating) {
-          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.13, 0, Math.PI, false); ctx.fill();
+          drawMouth(radius * 0.13, false);
         } else {
-          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.1, 0, Math.PI, false); ctx.fill();
+          drawMouth(radius * 0.1, false);
         }
       }
 

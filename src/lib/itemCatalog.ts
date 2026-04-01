@@ -1,3 +1,5 @@
+import { itemGradient, itemLinearGradient, itemOutline, itemHighlight, darken } from './drawUtils';
+
 export type WorldId = 'crumbs' | 'desk_drawer' | 'pencil_case' | 'lunchbox' | 'toy_box' | 'backpack' | 'bedroom' | 'kitchen' | 'bathroom' | 'living_room' | 'garage' | 'garden' | 'playground' | 'school' | 'neighborhood' | 'shopping_mall' | 'city_park' | 'construction_site' | 'downtown' | 'junkyard' | 'space_station' | 'candy_world' | 'deep_ocean' | 'volcano';
 
 export interface ItemDef {
@@ -29,26 +31,36 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 const triangle: ItemDef = {
   id: 'triangle', name: 'Triangle', world: 'crumbs', sizeTier: 1, baseValue: 1, weight: 1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.5); ctx.lineTo(s * 0.5, s * 0.5); ctx.lineTo(-s * 0.5, s * 0.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.5, c[0]);
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.45);
+    ctx.quadraticCurveTo(s * 0.08, -s * 0.42, s * 0.47, s * 0.42);
+    ctx.quadraticCurveTo(0, s * 0.48, -s * 0.47, s * 0.42);
+    ctx.quadraticCurveTo(-s * 0.08, -s * 0.42, 0, -s * 0.45);
+    ctx.closePath();
+    ctx.fill();
+    itemOutline(ctx, c[0], s * 0.04);
+    itemHighlight(ctx, -s * 0.12, -s * 0.15, s * 0.14, s * 0.09);
   },
 };
 
 const square: ItemDef = {
   id: 'square', name: 'Square', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.5, c[1]);
     roundRect(ctx, -s*0.4, -s*0.4, s*0.8, s*0.8, s*0.12); ctx.fill();
-    ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.06;
-    ctx.beginPath(); ctx.moveTo(-s*0.28, -s*0.28); ctx.lineTo(s*0.28, s*0.28); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(s*0.28, -s*0.28); ctx.lineTo(-s*0.28, s*0.28); ctx.stroke();
+    itemOutline(ctx, c[1], s * 0.04);
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s*0.04;
+    ctx.beginPath(); ctx.moveTo(-s*0.24, -s*0.24); ctx.lineTo(s*0.24, s*0.24); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.24, -s*0.24); ctx.lineTo(-s*0.24, s*0.24); ctx.stroke();
+    itemHighlight(ctx, -s * 0.15, -s * 0.18, s * 0.15, s * 0.1);
   },
 };
 
 const hexagon: ItemDef = {
   id: 'hexagon', name: 'Hexagon', world: 'crumbs', sizeTier: 1, baseValue: 3, weight: 1.2,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[2];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.5, c[2]);
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
@@ -56,31 +68,37 @@ const hexagon: ItemDef = {
       if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.closePath(); ctx.fill();
+    itemOutline(ctx, c[2], s * 0.04);
+    itemHighlight(ctx, -s * 0.13, -s * 0.15, s * 0.15, s * 0.1);
   },
 };
 
 const diamond: ItemDef = {
   id: 'diamond', name: 'Diamond', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.5, c[0]);
     ctx.beginPath();
     ctx.moveTo(0, -s * 0.55); ctx.lineTo(s * 0.4, 0); ctx.lineTo(0, s * 0.55); ctx.lineTo(-s * 0.4, 0);
     ctx.closePath(); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.04);
+    itemHighlight(ctx, -s * 0.1, -s * 0.18, s * 0.12, s * 0.08);
   },
 };
 
 const circle: ItemDef = {
   id: 'circle', name: 'Circle', world: 'crumbs', sizeTier: 1, baseValue: 1, weight: 1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.45, c[1]);
     ctx.beginPath(); ctx.arc(0, 0, s * 0.45, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[1], s * 0.04);
+    itemHighlight(ctx, -s * 0.13, -s * 0.13, s * 0.14, s * 0.09);
   },
 };
 
 const pentagon: ItemDef = {
   id: 'pentagon', name: 'Pentagon', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1.1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[2];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.48, c[2]);
     ctx.beginPath();
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
@@ -88,16 +106,21 @@ const pentagon: ItemDef = {
       if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.closePath(); ctx.fill();
+    itemOutline(ctx, c[2], s * 0.04);
+    itemHighlight(ctx, -s * 0.12, -s * 0.16, s * 0.14, s * 0.09);
   },
 };
 
 const cross: ItemDef = {
   id: 'cross', name: 'Cross', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 1,
   draw(ctx, s, c) {
-    const t = s * 0.2, h = s * 0.5;
-    ctx.fillStyle = c[0];
-    ctx.fillRect(-t, -h, t * 2, h * 2);
-    ctx.fillRect(-h, -t, h * 2, t * 2);
+    const t = s * 0.2, h = s * 0.5, r = s * 0.06;
+    ctx.fillStyle = itemGradient(ctx, 0, 0, h, c[0]);
+    roundRect(ctx, -t, -h, t * 2, h * 2, r); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.04);
+    roundRect(ctx, -h, -t, h * 2, t * 2, r); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.04);
+    itemHighlight(ctx, -s * 0.1, -s * 0.2, s * 0.1, s * 0.08);
   },
 };
 
@@ -105,12 +128,14 @@ const crescent: ItemDef = {
   id: 'crescent', name: 'Crescent', world: 'crumbs', sizeTier: 1, baseValue: 3, weight: 1.1,
   draw(ctx, s, c) {
     const r = s * 0.45;
-    ctx.fillStyle = c[2];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, r, c[2]);
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[1] || '#ffffff';
+    itemOutline(ctx, c[2], s * 0.04);
     ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(r * 0.35, -r * 0.15, r * 0.85, 0, Math.PI * 2); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
+    itemHighlight(ctx, -s * 0.2, -s * 0.12, s * 0.1, s * 0.07);
   },
 };
 
@@ -118,25 +143,30 @@ const ring: ItemDef = {
   id: 'ring', name: 'Ring', world: 'crumbs', sizeTier: 1, baseValue: 2, weight: 0.9,
   draw(ctx, s, c) {
     ctx.save();
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.44, c[0]);
     ctx.beginPath(); ctx.arc(0, 0, s * 0.44, 0, Math.PI * 2); ctx.fill();
     ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
     ctx.beginPath(); ctx.arc(0, 0, s * 0.22, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = c[1] || c[2] || '#000'; ctx.lineWidth = s * 0.035;
+    ctx.strokeStyle = darken(c[0], 0.35); ctx.lineWidth = s * 0.045;
+    ctx.beginPath(); ctx.arc(0, 0, s * 0.44, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = darken(c[1] || c[2] || c[0], 0.2); ctx.lineWidth = s * 0.03;
     ctx.beginPath(); ctx.arc(0, 0, s * 0.33, 0, Math.PI * 2); ctx.stroke();
+    itemHighlight(ctx, -s * 0.18, -s * 0.18, s * 0.1, s * 0.07);
   },
 };
 
 const arrow_shape: ItemDef = {
   id: 'arrow_shape', name: 'Arrow', world: 'crumbs', sizeTier: 1, baseValue: 3, weight: 1.1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[2];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.42, c[2]);
     ctx.beginPath();
     ctx.moveTo(-s * 0.38, -s * 0.12); ctx.lineTo(0, -s * 0.12); ctx.lineTo(0, -s * 0.3);
     ctx.lineTo(s * 0.42, 0); ctx.lineTo(0, s * 0.3); ctx.lineTo(0, s * 0.12); ctx.lineTo(-s * 0.38, s * 0.12);
     ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = s * 0.04; ctx.stroke();
+    itemOutline(ctx, c[2], s * 0.04);
+    itemHighlight(ctx, -s * 0.1, -s * 0.1, s * 0.12, s * 0.07);
   },
 };
 
@@ -145,24 +175,31 @@ const arrow_shape: ItemDef = {
 const paperclip: ItemDef = {
   id: 'paperclip', name: 'Paperclip', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 1.5,
   draw(ctx, s, c) {
-    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.15, s * 0.4);
-    ctx.lineTo(-s * 0.15, -s * 0.3);
-    ctx.arc(0, -s * 0.3, s * 0.15, Math.PI, 0);
-    ctx.lineTo(s * 0.15, s * 0.2);
-    ctx.arc(0.02, s * 0.2, s * 0.13, 0, Math.PI);
-    ctx.lineTo(-s * 0.11, -s * 0.15);
-    ctx.stroke();
+    const clipPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.15, s * 0.4);
+      ctx.lineTo(-s * 0.15, -s * 0.3);
+      ctx.arc(0, -s * 0.3, s * 0.15, Math.PI, 0);
+      ctx.lineTo(s * 0.15, s * 0.2);
+      ctx.arc(0.02, s * 0.2, s * 0.13, 0, Math.PI);
+      ctx.lineTo(-s * 0.11, -s * 0.15);
+    };
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s * 0.09; ctx.lineCap = 'round';
+    clipPath(); ctx.stroke();
+    ctx.strokeStyle = itemLinearGradient(ctx, -s*0.15, -s*0.45, s*0.15, s*0.4, c[0]);
+    ctx.lineWidth = s * 0.06;
+    clipPath(); ctx.stroke();
+    itemHighlight(ctx, -s*0.05, -s*0.32, s*0.06, s*0.06);
   },
 };
 
 const button: ItemDef = {
   id: 'button', name: 'Button', world: 'desk_drawer', sizeTier: 2, baseValue: 3, weight: 1.3,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.4, c[1]);
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.04;
+    itemOutline(ctx, c[1], s * 0.04);
+    ctx.strokeStyle = darken(c[0], 0.2); ctx.lineWidth = s * 0.03;
     ctx.beginPath(); ctx.arc(0, 0, s * 0.28, 0, Math.PI * 2); ctx.stroke();
     const h = s * 0.08;
     ctx.fillStyle = c[2] || c[0];
@@ -176,9 +213,10 @@ const button: ItemDef = {
 const coin: ItemDef = {
   id: 'coin', name: 'Coin', world: 'desk_drawer', sizeTier: 2, baseValue: 5, weight: 2,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.4, c[0]);
     ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.04;
+    itemOutline(ctx, c[0], s * 0.04);
+    ctx.strokeStyle = darken(c[1], 0.15); ctx.lineWidth = s * 0.03;
     ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = c[1]; ctx.font = `bold ${s * 0.3}px 'Fredoka', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('$', 0, 0);
@@ -189,12 +227,10 @@ const marble: ItemDef = {
   id: 'marble', name: 'Marble', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 2.5,
   draw(ctx, s, c) {
     const r = s * 0.38;
-    const grad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
-    grad.addColorStop(0, c[1]); grad.addColorStop(1, c[0]);
-    ctx.fillStyle = grad;
+    ctx.fillStyle = itemGradient(ctx, 0, 0, r, c[0]);
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath(); ctx.arc(-r * 0.25, -r * 0.25, r * 0.18, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.035);
+    itemHighlight(ctx, -r * 0.25, -r * 0.25, r * 0.2, r * 0.14);
   },
 };
 
@@ -203,7 +239,8 @@ const dice: ItemDef = {
   draw(ctx, s, c) {
     const h = s * 0.38;
     roundRect(ctx, -h, -h, h * 2, h * 2, s * 0.08);
-    ctx.fillStyle = c[0]; ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, h, c[0]); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.04);
     ctx.fillStyle = c[1];
     const d = s * 0.05;
     ctx.beginPath(); ctx.arc(-h * 0.5, -h * 0.5, d, 0, Math.PI * 2); ctx.fill();
@@ -217,8 +254,9 @@ const dice: ItemDef = {
 const screw: ItemDef = {
   id: 'screw', name: 'Screw', world: 'desk_drawer', sizeTier: 2, baseValue: 3, weight: 1.8,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, -s * 0.3, s * 0.15, c[0]);
     ctx.beginPath(); ctx.arc(0, -s * 0.3, s * 0.15, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.03);
     ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.08; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(0, -s * 0.15); ctx.lineTo(0, s * 0.45); ctx.stroke();
     ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.04;
@@ -232,12 +270,13 @@ const screw: ItemDef = {
 const candy: ItemDef = {
   id: 'candy', name: 'Candy', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 1.2,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s * 0.28, c[1]);
     ctx.beginPath(); ctx.arc(0, 0, s * 0.28, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = c[0];
     ctx.beginPath(); ctx.arc(0, 0, s * 0.28, 0, Math.PI * 0.5); ctx.lineTo(0, 0); ctx.fill();
     ctx.beginPath(); ctx.arc(0, 0, s * 0.28, Math.PI, Math.PI * 1.5); ctx.lineTo(0, 0); ctx.fill();
-    ctx.strokeStyle = c[2] || c[0]; ctx.lineWidth = s * 0.04; ctx.lineCap = 'round';
+    itemOutline(ctx, c[1], s * 0.035);
+    ctx.strokeStyle = darken(c[2] || c[0], 0.15); ctx.lineWidth = s * 0.04; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-s * 0.28, 0); ctx.lineTo(-s * 0.45, -s * 0.12); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(s * 0.28, 0); ctx.lineTo(s * 0.45, s * 0.12); ctx.stroke();
   },
@@ -247,10 +286,11 @@ const eraser: ItemDef = {
   id: 'eraser', name: 'Eraser', world: 'desk_drawer', sizeTier: 2, baseValue: 3, weight: 1.5,
   draw(ctx, s, c) {
     roundRect(ctx, -s * 0.35, -s * 0.2, s * 0.7, s * 0.4, s * 0.05);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, -s * 0.35, -s * 0.2, s * 0.35, s * 0.2, c[0]); ctx.fill();
+    itemOutline(ctx, c[0], s * 0.035);
+    ctx.fillStyle = darken(c[1], 0.05);
     ctx.fillRect(-s * 0.35, -s * 0.2, s * 0.2, s * 0.4);
-    ctx.strokeStyle = c[2] || c[1]; ctx.lineWidth = s * 0.02;
+    ctx.strokeStyle = darken(c[2] || c[1], 0.2); ctx.lineWidth = s * 0.02;
     ctx.beginPath(); ctx.moveTo(-s * 0.15, -s * 0.2); ctx.lineTo(-s * 0.15, s * 0.2); ctx.stroke();
   },
 };
@@ -260,97 +300,149 @@ const thumbtack: ItemDef = {
   draw(ctx, s, c) {
     ctx.fillStyle = c[1];
     ctx.beginPath(); ctx.moveTo(0, s * 0.48); ctx.lineTo(-s * 0.09, -s * 0.08); ctx.lineTo(s * 0.09, -s * 0.08); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, -s * 0.18, s * 0.2, c[0]);
     ctx.beginPath(); ctx.arc(0, -s * 0.18, s * 0.2, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = s * 0.025; ctx.stroke();
+    itemOutline(ctx, c[0], s * 0.03);
   },
 };
 
 const rubber_stamp: ItemDef = {
   id: 'rubber_stamp', name: 'Rubber Stamp', world: 'desk_drawer', sizeTier: 2, baseValue: 4, weight: 1.7,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.14, -s*0.44, s*0.14, -s*0.06, c[1]);
     roundRect(ctx, -s * 0.14, -s * 0.44, s * 0.28, s * 0.38, s * 0.05); ctx.fill();
-    ctx.fillStyle = c[0];
+    itemOutline(ctx, c[1], s*0.025);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.36, s*0.02, s*0.36, s*0.3, c[0]);
     roundRect(ctx, -s * 0.36, s * 0.02, s * 0.72, s * 0.28, s * 0.05); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
     ctx.fillStyle = c[2];
     roundRect(ctx, -s * 0.2, s * 0.1, s * 0.4, s * 0.12, s * 0.03); ctx.fill();
+    itemHighlight(ctx, -s*0.04, -s*0.3, s*0.06, s*0.08);
   },
 };
 
 // ─── Pencil Case ───
 
 const crayon: ItemDef = { id: 'crayon', name: 'Crayon', world: 'pencil_case', sizeTier: 2, baseValue: 4, weight: 1.3,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.fillRect(-s*0.08, -s*0.25, s*0.16, s*0.55); ctx.beginPath(); ctx.moveTo(-s*0.08, -s*0.25); ctx.lineTo(0, -s*0.45); ctx.lineTo(s*0.08, -s*0.25); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]; ctx.fillRect(-s*0.08, 0, s*0.16, s*0.15); ctx.strokeStyle = c[2]||'#333'; ctx.lineWidth = s*0.02; ctx.beginPath(); ctx.moveTo(-s*0.08, -s*0.05); ctx.lineTo(s*0.08, -s*0.05); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-s*0.08, s*0.15); ctx.lineTo(s*0.08, s*0.15); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.08, -s*0.45, s*0.08, s*0.3, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s*0.08, s*0.3); ctx.lineTo(-s*0.08, -s*0.25); ctx.lineTo(0, -s*0.45);
+    ctx.lineTo(s*0.08, -s*0.25); ctx.lineTo(s*0.08, s*0.3); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.08, 0, s*0.08, s*0.15, c[1]);
+    ctx.fillRect(-s*0.08, 0, s*0.16, s*0.15);
+    ctx.strokeStyle = darken(c[2]||'#333'); ctx.lineWidth = s*0.02;
+    ctx.beginPath(); ctx.moveTo(-s*0.08, -s*0.05); ctx.lineTo(s*0.08, -s*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s*0.08, s*0.15); ctx.lineTo(s*0.08, s*0.15); ctx.stroke();
+    itemHighlight(ctx, -s*0.02, -s*0.18, s*0.04, s*0.1);
+  } };
 
 const ruler: ItemDef = { id: 'ruler', name: 'Ruler', world: 'pencil_case', sizeTier: 2, baseValue: 3, weight: 1.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.fillRect(-s*0.45, -s*0.1, s*0.9, s*0.2); ctx.strokeStyle = c[1]||'#333'; ctx.lineWidth = s*0.02; for (let i = 0; i < 8; i++) { const x = -s*0.38+i*s*0.1; const h = i%2===0 ? s*0.08 : s*0.05; ctx.beginPath(); ctx.moveTo(x, -s*0.1); ctx.lineTo(x, -s*0.1+h); ctx.stroke(); } } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.45, -s*0.1, s*0.45, s*0.1, c[0]);
+    roundRect(ctx, -s*0.45, -s*0.1, s*0.9, s*0.2, s*0.03); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.strokeStyle = darken(c[1]||'#333'); ctx.lineWidth = s*0.02;
+    for (let i = 0; i < 8; i++) { const x = -s*0.38+i*s*0.1; const h = i%2===0 ? s*0.08 : s*0.05; ctx.beginPath(); ctx.moveTo(x, -s*0.1); ctx.lineTo(x, -s*0.1+h); ctx.stroke(); }
+    itemHighlight(ctx, -s*0.15, -s*0.06, s*0.2, s*0.04);
+  } };
 
 const pencilSharpener: ItemDef = { id: 'pencil_sharpener', name: 'Pencil Sharpener', world: 'pencil_case', sizeTier: 2, baseValue: 3, weight: 2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(-s*0.25, -s*0.2); ctx.lineTo(s*0.25, -s*0.2); ctx.lineTo(s*0.3, s*0.2); ctx.lineTo(-s*0.3, s*0.2); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]||'#333'; ctx.beginPath(); ctx.arc(0, 0, s*0.1, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[2]||'#666'; ctx.beginPath(); ctx.arc(0, 0, s*0.05, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s*0.25, -s*0.2); ctx.lineTo(s*0.25, -s*0.2); ctx.lineTo(s*0.3, s*0.2); ctx.lineTo(-s*0.3, s*0.2); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.1, c[1]||'#333');
+    ctx.beginPath(); ctx.arc(0, 0, s*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = c[2]||'#666'; ctx.beginPath(); ctx.arc(0, 0, s*0.05, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.1, s*0.06);
+  } };
 
 const rubberBand: ItemDef = { id: 'rubber_band', name: 'Rubber Band', world: 'pencil_case', sizeTier: 2, baseValue: 2, weight: 0.8,
-  draw(ctx, s, c) { ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.06; ctx.beginPath(); ctx.ellipse(0, 0, s*0.35, s*0.2, 0, 0, Math.PI*2); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s*0.08;
+    ctx.beginPath(); ctx.ellipse(0, 0, s*0.35, s*0.2, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.06;
+    ctx.beginPath(); ctx.ellipse(0, 0, s*0.35, s*0.2, 0, 0, Math.PI*2); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.08, s*0.14, s*0.05);
+  } };
 
 const sticker: ItemDef = { id: 'sticker', name: 'Sticker', world: 'pencil_case', sizeTier: 2, baseValue: 4, weight: 0.5,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s*0.38, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.38, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s*0.38, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
     ctx.fillStyle = c[1]||'#fff'; ctx.beginPath(); ctx.arc(0, 0, s*0.32, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = c[2]||'#333';
     ctx.beginPath(); ctx.arc(-s*0.1, -s*0.08, s*0.05, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(s*0.1, -s*0.08, s*0.05, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = c[2]||'#333'; ctx.lineWidth = s*0.04; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(0, s*0.04, s*0.12, 0.15, Math.PI-0.15); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.12, s*0.12, s*0.07);
   } };
 
 const eraserCap: ItemDef = { id: 'eraser_cap', name: 'Eraser Cap', world: 'pencil_case', sizeTier: 2, baseValue: 2, weight: 1,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.15, -s*0.25, s*0.3, s*0.5, s*0.06); ctx.fill(); ctx.fillStyle = c[1]||'#ddd'; ctx.beginPath(); ctx.ellipse(0, -s*0.25, s*0.15, s*0.06, 0, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.15, -s*0.25, s*0.15, s*0.25, c[0]);
+    roundRect(ctx, -s*0.15, -s*0.25, s*0.3, s*0.5, s*0.06); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#ddd'; ctx.beginPath(); ctx.ellipse(0, -s*0.25, s*0.15, s*0.06, 0, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.05, -s*0.15, s*0.06, s*0.1);
+  } };
 
 const pencil: ItemDef = {
   id: 'pencil', name: 'Pencil', world: 'pencil_case', sizeTier: 2, baseValue: 4, weight: 1.4,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1]; roundRect(ctx, -s * 0.13, -s * 0.5, s * 0.26, s * 0.16, s * 0.05); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.13, -s*0.5, s*0.13, -s*0.34, c[1]);
+    roundRect(ctx, -s * 0.13, -s * 0.5, s * 0.26, s * 0.16, s * 0.05); ctx.fill();
     ctx.fillStyle = '#c9a227'; roundRect(ctx, -s * 0.11, -s * 0.36, s * 0.22, s * 0.08, s * 0.02); ctx.fill();
-    ctx.fillStyle = c[0]; ctx.fillRect(-s * 0.1, -s * 0.28, s * 0.2, s * 0.5);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.1, -s*0.28, s*0.1, s*0.22, c[0]);
+    roundRect(ctx, -s * 0.1, -s * 0.28, s * 0.2, s * 0.5, s*0.01); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
     ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = s * 0.018;
     ctx.beginPath(); ctx.moveTo(-s * 0.1, -s * 0.08); ctx.lineTo(s * 0.1, -s * 0.08); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.08); ctx.lineTo(s * 0.1, s * 0.08); ctx.stroke();
-    ctx.fillStyle = c[2] || '#333';
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.35, s*0.1, c[2] || '#333');
     ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.22); ctx.lineTo(0, s * 0.48); ctx.lineTo(s * 0.1, s * 0.22); ctx.closePath(); ctx.fill();
+    itemHighlight(ctx, -s*0.03, -s*0.12, s*0.04, s*0.1);
   },
 };
 
 const tape_roll: ItemDef = {
   id: 'tape_roll', name: 'Tape Roll', world: 'pencil_case', sizeTier: 2, baseValue: 3, weight: 1.2,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.4, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
     ctx.save(); ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath(); ctx.arc(0, 0, s * 0.17, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.045;
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.045;
     ctx.beginPath(); ctx.arc(0, 0, s * 0.285, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = c[0]; roundRect(ctx, s * 0.26, -s * 0.07, s * 0.2, s * 0.14, s * 0.03); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, s*0.36, 0, s*0.1, c[0]);
+    roundRect(ctx, s * 0.26, -s * 0.07, s * 0.2, s * 0.14, s * 0.03); ctx.fill();
+    itemHighlight(ctx, -s*0.12, -s*0.12, s*0.1, s*0.07);
   },
 };
 
 const scissors: ItemDef = {
   id: 'scissors', name: 'Scissors', world: 'pencil_case', sizeTier: 2, baseValue: 5, weight: 1.9,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.4, c[0]);
     ctx.save(); ctx.rotate(-0.4);
     ctx.beginPath(); ctx.ellipse(-s * 0.02, 0, s * 0.38, s * 0.085, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    itemOutline(ctx, c[0], s*0.02); ctx.restore();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.4, c[0]);
     ctx.save(); ctx.rotate(0.4);
     ctx.beginPath(); ctx.ellipse(s * 0.02, 0, s * 0.38, s * 0.085, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = '#6b7280';
-    ctx.beginPath(); ctx.arc(0, 0, s * 0.055, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[1];
+    itemOutline(ctx, c[0], s*0.02); ctx.restore();
+    ctx.fillStyle = '#6b7280'; ctx.beginPath(); ctx.arc(0, 0, s * 0.055, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, -s*0.36, 0, s*0.1, c[1]);
     ctx.save(); ctx.rotate(-0.4);
-    ctx.beginPath(); ctx.ellipse(-s * 0.36, 0, s * 0.1, s * 0.075, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(-s * 0.36, 0, s * 0.1, s * 0.075, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.fillStyle = itemGradient(ctx, s*0.36, 0, s*0.1, c[1]);
     ctx.save(); ctx.rotate(0.4);
-    ctx.beginPath(); ctx.ellipse(s * 0.36, 0, s * 0.1, s * 0.075, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+    ctx.beginPath(); ctx.ellipse(s * 0.36, 0, s * 0.1, s * 0.075, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    itemHighlight(ctx, -s*0.08, -s*0.06, s*0.1, s*0.05);
   },
 };
 
@@ -358,9 +450,10 @@ const protractor: ItemDef = {
   id: 'protractor', name: 'Protractor', world: 'pencil_case', sizeTier: 2, baseValue: 4, weight: 1.5,
   draw(ctx, s, c) {
     const cy = s * 0.1, R = s * 0.42;
-    ctx.fillStyle = c[0];
-    ctx.beginPath(); ctx.arc(0, cy, R, Math.PI, 0, false); ctx.lineTo(R, cy); ctx.lineTo(-R, cy); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.022;
+    ctx.fillStyle = itemGradient(ctx, 0, cy - R*0.3, R, c[0]);
+    ctx.beginPath(); ctx.arc(0, cy, R, Math.PI, 0, false); ctx.lineTo(R, cy); ctx.lineTo(-R, cy); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.022;
     ctx.beginPath(); ctx.arc(0, cy, R * 0.92, Math.PI, 0, false); ctx.stroke();
     for (let i = 0; i <= 13; i++) {
       const ang = Math.PI + (i / 13) * Math.PI;
@@ -368,38 +461,97 @@ const protractor: ItemDef = {
       ctx.beginPath(); ctx.moveTo(Math.cos(ang) * r0, cy + Math.sin(ang) * r0); ctx.lineTo(Math.cos(ang) * R * 0.98, cy + Math.sin(ang) * R * 0.98); ctx.stroke();
     }
     ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.arc(0, cy, s * 0.04, 0, Math.PI * 2); ctx.fill();
+    itemHighlight(ctx, -s*0.12, cy - s*0.15, s*0.14, s*0.06);
   },
 };
 
 // ─── Lunchbox ───
 
 const sandwich: ItemDef = { id: 'sandwich', name: 'Sandwich', world: 'lunchbox', sizeTier: 3, baseValue: 6, weight: 2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.3, -s*0.25, s*0.6, s*0.12, s*0.03); ctx.fill(); ctx.fillStyle = c[1]||'#4ade80'; ctx.fillRect(-s*0.28, -s*0.13, s*0.56, s*0.06); ctx.fillStyle = c[2]||'#f87171'; ctx.fillRect(-s*0.28, -s*0.07, s*0.56, s*0.06); ctx.fillStyle = c[0]; roundRect(ctx, -s*0.3, s*0.01, s*0.6, s*0.12, s*0.03); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.3, -s*0.25, s*0.3, -s*0.13, c[0]);
+    roundRect(ctx, -s*0.3, -s*0.25, s*0.6, s*0.12, s*0.03); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#4ade80'; ctx.fillRect(-s*0.28, -s*0.13, s*0.56, s*0.06);
+    ctx.fillStyle = c[2]||'#f87171'; ctx.fillRect(-s*0.28, -s*0.07, s*0.56, s*0.06);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.3, s*0.01, s*0.3, s*0.13, c[0]);
+    roundRect(ctx, -s*0.3, s*0.01, s*0.6, s*0.12, s*0.03); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    itemHighlight(ctx, -s*0.1, -s*0.2, s*0.15, s*0.05);
+  } };
 
 const juiceBox: ItemDef = { id: 'juice_box', name: 'Juice Box', world: 'lunchbox', sizeTier: 3, baseValue: 5, weight: 1.8,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.fillRect(-s*0.18, -s*0.25, s*0.36, s*0.55); ctx.fillStyle = c[1]; ctx.fillRect(-s*0.18, -s*0.25, s*0.36, s*0.15); ctx.strokeStyle = c[2]||'#333'; ctx.lineWidth = s*0.03; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(s*0.05, -s*0.25); ctx.lineTo(s*0.08, -s*0.42); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.18, -s*0.25, s*0.18, s*0.3, c[0]);
+    roundRect(ctx, -s*0.18, -s*0.25, s*0.36, s*0.55, s*0.03); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.18, -s*0.25, s*0.18, -s*0.1, c[1]);
+    ctx.fillRect(-s*0.18, -s*0.25, s*0.36, s*0.15);
+    ctx.strokeStyle = darken(c[2]||'#333'); ctx.lineWidth = s*0.03; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(s*0.05, -s*0.25); ctx.lineTo(s*0.08, -s*0.42); ctx.stroke();
+    itemHighlight(ctx, -s*0.06, -s*0.15, s*0.06, s*0.1);
+  } };
 
 const cookieItem: ItemDef = { id: 'cookie', name: 'Cookie', world: 'lunchbox', sizeTier: 3, baseValue: 5, weight: 1.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s*0.35, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#3b1f0b'; ctx.beginPath(); ctx.arc(-s*0.1, -s*0.1, s*0.05, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.12, 0, s*0.05, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(-s*0.05, s*0.15, s*0.05, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.15, -s*0.15, s*0.04, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s*0.35, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#3b1f0b';
+    ctx.beginPath(); ctx.arc(-s*0.1, -s*0.1, s*0.05, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.12, 0, s*0.05, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.05, s*0.15, s*0.05, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.15, -s*0.15, s*0.04, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.1, s*0.07);
+  } };
 
 const banana: ItemDef = { id: 'banana', name: 'Banana', world: 'lunchbox', sizeTier: 3, baseValue: 4, weight: 1.8,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, s*0.3, s*0.55, -Math.PI*0.85, -Math.PI*0.15); ctx.arc(0, s*0.3, s*0.42, -Math.PI*0.15, -Math.PI*0.85, true); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]||'#5b3a1a'; ctx.beginPath(); ctx.arc(s*0.25, -s*0.15, s*0.03, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.5, c[0]);
+    ctx.beginPath(); ctx.arc(0, s*0.3, s*0.55, -Math.PI*0.85, -Math.PI*0.15);
+    ctx.arc(0, s*0.3, s*0.42, -Math.PI*0.15, -Math.PI*0.85, true); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#5b3a1a'; ctx.beginPath(); ctx.arc(s*0.25, -s*0.15, s*0.03, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.05, -s*0.12, s*0.1, s*0.05);
+  } };
 
 const cheeseSlice: ItemDef = { id: 'cheese_slice', name: 'Cheese Slice', world: 'lunchbox', sizeTier: 3, baseValue: 5, weight: 1.2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(0, -s*0.35); ctx.lineTo(s*0.35, s*0.25); ctx.lineTo(-s*0.35, s*0.25); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]||'#fff8dc'; ctx.beginPath(); ctx.arc(-s*0.05, s*0.05, s*0.06, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.1, s*0.15, s*0.05, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(-s*0.12, s*0.18, s*0.04, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.4, c[0]);
+    ctx.beginPath(); ctx.moveTo(0, -s*0.35); ctx.lineTo(s*0.35, s*0.25); ctx.lineTo(-s*0.35, s*0.25); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#fff8dc';
+    ctx.beginPath(); ctx.arc(-s*0.05, s*0.05, s*0.06, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.1, s*0.15, s*0.05, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.12, s*0.18, s*0.04, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.08, -s*0.12, s*0.1, s*0.06);
+  } };
 
 const wrapper: ItemDef = { id: 'wrapper', name: 'Wrapper', world: 'lunchbox', sizeTier: 3, baseValue: 3, weight: 0.8,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(-s*0.3, -s*0.1); ctx.lineTo(-s*0.15, -s*0.25); ctx.lineTo(s*0.05, -s*0.2); ctx.lineTo(s*0.25, -s*0.3); ctx.lineTo(s*0.3, -s*0.05); ctx.lineTo(s*0.2, s*0.15); ctx.lineTo(s*0.1, s*0.25); ctx.lineTo(-s*0.15, s*0.2); ctx.lineTo(-s*0.3, s*0.1); ctx.closePath(); ctx.fill(); ctx.strokeStyle = c[1]||'#aaa'; ctx.lineWidth = s*0.02; ctx.beginPath(); ctx.moveTo(-s*0.1, -s*0.1); ctx.lineTo(s*0.1, s*0.05); ctx.stroke(); ctx.beginPath(); ctx.moveTo(s*0.05, -s*0.15); ctx.lineTo(-s*0.05, s*0.1); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s*0.3, -s*0.1); ctx.lineTo(-s*0.15, -s*0.25); ctx.lineTo(s*0.05, -s*0.2);
+    ctx.lineTo(s*0.25, -s*0.3); ctx.lineTo(s*0.3, -s*0.05); ctx.lineTo(s*0.2, s*0.15);
+    ctx.lineTo(s*0.1, s*0.25); ctx.lineTo(-s*0.15, s*0.2); ctx.lineTo(-s*0.3, s*0.1); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.02);
+    ctx.strokeStyle = darken(c[1]||'#aaa'); ctx.lineWidth = s*0.02;
+    ctx.beginPath(); ctx.moveTo(-s*0.1, -s*0.1); ctx.lineTo(s*0.1, s*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.05, -s*0.15); ctx.lineTo(-s*0.05, s*0.1); ctx.stroke();
+    itemHighlight(ctx, -s*0.08, -s*0.1, s*0.1, s*0.06);
+  } };
 
 const grape_bunch: ItemDef = {
   id: 'grape_bunch', name: 'Grape Bunch', world: 'lunchbox', sizeTier: 3, baseValue: 5, weight: 1.4,
   draw(ctx, s, c) {
     const stem = c[1] || '#4ade80';
-    ctx.strokeStyle = stem; ctx.lineWidth = s * 0.045; ctx.lineCap = 'round';
+    ctx.strokeStyle = darken(stem); ctx.lineWidth = s * 0.045; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(0, -s * 0.5); ctx.quadraticCurveTo(s * 0.08, -s * 0.38, 0, -s * 0.28); ctx.stroke();
-    ctx.fillStyle = c[0];
     const pts: [number, number][] = [[0, -s * 0.18], [-s * 0.14, s * 0.02], [s * 0.14, s * 0.02], [-s * 0.22, s * 0.22], [0, s * 0.2], [s * 0.22, s * 0.22]];
-    for (const [gx, gy] of pts) { ctx.beginPath(); ctx.arc(gx, gy, s * 0.1, 0, Math.PI * 2); ctx.fill(); }
+    for (const [gx, gy] of pts) {
+      ctx.fillStyle = itemGradient(ctx, gx, gy, s * 0.1, c[0]);
+      ctx.beginPath(); ctx.arc(gx, gy, s * 0.1, 0, Math.PI * 2); ctx.fill();
+    }
+    itemHighlight(ctx, -s*0.06, -s*0.12, s*0.08, s*0.05);
   },
 };
 
@@ -407,19 +559,28 @@ const carrot_stick: ItemDef = {
   id: 'carrot_stick', name: 'Carrot Stick', world: 'lunchbox', sizeTier: 3, baseValue: 4, weight: 1.2,
   draw(ctx, s, c) {
     const leaves = c[1] || '#4ade80';
-    ctx.fillStyle = leaves;
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.44, s*0.14, leaves);
     for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.ellipse(i * s * 0.14, -s * 0.44, s * 0.07, s * 0.14, i * 0.5, 0, Math.PI * 2); ctx.fill(); }
-    ctx.fillStyle = c[0];
-    ctx.beginPath(); ctx.moveTo(-s * 0.22, -s * 0.32); ctx.lineTo(s * 0.22, -s * 0.32); ctx.lineTo(s * 0.07, s * 0.42); ctx.lineTo(-s * 0.07, s * 0.42); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.22, -s*0.32, s*0.22, s*0.42, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s * 0.22, -s * 0.32); ctx.lineTo(s * 0.22, -s * 0.32); ctx.lineTo(s * 0.07, s * 0.42); ctx.lineTo(-s * 0.07, s * 0.42); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.02);
     ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = s * 0.025;
     ctx.beginPath(); ctx.moveTo(0, -s * 0.22); ctx.lineTo(0, s * 0.32); ctx.stroke();
+    itemHighlight(ctx, -s*0.06, -s*0.15, s*0.05, s*0.1);
   },
 };
 
 const pretzel: ItemDef = {
   id: 'pretzel', name: 'Pretzel', world: 'lunchbox', sizeTier: 3, baseValue: 6, weight: 1.8,
   draw(ctx, s, c) {
-    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.11; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s * 0.13; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.38, s * 0.08);
+    ctx.bezierCurveTo(-s * 0.52, -s * 0.35, -s * 0.12, -s * 0.42, 0, -s * 0.12);
+    ctx.bezierCurveTo(s * 0.12, -s * 0.42, s * 0.52, -s * 0.35, s * 0.38, s * 0.08);
+    ctx.bezierCurveTo(s * 0.32, s * 0.38, -s * 0.32, s * 0.38, -s * 0.38, s * 0.08);
+    ctx.stroke();
+    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.11;
     ctx.beginPath();
     ctx.moveTo(-s * 0.38, s * 0.08);
     ctx.bezierCurveTo(-s * 0.52, -s * 0.35, -s * 0.12, -s * 0.42, 0, -s * 0.12);
@@ -428,92 +589,160 @@ const pretzel: ItemDef = {
     ctx.stroke();
     ctx.fillStyle = c[1];
     for (let i = 0; i < 8; i++) { const t = (i / 8) * Math.PI * 2; ctx.beginPath(); ctx.arc(Math.cos(t) * s * 0.28, Math.sin(t) * s * 0.18, s * 0.028, 0, Math.PI * 2); ctx.fill(); }
+    itemHighlight(ctx, -s*0.1, -s*0.12, s*0.1, s*0.06);
   },
 };
 
 const yogurt_cup: ItemDef = {
   id: 'yogurt_cup', name: 'Yogurt Cup', world: 'lunchbox', sizeTier: 3, baseValue: 5, weight: 1.5,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
-    ctx.beginPath(); ctx.moveTo(-s * 0.26, s * 0.28); ctx.lineTo(-s * 0.2, -s * 0.1); ctx.lineTo(s * 0.2, -s * 0.1); ctx.lineTo(s * 0.26, s * 0.28); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = c[1]; roundRect(ctx, -s * 0.22, -s * 0.22, s * 0.44, s * 0.12, s * 0.04); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.26, -s*0.1, s*0.26, s*0.28, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s * 0.26, s * 0.28); ctx.lineTo(-s * 0.2, -s * 0.1); ctx.lineTo(s * 0.2, -s * 0.1); ctx.lineTo(s * 0.26, s * 0.28); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.22, -s*0.22, s*0.22, -s*0.1, c[1]);
+    roundRect(ctx, -s * 0.22, -s * 0.22, s * 0.44, s * 0.12, s * 0.04); ctx.fill();
     const spoon = c[2] || '#888';
     ctx.fillStyle = spoon; ctx.fillRect(s * 0.16, -s * 0.38, s * 0.035, s * 0.28);
     ctx.beginPath(); ctx.ellipse(s * 0.177, -s * 0.4, s * 0.07, s * 0.045, -0.2, 0, Math.PI * 2); ctx.fill();
+    itemHighlight(ctx, -s*0.06, -s*0.05, s*0.08, s*0.06);
   },
 };
 
 // ─── Toy Box ───
 
 const buildingBlock: ItemDef = { id: 'building_block', name: 'Building Block', world: 'toy_box', sizeTier: 3, baseValue: 6, weight: 2.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.fillRect(-s*0.28, -s*0.28, s*0.56, s*0.56); ctx.strokeStyle = c[1]; ctx.lineWidth = s*0.04; ctx.strokeRect(-s*0.28, -s*0.28, s*0.56, s*0.56); ctx.fillStyle = c[1]; ctx.font = `bold ${s*0.35}px 'Fredoka', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('A', 0, 0); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.4, c[0]);
+    roundRect(ctx, -s*0.28, -s*0.28, s*0.56, s*0.56, s*0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.03);
+    ctx.fillStyle = c[1]; ctx.font = `bold ${s*0.35}px 'Fredoka', sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('A', 0, 0);
+    itemHighlight(ctx, -s*0.1, -s*0.12, s*0.12, s*0.08);
+  } };
 
 const toyCarItem: ItemDef = { id: 'toy_car', name: 'Toy Car', world: 'toy_box', sizeTier: 3, baseValue: 7, weight: 2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.35, -s*0.05, s*0.7, s*0.2, s*0.04); ctx.fill(); roundRect(ctx, -s*0.18, -s*0.2, s*0.36, s*0.18, s*0.04); ctx.fill(); ctx.fillStyle = c[1]||'#333'; ctx.beginPath(); ctx.arc(-s*0.2, s*0.15, s*0.07, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.2, s*0.15, s*0.07, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.35, -s*0.2, s*0.35, s*0.15, c[0]);
+    roundRect(ctx, -s*0.35, -s*0.05, s*0.7, s*0.2, s*0.04); ctx.fill();
+    roundRect(ctx, -s*0.18, -s*0.2, s*0.36, s*0.18, s*0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemGradient(ctx, -s*0.2, s*0.15, s*0.07, c[1]||'#333');
+    ctx.beginPath(); ctx.arc(-s*0.2, s*0.15, s*0.07, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, s*0.2, s*0.15, s*0.07, c[1]||'#333');
+    ctx.beginPath(); ctx.arc(s*0.2, s*0.15, s*0.07, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.12, -s*0.12, s*0.12, s*0.06);
+  } };
 
 const actionFigure: ItemDef = { id: 'action_figure', name: 'Action Figure', world: 'toy_box', sizeTier: 3, baseValue: 8, weight: 1.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, -s*0.28, s*0.12, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.06; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -s*0.16); ctx.lineTo(0, s*0.12); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-s*0.2, -s*0.05); ctx.lineTo(s*0.2, -s*0.05); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, s*0.12); ctx.lineTo(-s*0.15, s*0.35); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, s*0.12); ctx.lineTo(s*0.15, s*0.35); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.28, s*0.12, c[0]);
+    ctx.beginPath(); ctx.arc(0, -s*0.28, s*0.12, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.06; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -s*0.16); ctx.lineTo(0, s*0.12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s*0.2, -s*0.05); ctx.lineTo(s*0.2, -s*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, s*0.12); ctx.lineTo(-s*0.15, s*0.35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, s*0.12); ctx.lineTo(s*0.15, s*0.35); ctx.stroke();
+    itemHighlight(ctx, -s*0.04, -s*0.32, s*0.05, s*0.04);
+  } };
 
 const teddyBear: ItemDef = { id: 'teddy_bear', name: 'Teddy Bear', world: 'toy_box', sizeTier: 3, baseValue: 7, weight: 2.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(-s*0.15, -s*0.28, s*0.08, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.15, -s*0.28, s*0.08, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(0, -s*0.18, s*0.18, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(0, s*0.12, s*0.25, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#333'; ctx.beginPath(); ctx.arc(-s*0.06, -s*0.22, s*0.03, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.06, -s*0.22, s*0.03, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(0, -s*0.15, s*0.03, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.arc(-s*0.15, -s*0.28, s*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.15, -s*0.28, s*0.08, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -s*0.18, s*0.18, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, s*0.12, s*0.25, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#333';
+    ctx.beginPath(); ctx.arc(-s*0.06, -s*0.22, s*0.03, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.06, -s*0.22, s*0.03, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -s*0.15, s*0.03, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.08, -s*0.22, s*0.08, s*0.05);
+  } };
 
 const yoYo: ItemDef = { id: 'yo_yo', name: 'Yo-Yo', world: 'toy_box', sizeTier: 3, baseValue: 5, weight: 2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]; ctx.beginPath(); ctx.arc(0, 0, s*0.15, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = c[2]||'#333'; ctx.lineWidth = s*0.03; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -s*0.3); ctx.lineTo(0, -s*0.45); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.15, c[1]);
+    ctx.beginPath(); ctx.arc(0, 0, s*0.15, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = darken(c[2]||'#333'); ctx.lineWidth = s*0.03; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -s*0.3); ctx.lineTo(0, -s*0.45); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.08, s*0.06);
+  } };
 
 const spinningTop: ItemDef = { id: 'spinning_top', name: 'Spinning Top', world: 'toy_box', sizeTier: 3, baseValue: 6, weight: 2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(-s*0.25, -s*0.1); ctx.lineTo(s*0.25, -s*0.1); ctx.lineTo(0, s*0.4); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]; ctx.beginPath(); ctx.ellipse(0, -s*0.1, s*0.25, s*0.08, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[2]||c[0]; ctx.fillRect(-s*0.03, -s*0.3, s*0.06, s*0.2); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s*0.25, -s*0.1); ctx.lineTo(s*0.25, -s*0.1); ctx.lineTo(0, s*0.4); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.1, s*0.25, c[1]);
+    ctx.beginPath(); ctx.ellipse(0, -s*0.1, s*0.25, s*0.08, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = c[2]||c[0]; ctx.fillRect(-s*0.03, -s*0.3, s*0.06, s*0.2);
+    itemHighlight(ctx, -s*0.08, -s*0.08, s*0.08, s*0.04);
+  } };
 
 const puzzle_piece: ItemDef = {
   id: 'puzzle_piece', name: 'Puzzle Piece', world: 'toy_box', sizeTier: 3, baseValue: 6, weight: 2,
   draw(ctx, s, c) {
     const u = s * 0.3, tabR = u * 0.38, sockR = u * 0.32;
-    ctx.fillStyle = c[0]; ctx.beginPath();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, u, c[0]);
+    ctx.beginPath();
     ctx.moveTo(-u, u); ctx.lineTo(-u, -u); ctx.lineTo(-tabR, -u);
     ctx.arc(0, -u, tabR, Math.PI, 0, false); ctx.lineTo(u, -u);
     ctx.lineTo(u, -sockR); ctx.arc(u - sockR, 0, sockR, -Math.PI / 2, Math.PI / 2, false);
-    ctx.lineTo(u, sockR); ctx.lineTo(u, u); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = s * 0.025; ctx.stroke();
+    ctx.lineTo(u, sockR); ctx.lineTo(u, u); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s * 0.025);
+    itemHighlight(ctx, -s*0.06, -s*0.08, s*0.08, s*0.05);
   },
 };
 
 const bouncy_ball: ItemDef = {
   id: 'bouncy_ball', name: 'Bouncy Ball', world: 'toy_box', sizeTier: 3, baseValue: 7, weight: 2.1,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s * 0.44, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.44, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s * 0.44, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
     ctx.save(); ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.09; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(0, 0, s * 0.32, -0.45, Math.PI + 0.45); ctx.stroke(); ctx.restore();
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.beginPath(); ctx.ellipse(-s * 0.16, -s * 0.2, s * 0.1, s * 0.07, -0.4, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = s * 0.025;
-    ctx.beginPath(); ctx.arc(0, 0, s * 0.44, 0, Math.PI * 2); ctx.stroke();
+    itemHighlight(ctx, -s*0.16, -s*0.2, s*0.1, s*0.07);
   },
 };
 
 const toy_train: ItemDef = {
   id: 'toy_train', name: 'Toy Train', world: 'toy_box', sizeTier: 3, baseValue: 8, weight: 2.3,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0]; roundRect(ctx, -s * 0.42, -s * 0.06, s * 0.52, s * 0.24, s * 0.04); ctx.fill();
-    ctx.fillStyle = c[2]; roundRect(ctx, -s * 0.06, -s * 0.34, s * 0.12, s * 0.22, s * 0.03); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.42, -s*0.06, s*0.1, s*0.18, c[0]);
+    roundRect(ctx, -s * 0.42, -s * 0.06, s * 0.52, s * 0.24, s * 0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.06, -s*0.4, s*0.06, -s*0.12, c[2]);
+    roundRect(ctx, -s * 0.06, -s * 0.34, s * 0.12, s * 0.22, s * 0.03); ctx.fill();
     ctx.fillRect(-s * 0.02, -s * 0.4, s * 0.04, s * 0.08);
-    ctx.fillStyle = c[0]; roundRect(ctx, s * 0.12, -s * 0.12, s * 0.32, s * 0.2, s * 0.04); ctx.fill();
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, s*0.12, -s*0.12, s*0.44, s*0.08, c[0]);
+    roundRect(ctx, s * 0.12, -s * 0.12, s * 0.32, s * 0.2, s * 0.04); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, -s*0.24, s*0.2, s*0.09, c[1]);
     ctx.beginPath(); ctx.arc(-s * 0.24, s * 0.2, s * 0.09, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, s*0.02, s*0.2, s*0.09, c[1]);
     ctx.beginPath(); ctx.arc(s * 0.02, s * 0.2, s * 0.09, 0, Math.PI * 2); ctx.fill();
+    itemHighlight(ctx, -s*0.15, -s*0.05, s*0.1, s*0.05);
   },
 };
 
 const doll: ItemDef = {
   id: 'doll', name: 'Doll', world: 'toy_box', sizeTier: 3, baseValue: 5, weight: 1.9,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
-    ctx.beginPath(); ctx.moveTo(0, -s * 0.02); ctx.lineTo(-s * 0.28, s * 0.44); ctx.lineTo(s * 0.28, s * 0.44); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = c[1] || '#f5deb3';
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.2, s*0.3, c[0]);
+    ctx.beginPath(); ctx.moveTo(0, -s * 0.02); ctx.lineTo(-s * 0.28, s * 0.44); ctx.lineTo(s * 0.28, s * 0.44); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.28, s*0.15, c[1] || '#f5deb3');
     ctx.beginPath(); ctx.arc(0, -s * 0.28, s * 0.15, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = c[2];
     for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(i * s * 0.07, -s * 0.38, s * 0.045, 0, Math.PI * 2); ctx.fill(); }
     ctx.fillStyle = '#1f2937';
     ctx.beginPath(); ctx.arc(-s * 0.05, -s * 0.3, s * 0.018, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(s * 0.05, -s * 0.3, s * 0.018, 0, Math.PI * 2); ctx.fill();
+    itemHighlight(ctx, -s*0.04, -s*0.32, s*0.05, s*0.04);
   },
 };
 
@@ -522,132 +751,150 @@ const doll: ItemDef = {
 const pen: ItemDef = {
   id: 'pen', name: 'Pen', world: 'backpack', sizeTier: 3, baseValue: 7, weight: 2,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
-    ctx.fillRect(-s * 0.06, -s * 0.45, s * 0.12, s * 0.7);
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.06, -s*0.45, s*0.06, s*0.25, c[0]);
+    roundRect(ctx, -s * 0.06, -s * 0.45, s * 0.12, s * 0.7, s*0.02); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.06, -s*0.45, s*0.06, -s*0.33, c[1]);
     ctx.fillRect(-s * 0.06, -s * 0.45, s * 0.12, s * 0.12);
-    ctx.fillStyle = c[2] || '#333';
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.06, s * 0.25); ctx.lineTo(s * 0.06, s * 0.25); ctx.lineTo(0, s * 0.45);
-    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.35, s*0.06, c[2] || '#333');
+    ctx.beginPath(); ctx.moveTo(-s * 0.06, s * 0.25); ctx.lineTo(s * 0.06, s * 0.25); ctx.lineTo(0, s * 0.45); ctx.closePath(); ctx.fill();
+    itemHighlight(ctx, -s*0.02, -s*0.2, s*0.03, s*0.1);
   },
 };
 
 const key: ItemDef = {
   id: 'key', name: 'Key', world: 'backpack', sizeTier: 3, baseValue: 8, weight: 3,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.25, s*0.18, c[0]);
     ctx.beginPath(); ctx.arc(0, -s * 0.25, s * 0.18, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[1] || c[0];
-    ctx.beginPath(); ctx.arc(0, -s * 0.25, s * 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[0];
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1] || c[0]; ctx.beginPath(); ctx.arc(0, -s * 0.25, s * 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.05, -s*0.1, s*0.05, s*0.38, c[0]);
     ctx.fillRect(-s * 0.05, -s * 0.1, s * 0.1, s * 0.48);
     ctx.fillRect(s * 0.05, s * 0.2, s * 0.12, s * 0.06);
     ctx.fillRect(s * 0.05, s * 0.08, s * 0.08, s * 0.06);
+    itemHighlight(ctx, -s*0.06, -s*0.3, s*0.06, s*0.05);
   },
 };
 
 const usbDrive: ItemDef = {
   id: 'usb_drive', name: 'USB Drive', world: 'backpack', sizeTier: 3, baseValue: 7, weight: 1.8,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.15, -s * 0.35, s * 0.3, s * 0.55, s * 0.04);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.15, -s*0.35, s*0.15, s*0.2, c[0]);
+    roundRect(ctx, -s * 0.15, -s * 0.35, s * 0.3, s * 0.55, s * 0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.1, s*0.2, s*0.1, s*0.4, c[1]);
     ctx.fillRect(-s * 0.1, s * 0.2, s * 0.2, s * 0.2);
-    ctx.fillStyle = c[2] || '#fff';
-    ctx.fillRect(-s * 0.06, -s * 0.2, s * 0.12, s * 0.08);
+    ctx.fillStyle = c[2] || '#fff'; ctx.fillRect(-s * 0.06, -s * 0.2, s * 0.12, s * 0.08);
+    itemHighlight(ctx, -s*0.05, -s*0.22, s*0.06, s*0.08);
   },
 };
 
 const wallet: ItemDef = {
   id: 'wallet', name: 'Wallet', world: 'backpack', sizeTier: 3, baseValue: 10, weight: 2.5,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.35, -s * 0.28, s * 0.7, s * 0.56, s * 0.06);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.03;
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.35, -s*0.28, s*0.35, s*0.28, c[0]);
+    roundRect(ctx, -s * 0.35, -s * 0.28, s * 0.7, s * 0.56, s * 0.06); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.03;
     ctx.beginPath(); ctx.moveTo(-s * 0.35, -s * 0.05); ctx.lineTo(s * 0.35, -s * 0.05); ctx.stroke();
-    ctx.fillStyle = c[1];
-    roundRect(ctx, s * 0.05, -s * 0.2, s * 0.22, s * 0.1, s * 0.02);
-    ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, s*0.05, -s*0.2, s*0.27, -s*0.1, c[1]);
+    roundRect(ctx, s * 0.05, -s * 0.2, s * 0.22, s * 0.1, s * 0.02); ctx.fill();
+    itemHighlight(ctx, -s*0.12, -s*0.18, s*0.15, s*0.06);
   },
 };
 
 const glasses: ItemDef = {
   id: 'glasses', name: 'Glasses', world: 'backpack', sizeTier: 3, baseValue: 9, weight: 1.5,
   draw(ctx, s, c) {
-    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.05; ctx.lineCap = 'round';
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s * 0.06; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.18, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(s * 0.2, 0, s * 0.18, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.05;
     ctx.beginPath(); ctx.arc(-s * 0.2, 0, s * 0.18, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(s * 0.2, 0, s * 0.18, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-s * 0.02, 0); ctx.lineTo(s * 0.02, 0); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-s * 0.38, -s * 0.04); ctx.lineTo(-s * 0.48, -s * 0.08); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(s * 0.38, -s * 0.04); ctx.lineTo(s * 0.48, -s * 0.08); ctx.stroke();
+    itemHighlight(ctx, -s*0.25, -s*0.06, s*0.06, s*0.04);
   },
 };
 
 const remote: ItemDef = {
   id: 'remote', name: 'Remote', world: 'backpack', sizeTier: 3, baseValue: 8, weight: 2.2,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.14, -s * 0.42, s * 0.28, s * 0.84, s * 0.06);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.14, -s*0.42, s*0.14, s*0.42, c[0]);
+    roundRect(ctx, -s * 0.14, -s * 0.42, s * 0.28, s * 0.84, s * 0.06); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.24, s*0.06, c[1]);
     ctx.beginPath(); ctx.arc(0, -s * 0.24, s * 0.06, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = c[2] || '#444';
     const bw = s * 0.06, bh = s * 0.05;
     ctx.fillRect(-bw, -s * 0.05, bw * 2, bh);
     ctx.fillRect(-bw, s * 0.05, bw * 2, bh);
     ctx.fillRect(-bw, s * 0.15, bw * 2, bh);
+    itemHighlight(ctx, -s*0.04, -s*0.28, s*0.05, s*0.08);
   },
 };
 
 const apple: ItemDef = {
   id: 'apple', name: 'Apple', world: 'backpack', sizeTier: 3, baseValue: 6, weight: 2.8,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.05, s*0.35, c[0]);
     ctx.beginPath(); ctx.arc(-s * 0.08, s * 0.05, s * 0.32, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(s * 0.08, s * 0.05, s * 0.32, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[1] || '#5b3a1a';
-    ctx.fillRect(-s * 0.025, -s * 0.35, s * 0.05, s * 0.18);
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1] || '#5b3a1a'; ctx.fillRect(-s * 0.025, -s * 0.35, s * 0.05, s * 0.18);
     ctx.fillStyle = c[2] || '#4ade80';
-    ctx.beginPath();
-    ctx.moveTo(s * 0.02, -s * 0.28); ctx.quadraticCurveTo(s * 0.18, -s * 0.42, s * 0.12, -s * 0.2);
-    ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s * 0.02, -s * 0.28); ctx.quadraticCurveTo(s * 0.18, -s * 0.42, s * 0.12, -s * 0.2); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.08, s*0.1, s*0.07);
   },
 };
 
 const mug: ItemDef = {
   id: 'mug', name: 'Mug', world: 'backpack', sizeTier: 3, baseValue: 9, weight: 3.5,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.25, -s * 0.3, s * 0.45, s * 0.6, s * 0.06);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.05;
-    ctx.beginPath();
-    ctx.arc(s * 0.25, 0, s * 0.14, -Math.PI * 0.4, Math.PI * 0.4);
-    ctx.stroke();
-    ctx.fillStyle = c[2] || '#8B4513';
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.25, -s*0.3, s*0.2, s*0.3, c[0]);
+    roundRect(ctx, -s * 0.25, -s * 0.3, s * 0.45, s * 0.6, s * 0.06); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.05;
+    ctx.beginPath(); ctx.arc(s * 0.25, 0, s * 0.14, -Math.PI * 0.4, Math.PI * 0.4); ctx.stroke();
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.3, s*0.22, c[2] || '#8B4513');
     ctx.beginPath(); ctx.ellipse(0, -s * 0.3, s * 0.22, s * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.18, s*0.1, s*0.06);
   },
 };
 
 const water_bottle: ItemDef = {
   id: 'water_bottle', name: 'Water Bottle', world: 'backpack', sizeTier: 3, baseValue: 8, weight: 2.5,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[1]; roundRect(ctx, -s * 0.13, -s * 0.46, s * 0.26, s * 0.12, s * 0.04); ctx.fill();
-    ctx.fillStyle = c[0]; roundRect(ctx, -s * 0.18, -s * 0.32, s * 0.36, s * 0.62, s * 0.14); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.13, -s*0.46, s*0.13, -s*0.34, c[1]);
+    roundRect(ctx, -s * 0.13, -s * 0.46, s * 0.26, s * 0.12, s * 0.04); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.18, -s*0.32, s*0.18, s*0.3, c[0]);
+    roundRect(ctx, -s * 0.18, -s * 0.32, s * 0.36, s * 0.62, s * 0.14); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
     ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = s * 0.04;
     ctx.beginPath(); ctx.moveTo(s * 0.12, -s * 0.18); ctx.lineTo(s * 0.12, s * 0.22); ctx.stroke();
-    ctx.fillStyle = c[2]; roundRect(ctx, -s * 0.15, -s * 0.02, s * 0.3, s * 0.12, s * 0.03); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.15, -s*0.02, s*0.15, s*0.1, c[2]);
+    roundRect(ctx, -s * 0.15, -s * 0.02, s * 0.3, s * 0.12, s * 0.03); ctx.fill();
+    itemHighlight(ctx, -s*0.06, -s*0.2, s*0.06, s*0.1);
   },
 };
 
 const headphones_item: ItemDef = {
   id: 'headphones_item', name: 'Headphones', world: 'backpack', sizeTier: 3, baseValue: 10, weight: 2.8,
   draw(ctx, s, c) {
-    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.095; ctx.lineCap = 'round';
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s * 0.11; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(-s * 0.46, s * 0.06); ctx.quadraticCurveTo(0, -s * 0.44, s * 0.46, s * 0.06); ctx.stroke();
-    ctx.fillStyle = c[1];
+    ctx.strokeStyle = c[0]; ctx.lineWidth = s * 0.095;
+    ctx.beginPath(); ctx.moveTo(-s * 0.46, s * 0.06); ctx.quadraticCurveTo(0, -s * 0.44, s * 0.46, s * 0.06); ctx.stroke();
+    ctx.fillStyle = itemGradient(ctx, -s*0.46, s*0.1, s*0.17, c[1]);
     ctx.beginPath(); ctx.arc(-s * 0.46, s * 0.1, s * 0.17, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[1], s*0.02);
+    ctx.fillStyle = itemGradient(ctx, s*0.46, s*0.1, s*0.17, c[1]);
     ctx.beginPath(); ctx.arc(s * 0.46, s * 0.1, s * 0.17, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = s * 0.04; ctx.stroke();
+    itemOutline(ctx, c[1], s*0.02);
+    itemHighlight(ctx, -s*0.5, s*0.04, s*0.06, s*0.04);
   },
 };
 
@@ -656,11 +903,10 @@ const headphones_item: ItemDef = {
 const fan: ItemDef = {
   id: 'fan', name: 'Fan', world: 'bedroom', sizeTier: 5, baseValue: 25, weight: 6,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.05, s*0.35, c[0]);
     ctx.beginPath(); ctx.arc(0, -s * 0.05, s * 0.35, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.03;
-    ctx.beginPath(); ctx.arc(0, -s * 0.05, s * 0.35, 0, Math.PI * 2); ctx.stroke();
-    ctx.fillStyle = c[1];
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.05, s*0.2, c[1]);
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI * 2 - Math.PI / 2;
       ctx.beginPath();
@@ -669,65 +915,129 @@ const fan: ItemDef = {
     }
     ctx.fillStyle = c[2] || c[0];
     ctx.fillRect(-s * 0.03, s * 0.3, s * 0.06, s * 0.12);
-    roundRect(ctx, -s * 0.12, s * 0.42, s * 0.24, s * 0.04, s * 0.01);
-    ctx.fill();
+    roundRect(ctx, -s * 0.12, s * 0.42, s * 0.24, s * 0.04, s * 0.01); ctx.fill();
+    itemHighlight(ctx, -s*0.12, -s*0.15, s*0.1, s*0.06);
   },
 };
 
 const suitcase: ItemDef = {
   id: 'suitcase', name: 'Suitcase', world: 'bedroom', sizeTier: 5, baseValue: 33, weight: 9,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.35, -s * 0.28, s * 0.7, s * 0.56, s * 0.05);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.03;
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.35, -s*0.28, s*0.35, s*0.28, c[0]);
+    roundRect(ctx, -s * 0.35, -s * 0.28, s * 0.7, s * 0.56, s * 0.05); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.03;
     ctx.beginPath(); ctx.moveTo(-s * 0.35, 0); ctx.lineTo(s * 0.35, 0); ctx.stroke();
-    ctx.fillStyle = c[1];
-    roundRect(ctx, -s * 0.15, -s * 0.38, s * 0.3, s * 0.1, s * 0.03);
-    ctx.fill();
-    ctx.fillStyle = c[2] || '#ccc';
-    ctx.fillRect(-s * 0.05, -s * 0.05, s * 0.1, s * 0.06);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.15, -s*0.38, s*0.15, -s*0.28, c[1]);
+    roundRect(ctx, -s * 0.15, -s * 0.38, s * 0.3, s * 0.1, s * 0.03); ctx.fill();
+    ctx.fillStyle = c[2] || '#ccc'; ctx.fillRect(-s * 0.05, -s * 0.05, s * 0.1, s * 0.06);
+    itemHighlight(ctx, -s*0.12, -s*0.18, s*0.15, s*0.06);
   },
 };
 
 const pillow: ItemDef = { id: 'pillow', name: 'Pillow', world: 'bedroom', sizeTier: 4, baseValue: 12, weight: 3,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.35, -s*0.22, s*0.7, s*0.44, s*0.15); ctx.fill(); ctx.strokeStyle = c[1]||'#ddd'; ctx.lineWidth = s*0.02; ctx.beginPath(); ctx.moveTo(-s*0.15, -s*0.22); ctx.quadraticCurveTo(-s*0.15, 0, -s*0.15, s*0.22); ctx.stroke(); ctx.beginPath(); ctx.moveTo(s*0.15, -s*0.22); ctx.quadraticCurveTo(s*0.15, 0, s*0.15, s*0.22); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.35, -s*0.22, s*0.35, s*0.22, c[0]);
+    roundRect(ctx, -s*0.35, -s*0.22, s*0.7, s*0.44, s*0.15); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.strokeStyle = darken(c[1]||'#ddd'); ctx.lineWidth = s*0.02;
+    ctx.beginPath(); ctx.moveTo(-s*0.15, -s*0.22); ctx.quadraticCurveTo(-s*0.15, 0, -s*0.15, s*0.22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(s*0.15, -s*0.22); ctx.quadraticCurveTo(s*0.15, 0, s*0.15, s*0.22); ctx.stroke();
+    itemHighlight(ctx, -s*0.12, -s*0.1, s*0.15, s*0.06);
+  } };
 
 const alarmClock: ItemDef = { id: 'alarm_clock', name: 'Alarm Clock', world: 'bedroom', sizeTier: 4, baseValue: 14, weight: 3.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(-s*0.18, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.18, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#fff'; ctx.beginPath(); ctx.arc(0, 0, s*0.24, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = c[2]||'#333'; ctx.lineWidth = s*0.03; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s*0.16); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s*0.1, s*0.04); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.arc(-s*0.18, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.18, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#fff'; ctx.beginPath(); ctx.arc(0, 0, s*0.24, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = darken(c[2]||'#333'); ctx.lineWidth = s*0.03; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -s*0.16); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(s*0.1, s*0.04); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.08, s*0.06);
+  } };
 
 const slipper: ItemDef = { id: 'slipper', name: 'Slipper', world: 'bedroom', sizeTier: 4, baseValue: 10, weight: 2.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(-s*0.3, s*0.1); ctx.quadraticCurveTo(-s*0.3, -s*0.2, 0, -s*0.25); ctx.quadraticCurveTo(s*0.3, -s*0.2, s*0.35, 0); ctx.quadraticCurveTo(s*0.35, s*0.2, s*0.15, s*0.2); ctx.lineTo(-s*0.2, s*0.2); ctx.quadraticCurveTo(-s*0.35, s*0.2, -s*0.3, s*0.1); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]; ctx.beginPath(); ctx.arc(0, -s*0.05, s*0.18, Math.PI, 0); ctx.closePath(); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s*0.3, s*0.1); ctx.quadraticCurveTo(-s*0.3, -s*0.2, 0, -s*0.25);
+    ctx.quadraticCurveTo(s*0.3, -s*0.2, s*0.35, 0); ctx.quadraticCurveTo(s*0.35, s*0.2, s*0.15, s*0.2);
+    ctx.lineTo(-s*0.2, s*0.2); ctx.quadraticCurveTo(-s*0.35, s*0.2, -s*0.3, s*0.1); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.05, s*0.18, c[1]);
+    ctx.beginPath(); ctx.arc(0, -s*0.05, s*0.18, Math.PI, 0); ctx.closePath(); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.1, s*0.05);
+  } };
 
 const teddy: ItemDef = { id: 'teddy', name: 'Teddy', world: 'bedroom', sizeTier: 4, baseValue: 13, weight: 3,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(-s*0.17, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.17, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(0, -s*0.15, s*0.22, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(0, s*0.18, s*0.28, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#333'; ctx.beginPath(); ctx.arc(-s*0.08, -s*0.2, s*0.03, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.08, -s*0.2, s*0.03, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[2]||'#ff6b6b'; ctx.beginPath(); ctx.arc(0, -s*0.12, s*0.04, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.arc(-s*0.17, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.17, -s*0.3, s*0.1, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -s*0.15, s*0.22, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, s*0.18, s*0.28, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#333';
+    ctx.beginPath(); ctx.arc(-s*0.08, -s*0.2, s*0.03, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.08, -s*0.2, s*0.03, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = c[2]||'#ff6b6b'; ctx.beginPath(); ctx.arc(0, -s*0.12, s*0.04, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.08, -s*0.2, s*0.08, s*0.05);
+  } };
 
 const nightLamp: ItemDef = { id: 'night_lamp', name: 'Night Lamp', world: 'bedroom', sizeTier: 4, baseValue: 15, weight: 4,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.moveTo(-s*0.25, s*0.05); ctx.lineTo(-s*0.1, -s*0.3); ctx.lineTo(s*0.1, -s*0.3); ctx.lineTo(s*0.25, s*0.05); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[1]||'#666'; ctx.fillRect(-s*0.03, s*0.05, s*0.06, s*0.22); ctx.fillStyle = c[2]||'#888'; roundRect(ctx, -s*0.12, s*0.27, s*0.24, s*0.05, s*0.02); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, -s*0.1, s*0.25, c[0]);
+    ctx.beginPath(); ctx.moveTo(-s*0.25, s*0.05); ctx.lineTo(-s*0.1, -s*0.3); ctx.lineTo(s*0.1, -s*0.3); ctx.lineTo(s*0.25, s*0.05); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#666'; ctx.fillRect(-s*0.03, s*0.05, s*0.06, s*0.22);
+    ctx.fillStyle = c[2]||'#888'; roundRect(ctx, -s*0.12, s*0.27, s*0.24, s*0.05, s*0.02); ctx.fill();
+    itemHighlight(ctx, -s*0.08, -s*0.15, s*0.06, s*0.06);
+  } };
 
 const hanger: ItemDef = { id: 'hanger', name: 'Hanger', world: 'bedroom', sizeTier: 4, baseValue: 9, weight: 2,
-  draw(ctx, s, c) { ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.05; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(0, -s*0.3, s*0.08, Math.PI, 0); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -s*0.22); ctx.lineTo(-s*0.35, s*0.15); ctx.lineTo(s*0.35, s*0.15); ctx.closePath(); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.strokeStyle = darken(c[0], 0.15); ctx.lineWidth = s*0.06; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(0, -s*0.3, s*0.08, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -s*0.22); ctx.lineTo(-s*0.35, s*0.15); ctx.lineTo(s*0.35, s*0.15); ctx.closePath(); ctx.stroke();
+    ctx.strokeStyle = c[0]; ctx.lineWidth = s*0.05;
+    ctx.beginPath(); ctx.arc(0, -s*0.3, s*0.08, Math.PI, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -s*0.22); ctx.lineTo(-s*0.35, s*0.15); ctx.lineTo(s*0.35, s*0.15); ctx.closePath(); ctx.stroke();
+    itemHighlight(ctx, -s*0.08, -s*0.25, s*0.06, s*0.04);
+  } };
 
 const book_stack: ItemDef = {
   id: 'book_stack', name: 'Book Stack', world: 'bedroom', sizeTier: 4, baseValue: 12, weight: 3.2,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[2]; ctx.fillRect(-s * 0.36, s * 0.02, s * 0.76, s * 0.12);
-    ctx.fillStyle = c[1]; ctx.fillRect(-s * 0.33, -s * 0.1, s * 0.64, s * 0.12);
-    ctx.fillStyle = c[0]; ctx.fillRect(-s * 0.27, -s * 0.22, s * 0.48, s * 0.12);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.36, s*0.02, s*0.4, s*0.14, c[2]);
+    roundRect(ctx, -s * 0.36, s * 0.02, s * 0.76, s * 0.12, s*0.02); ctx.fill();
+    itemOutline(ctx, c[2], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.33, -s*0.1, s*0.31, s*0.02, c[1]);
+    roundRect(ctx, -s * 0.33, -s * 0.1, s * 0.64, s * 0.12, s*0.02); ctx.fill();
+    itemOutline(ctx, c[1], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.27, -s*0.22, s*0.21, -s*0.1, c[0]);
+    roundRect(ctx, -s * 0.27, -s * 0.22, s * 0.48, s * 0.12, s*0.02); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    itemHighlight(ctx, -s*0.1, -s*0.18, s*0.1, s*0.04);
   },
 };
 
 const plushie: ItemDef = {
   id: 'plushie', name: 'Plushie', world: 'bedroom', sizeTier: 4, baseValue: 13, weight: 3.5,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.06, s*0.35, c[0]);
     ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.02, s * 0.1, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(s * 0.3, -s * 0.02, s * 0.1, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(0, s * 0.06, s * 0.32, 0, Math.PI * 2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
     ctx.fillStyle = c[1];
     ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.08, s * 0.04, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(s * 0.1, -s * 0.08, s * 0.04, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = c[2] || c[0]; ctx.lineWidth = s * 0.025; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(0, s * 0.02, s * 0.1, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.05, s*0.1, s*0.06);
   },
 };
 
@@ -736,70 +1046,116 @@ const plushie: ItemDef = {
 const smallTable: ItemDef = {
   id: 'small_table', name: 'Small Table', world: 'kitchen', sizeTier: 5, baseValue: 32, weight: 10,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
-    roundRect(ctx, -s * 0.4, -s * 0.32, s * 0.8, s * 0.08, s * 0.02);
-    ctx.fill();
-    ctx.fillStyle = c[1] || c[0];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.4, -s*0.32, s*0.4, -s*0.24, c[0]);
+    roundRect(ctx, -s * 0.4, -s * 0.32, s * 0.8, s * 0.08, s * 0.02); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.34, -s*0.24, -s*0.28, s*0.36, c[1] || c[0]);
     ctx.fillRect(-s * 0.34, -s * 0.24, s * 0.06, s * 0.6);
     ctx.fillRect(s * 0.28, -s * 0.24, s * 0.06, s * 0.6);
+    itemHighlight(ctx, -s*0.15, -s*0.3, s*0.2, s*0.03);
   },
 };
 
 const microwave: ItemDef = {
   id: 'microwave', name: 'Microwave', world: 'kitchen', sizeTier: 5, baseValue: 28, weight: 11,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.4, -s * 0.25, s * 0.8, s * 0.5, s * 0.04);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.fillStyle = c[1] || '#222';
-    ctx.fillRect(-s * 0.35, -s * 0.2, s * 0.5, s * 0.4);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.4, -s*0.25, s*0.4, s*0.25, c[0]);
+    roundRect(ctx, -s * 0.4, -s * 0.25, s * 0.8, s * 0.5, s * 0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1] || '#222'; ctx.fillRect(-s * 0.35, -s * 0.2, s * 0.5, s * 0.4);
     ctx.fillStyle = c[2] || '#888';
     ctx.beginPath(); ctx.arc(s * 0.28, -s * 0.05, s * 0.04, 0, Math.PI * 2); ctx.fill();
     ctx.fillRect(s * 0.24, s * 0.06, s * 0.08, s * 0.03);
     ctx.fillRect(s * 0.24, s * 0.12, s * 0.08, s * 0.03);
+    itemHighlight(ctx, -s*0.15, -s*0.15, s*0.15, s*0.06);
   },
 };
 
 const fridge: ItemDef = {
   id: 'fridge', name: 'Fridge', world: 'kitchen', sizeTier: 6, baseValue: 62, weight: 22,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.28, -s * 0.45, s * 0.56, s * 0.9, s * 0.04);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.02;
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.28, -s*0.45, s*0.28, s*0.45, c[0]);
+    roundRect(ctx, -s * 0.28, -s * 0.45, s * 0.56, s * 0.9, s * 0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.02;
     ctx.beginPath(); ctx.moveTo(-s * 0.28, -s * 0.1); ctx.lineTo(s * 0.28, -s * 0.1); ctx.stroke();
     ctx.fillStyle = c[2] || '#888';
     ctx.fillRect(s * 0.16, -s * 0.35, s * 0.04, s * 0.18);
     ctx.fillRect(s * 0.16, s * 0.0, s * 0.04, s * 0.25);
+    itemHighlight(ctx, -s*0.1, -s*0.3, s*0.1, s*0.08);
   },
 };
 
 const plate: ItemDef = { id: 'plate', name: 'Plate', world: 'kitchen', sizeTier: 4, baseValue: 13, weight: 4,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s*0.4, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#fff'; ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = c[2]||'#ddd'; ctx.lineWidth = s*0.02; ctx.beginPath(); ctx.arc(0, 0, s*0.25, 0, Math.PI*2); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.4, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s*0.4, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#fff'; ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = c[2]||'#ddd'; ctx.lineWidth = s*0.02; ctx.beginPath(); ctx.arc(0, 0, s*0.25, 0, Math.PI*2); ctx.stroke();
+    itemHighlight(ctx, -s*0.12, -s*0.12, s*0.1, s*0.06);
+  } };
 
 const fryingPan: ItemDef = { id: 'frying_pan', name: 'Frying Pan', world: 'kitchen', sizeTier: 4, baseValue: 16, weight: 5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#555'; ctx.beginPath(); ctx.arc(0, 0, s*0.25, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[0]; roundRect(ctx, s*0.25, -s*0.05, s*0.25, s*0.1, s*0.03); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.arc(0, 0, s*0.3, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#555'; ctx.beginPath(); ctx.arc(0, 0, s*0.25, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, s*0.25, -s*0.05, s*0.5, s*0.05, c[0]);
+    roundRect(ctx, s*0.25, -s*0.05, s*0.25, s*0.1, s*0.03); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.08, s*0.06);
+  } };
 
 const rollingPin: ItemDef = { id: 'rolling_pin', name: 'Rolling Pin', world: 'kitchen', sizeTier: 4, baseValue: 12, weight: 4.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.3, -s*0.1, s*0.6, s*0.2, s*0.1); ctx.fill(); ctx.fillStyle = c[1]||'#666'; ctx.fillRect(-s*0.42, -s*0.05, s*0.14, s*0.1); ctx.fillRect(s*0.28, -s*0.05, s*0.14, s*0.1); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.3, -s*0.1, s*0.3, s*0.1, c[0]);
+    roundRect(ctx, -s*0.3, -s*0.1, s*0.6, s*0.2, s*0.1); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#666'; ctx.fillRect(-s*0.42, -s*0.05, s*0.14, s*0.1); ctx.fillRect(s*0.28, -s*0.05, s*0.14, s*0.1);
+    itemHighlight(ctx, -s*0.1, -s*0.06, s*0.12, s*0.04);
+  } };
 
 const whisk: ItemDef = { id: 'whisk', name: 'Whisk', world: 'kitchen', sizeTier: 4, baseValue: 11, weight: 3,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.fillRect(-s*0.04, s*0.05, s*0.08, s*0.35); ctx.strokeStyle = c[1]||'#999'; ctx.lineWidth = s*0.025; ctx.lineCap = 'round'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i*s*0.04, s*0.05); ctx.quadraticCurveTo(i*s*0.1, -s*0.2, 0, -s*0.4); ctx.stroke(); } } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.04, s*0.05, s*0.04, s*0.4, c[0]);
+    roundRect(ctx, -s*0.04, s*0.05, s*0.08, s*0.35, s*0.02); ctx.fill();
+    ctx.strokeStyle = darken(c[1]||'#999'); ctx.lineWidth = s*0.025; ctx.lineCap = 'round';
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i*s*0.04, s*0.05); ctx.quadraticCurveTo(i*s*0.1, -s*0.2, 0, -s*0.4); ctx.stroke(); }
+    itemHighlight(ctx, -s*0.03, -s*0.15, s*0.04, s*0.06);
+  } };
 
 const cuttingBoard: ItemDef = { id: 'cutting_board', name: 'Cutting Board', world: 'kitchen', sizeTier: 4, baseValue: 14, weight: 5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.25, -s*0.35, s*0.5, s*0.75, s*0.06); ctx.fill(); ctx.fillStyle = c[1]||'rgba(0,0,0,0.1)'; ctx.beginPath(); ctx.arc(0, s*0.28, s*0.06, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.25, -s*0.35, s*0.25, s*0.4, c[0]);
+    roundRect(ctx, -s*0.25, -s*0.35, s*0.5, s*0.75, s*0.06); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'rgba(0,0,0,0.1)'; ctx.beginPath(); ctx.arc(0, s*0.28, s*0.06, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.08, -s*0.2, s*0.1, s*0.06);
+  } };
 
 const spiceJar: ItemDef = { id: 'spice_jar', name: 'Spice Jar', world: 'kitchen', sizeTier: 4, baseValue: 10, weight: 3.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.15, -s*0.15, s*0.3, s*0.45, s*0.04); ctx.fill(); ctx.fillStyle = c[1]; ctx.fillRect(-s*0.17, -s*0.25, s*0.34, s*0.12); ctx.fillStyle = c[2]||'#fff'; ctx.fillRect(-s*0.1, 0, s*0.2, s*0.12); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.15, -s*0.15, s*0.15, s*0.3, c[0]);
+    roundRect(ctx, -s*0.15, -s*0.15, s*0.3, s*0.45, s*0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.17, -s*0.25, s*0.17, -s*0.13, c[1]);
+    ctx.fillRect(-s*0.17, -s*0.25, s*0.34, s*0.12);
+    ctx.fillStyle = c[2]||'#fff'; ctx.fillRect(-s*0.1, 0, s*0.2, s*0.12);
+    itemHighlight(ctx, -s*0.05, -s*0.08, s*0.06, s*0.06);
+  } };
 
 const oven_mitt: ItemDef = {
   id: 'oven_mitt', name: 'Oven Mitt', world: 'kitchen', sizeTier: 4, baseValue: 12, weight: 3.8,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.22, -s * 0.28, s * 0.38, s * 0.52, s * 0.1);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    roundRect(ctx, -s * 0.22, -s * 0.28, s * 0.38, s * 0.52, s * 0.1); ctx.fill();
     ctx.beginPath(); ctx.arc(s * 0.18, -s * 0.12, s * 0.12, -Math.PI * 0.4, Math.PI * 0.5); ctx.lineTo(s * 0.28, s * 0.08); ctx.quadraticCurveTo(s * 0.22, s * 0.12, s * 0.12, s * 0.06); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.02; ctx.lineCap = 'round';
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.02; ctx.lineCap = 'round';
     for (let i = -2; i <= 2; i++) { const o = i * s * 0.08; ctx.beginPath(); ctx.moveTo(-s * 0.18 + o, -s * 0.22); ctx.lineTo(s * 0.12 + o, s * 0.18); ctx.stroke(); }
     for (let i = -2; i <= 2; i++) { const o = i * s * 0.08; ctx.beginPath(); ctx.moveTo(-s * 0.12 + o, s * 0.18); ctx.lineTo(s * 0.18 + o, -s * 0.22); ctx.stroke(); }
+    itemHighlight(ctx, -s*0.08, -s*0.15, s*0.08, s*0.06);
   },
 };
 
@@ -808,71 +1164,120 @@ const oven_mitt: ItemDef = {
 const washingMachine: ItemDef = {
   id: 'washing_machine', name: 'Washing Machine', world: 'bathroom', sizeTier: 6, baseValue: 55, weight: 25,
   draw(ctx, s, c) {
-    roundRect(ctx, -s * 0.35, -s * 0.38, s * 0.7, s * 0.76, s * 0.04);
-    ctx.fillStyle = c[0]; ctx.fill();
-    ctx.fillStyle = c[1] || '#ddd';
-    ctx.fillRect(-s * 0.32, -s * 0.35, s * 0.64, s * 0.15);
-    ctx.fillStyle = c[2] || '#333';
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.35, -s*0.38, s*0.35, s*0.38, c[0]);
+    roundRect(ctx, -s * 0.35, -s * 0.38, s * 0.7, s * 0.76, s * 0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1] || '#ddd'; ctx.fillRect(-s * 0.32, -s * 0.35, s * 0.64, s * 0.15);
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.08, s*0.22, c[2] || '#333');
     ctx.beginPath(); ctx.arc(0, s * 0.08, s * 0.22, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[1] || '#aaa';
-    ctx.beginPath(); ctx.arc(0, s * 0.08, s * 0.17, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = c[0];
-    ctx.beginPath(); ctx.arc(s * 0.18, -s * 0.28, s * 0.04, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = c[1] || '#aaa'; ctx.beginPath(); ctx.arc(0, s * 0.08, s * 0.17, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(s * 0.18, -s * 0.28, s * 0.04, 0, Math.PI * 2); ctx.fill();
+    itemHighlight(ctx, -s*0.12, -s*0.25, s*0.12, s*0.05);
   },
 };
 
 const bathtub: ItemDef = {
   id: 'bathtub', name: 'Bathtub', world: 'bathroom', sizeTier: 6, baseValue: 58, weight: 28,
   draw(ctx, s, c) {
-    ctx.fillStyle = c[0];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.45, -s*0.1, s*0.45, s*0.3, c[0]);
     ctx.beginPath();
-    ctx.moveTo(-s * 0.45, -s * 0.1);
-    ctx.quadraticCurveTo(-s * 0.45, s * 0.3, -s * 0.25, s * 0.3);
-    ctx.lineTo(s * 0.25, s * 0.3);
-    ctx.quadraticCurveTo(s * 0.45, s * 0.3, s * 0.45, -s * 0.1);
-    ctx.lineTo(-s * 0.45, -s * 0.1);
-    ctx.closePath(); ctx.fill();
+    ctx.moveTo(-s * 0.45, -s * 0.1); ctx.quadraticCurveTo(-s * 0.45, s * 0.3, -s * 0.25, s * 0.3);
+    ctx.lineTo(s * 0.25, s * 0.3); ctx.quadraticCurveTo(s * 0.45, s * 0.3, s * 0.45, -s * 0.1);
+    ctx.lineTo(-s * 0.45, -s * 0.1); ctx.closePath();
+    ctx.fill(); itemOutline(ctx, c[0], s*0.025);
     ctx.fillStyle = c[1] || '#bde';
     ctx.beginPath();
-    ctx.moveTo(-s * 0.38, -s * 0.1);
-    ctx.quadraticCurveTo(-s * 0.38, s * 0.22, -s * 0.2, s * 0.22);
-    ctx.lineTo(s * 0.2, s * 0.22);
-    ctx.quadraticCurveTo(s * 0.38, s * 0.22, s * 0.38, -s * 0.1);
-    ctx.closePath(); ctx.fill();
+    ctx.moveTo(-s * 0.38, -s * 0.1); ctx.quadraticCurveTo(-s * 0.38, s * 0.22, -s * 0.2, s * 0.22);
+    ctx.lineTo(s * 0.2, s * 0.22); ctx.quadraticCurveTo(s * 0.38, s * 0.22, s * 0.38, -s * 0.1); ctx.closePath(); ctx.fill();
     ctx.fillStyle = c[2] || '#888';
-    ctx.fillRect(-s * 0.42, s * 0.28, s * 0.08, s * 0.1);
-    ctx.fillRect(s * 0.34, s * 0.28, s * 0.08, s * 0.1);
+    ctx.fillRect(-s * 0.42, s * 0.28, s * 0.08, s * 0.1); ctx.fillRect(s * 0.34, s * 0.28, s * 0.08, s * 0.1);
+    itemHighlight(ctx, -s*0.15, -s*0.08, s*0.15, s*0.04);
   },
 };
 
 const soap: ItemDef = { id: 'soap', name: 'Soap', world: 'bathroom', sizeTier: 4, baseValue: 10, weight: 2.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.ellipse(0, 0, s*0.3, s*0.2, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.arc(-s*0.15, -s*0.2, s*0.06, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.05, -s*0.25, s*0.04, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(s*0.18, -s*0.18, s*0.05, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.ellipse(0, 0, s*0.3, s*0.2, 0, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.arc(-s*0.15, -s*0.2, s*0.06, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.05, -s*0.25, s*0.04, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.18, -s*0.18, s*0.05, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.1, -s*0.06, s*0.1, s*0.05);
+  } };
 
 const rubberDuck: ItemDef = { id: 'rubber_duck', name: 'Rubber Duck', world: 'bathroom', sizeTier: 4, baseValue: 12, weight: 2,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, s*0.05, s*0.28, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(-s*0.15, -s*0.2, s*0.16, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#e67e22'; ctx.beginPath(); ctx.moveTo(-s*0.3, -s*0.22); ctx.lineTo(-s*0.42, -s*0.18); ctx.lineTo(-s*0.3, -s*0.15); ctx.closePath(); ctx.fill(); ctx.fillStyle = c[2]||'#333'; ctx.beginPath(); ctx.arc(-s*0.2, -s*0.25, s*0.03, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.3, c[0]);
+    ctx.beginPath(); ctx.arc(0, s*0.05, s*0.28, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.15, -s*0.2, s*0.16, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#e67e22';
+    ctx.beginPath(); ctx.moveTo(-s*0.3, -s*0.22); ctx.lineTo(-s*0.42, -s*0.18); ctx.lineTo(-s*0.3, -s*0.15); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = c[2]||'#333'; ctx.beginPath(); ctx.arc(-s*0.2, -s*0.25, s*0.03, 0, Math.PI*2); ctx.fill();
+    itemHighlight(ctx, -s*0.05, -s*0.08, s*0.08, s*0.05);
+  } };
 
 const toothbrush: ItemDef = { id: 'toothbrush', name: 'Toothbrush', world: 'bathroom', sizeTier: 4, baseValue: 9, weight: 1.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.05, -s*0.15, s*0.1, s*0.6, s*0.03); ctx.fill(); ctx.fillStyle = c[1]; roundRect(ctx, -s*0.08, -s*0.4, s*0.16, s*0.25, s*0.04); ctx.fill(); ctx.fillStyle = c[2]||'#fff'; for (let i = 0; i < 3; i++) { ctx.fillRect(-s*0.05, -s*0.36+i*s*0.07, s*0.1, s*0.04); } } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.05, -s*0.15, s*0.05, s*0.45, c[0]);
+    roundRect(ctx, -s*0.05, -s*0.15, s*0.1, s*0.6, s*0.03); ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.08, -s*0.4, s*0.08, -s*0.15, c[1]);
+    roundRect(ctx, -s*0.08, -s*0.4, s*0.16, s*0.25, s*0.04); ctx.fill();
+    itemOutline(ctx, c[1], s*0.02);
+    ctx.fillStyle = c[2]||'#fff'; for (let i = 0; i < 3; i++) { ctx.fillRect(-s*0.05, -s*0.36+i*s*0.07, s*0.1, s*0.04); }
+    itemHighlight(ctx, -s*0.03, -s*0.3, s*0.03, s*0.06);
+  } };
 
 const shampoo: ItemDef = { id: 'shampoo', name: 'Shampoo', world: 'bathroom', sizeTier: 4, baseValue: 11, weight: 3,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; roundRect(ctx, -s*0.18, -s*0.15, s*0.36, s*0.55, s*0.05); ctx.fill(); ctx.fillStyle = c[1]||c[0]; roundRect(ctx, -s*0.1, -s*0.35, s*0.2, s*0.22, s*0.06); ctx.fill(); ctx.fillStyle = c[2]||'#fff'; ctx.fillRect(-s*0.12, 0, s*0.24, s*0.1); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.18, -s*0.15, s*0.18, s*0.4, c[0]);
+    roundRect(ctx, -s*0.18, -s*0.15, s*0.36, s*0.55, s*0.05); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.1, -s*0.35, s*0.1, -s*0.13, c[1]||c[0]);
+    roundRect(ctx, -s*0.1, -s*0.35, s*0.2, s*0.22, s*0.06); ctx.fill();
+    ctx.fillStyle = c[2]||'#fff'; ctx.fillRect(-s*0.12, 0, s*0.24, s*0.1);
+    itemHighlight(ctx, -s*0.06, -s*0.05, s*0.06, s*0.08);
+  } };
 
 const towelRoll: ItemDef = { id: 'towel_roll', name: 'Towel Roll', world: 'bathroom', sizeTier: 4, baseValue: 13, weight: 4,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.fillRect(-s*0.3, -s*0.2, s*0.6, s*0.4); ctx.fillStyle = c[1]||'#eee'; ctx.beginPath(); ctx.ellipse(-s*0.3, 0, s*0.08, s*0.2, 0, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(s*0.3, 0, s*0.08, s*0.2, 0, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = c[2]||'#ccc'; ctx.lineWidth = s*0.01; ctx.beginPath(); ctx.moveTo(-s*0.3, -s*0.08); ctx.lineTo(s*0.3, -s*0.08); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-s*0.3, s*0.08); ctx.lineTo(s*0.3, s*0.08); ctx.stroke(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.3, -s*0.2, s*0.3, s*0.2, c[0]);
+    roundRect(ctx, -s*0.3, -s*0.2, s*0.6, s*0.4, s*0.02); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = c[1]||'#eee';
+    ctx.beginPath(); ctx.ellipse(-s*0.3, 0, s*0.08, s*0.2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s*0.3, 0, s*0.08, s*0.2, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = darken(c[2]||'#ccc'); ctx.lineWidth = s*0.01;
+    ctx.beginPath(); ctx.moveTo(-s*0.3, -s*0.08); ctx.lineTo(s*0.3, -s*0.08); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s*0.3, s*0.08); ctx.lineTo(s*0.3, s*0.08); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.1, s*0.12, s*0.05);
+  } };
 
 const mirrorItem: ItemDef = { id: 'mirror_item', name: 'Mirror', world: 'bathroom', sizeTier: 4, baseValue: 15, weight: 3.5,
-  draw(ctx, s, c) { ctx.fillStyle = c[0]; ctx.beginPath(); ctx.ellipse(0, 0, s*0.3, s*0.4, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = c[1]||'#d4f1f9'; ctx.beginPath(); ctx.ellipse(0, 0, s*0.24, s*0.34, 0, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(-s*0.08, -s*0.1, s*0.08, s*0.15, -0.3, 0, Math.PI*2); ctx.fill(); } };
+  draw(ctx, s, c) {
+    ctx.fillStyle = itemGradient(ctx, 0, 0, s*0.35, c[0]);
+    ctx.beginPath(); ctx.ellipse(0, 0, s*0.3, s*0.4, 0, 0, Math.PI*2); ctx.fill();
+    itemOutline(ctx, c[0], s*0.025);
+    ctx.fillStyle = c[1]||'#d4f1f9'; ctx.beginPath(); ctx.ellipse(0, 0, s*0.24, s*0.34, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(-s*0.08, -s*0.1, s*0.08, s*0.15, -0.3, 0, Math.PI*2); ctx.fill();
+  } };
 
 const hair_dryer: ItemDef = {
   id: 'hair_dryer', name: 'Hair Dryer', world: 'bathroom', sizeTier: 4, baseValue: 11, weight: 2.8,
   draw(ctx, s, c) {
     ctx.save(); ctx.rotate(-0.35);
-    ctx.fillStyle = c[0]; roundRect(ctx, -s * 0.08, -s * 0.35, s * 0.42, s * 0.22, s * 0.04); ctx.fill();
-    ctx.fillStyle = c[1];
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.08, -s*0.35, s*0.34, -s*0.13, c[0]);
+    roundRect(ctx, -s * 0.08, -s * 0.35, s * 0.42, s * 0.22, s * 0.04); ctx.fill();
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.fillStyle = itemGradient(ctx, s*0.43, -s*0.24, s*0.1, c[1]);
     ctx.beginPath(); ctx.moveTo(s * 0.34, -s * 0.28); ctx.lineTo(s * 0.52, -s * 0.35); ctx.lineTo(s * 0.52, -s * 0.12); ctx.lineTo(s * 0.34, -s * 0.19); ctx.closePath(); ctx.fill();
-    roundRect(ctx, -s * 0.06, s * 0.02, s * 0.14, s * 0.28, s * 0.03); ctx.fillStyle = c[0]; ctx.fill();
+    ctx.fillStyle = itemLinearGradient(ctx, -s*0.06, s*0.02, s*0.08, s*0.3, c[0]);
+    roundRect(ctx, -s * 0.06, s * 0.02, s * 0.14, s * 0.28, s * 0.03); ctx.fill();
     ctx.fillStyle = c[2]; ctx.beginPath(); ctx.arc(s * 0.12, -s * 0.24, s * 0.035, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
+    itemHighlight(ctx, -s*0.06, -s*0.2, s*0.06, s*0.05);
   },
 };
 
@@ -880,13 +1285,16 @@ const loofah: ItemDef = {
   id: 'loofah', name: 'Loofah', world: 'bathroom', sizeTier: 4, baseValue: 12, weight: 3,
   draw(ctx, s, c) {
     const r = s * 0.32;
-    ctx.fillStyle = c[0]; ctx.beginPath(); ctx.arc(0, s * 0.06, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = itemGradient(ctx, 0, s*0.06, r, c[0]);
+    ctx.beginPath(); ctx.arc(0, s * 0.06, r, 0, Math.PI * 2); ctx.fill();
     for (let i = 0; i < 14; i++) {
       const a = (i / 14) * Math.PI * 2;
       ctx.beginPath(); ctx.arc(Math.cos(a) * r * 0.92, s * 0.06 + Math.sin(a) * r * 0.92, r * 0.22, a - 0.5, a + 0.5); ctx.fill();
     }
-    ctx.strokeStyle = c[1]; ctx.lineWidth = s * 0.045; ctx.lineCap = 'round';
+    itemOutline(ctx, c[0], s*0.02);
+    ctx.strokeStyle = darken(c[1]); ctx.lineWidth = s * 0.045; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(0, -s * 0.28, s * 0.08, Math.PI, 0); ctx.stroke();
+    itemHighlight(ctx, -s*0.1, -s*0.02, s*0.1, s*0.06);
   },
 };
 
@@ -2268,6 +2676,60 @@ const dragon_egg: ItemDef = {
   },
 };
 
+// ─── Visual Enhancement Wrapper ───
+// Worlds whose items were individually reworked with explicit gradients,
+// outlines and highlights. They only need the drop-shadow pass.
+const MANUAL_WORLDS: Set<string> = new Set([
+  'crumbs','desk_drawer','pencil_case','lunchbox','toy_box',
+  'backpack','bedroom','kitchen','bathroom',
+]);
+
+const _fillDesc = Object.getOwnPropertyDescriptor(
+  CanvasRenderingContext2D.prototype, 'fillStyle',
+)!;
+
+function enhanceItem(item: ItemDef): ItemDef {
+  const manual = MANUAL_WORLDS.has(item.world);
+  const origDraw = item.draw;
+  return {
+    ...item,
+    draw(ctx, s, c) {
+      if (!manual) {
+        const paletteSet = new Set(c.filter(Boolean));
+        Object.defineProperty(ctx, 'fillStyle', {
+          configurable: true, enumerable: true,
+          get() { return _fillDesc.get!.call(ctx); },
+          set(val: any) {
+            if (typeof val === 'string' && paletteSet.has(val)) {
+              _fillDesc.set!.call(ctx, itemGradient(ctx, 0, 0, s * 0.4, val));
+            } else {
+              _fillDesc.set!.call(ctx, val);
+            }
+          },
+        });
+      }
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.18)';
+      ctx.shadowBlur = s * 0.06;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = s * 0.03;
+
+      origDraw.call(this, ctx, s, c);
+
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.restore();
+
+      if (!manual) {
+        delete (ctx as any).fillStyle;
+        itemHighlight(ctx, -s * 0.1, -s * 0.12, s * 0.12, s * 0.08);
+      }
+    },
+  };
+}
+
 // ─── Export catalog ───
 
 export const ITEM_CATALOG: ItemDef[] = [
@@ -2317,7 +2779,7 @@ export const ITEM_CATALOG: ItemDef[] = [
   fishItem, seashell, treasureChest, coralItem, jellyfish, anchorItem, starfish_item, octopus_item, submarine_item, diving_helmet,
   // Volcano
   lavaRock, obsidianShard, rubyItem, magmaDrop, ember, volcanicCrystal, fossil, geode, lava_lamp_item, dragon_egg,
-];
+].map(enhanceItem);
 
 export const ITEM_LOOKUP: Record<string, ItemDef> = Object.fromEntries(
   ITEM_CATALOG.map(item => [item.id, item])

@@ -15,6 +15,7 @@ import {
   CheckIcon,
 } from './icons';
 import { motion, AnimatePresence } from 'motion/react';
+import { LunchboxReveal } from './LunchboxReveal';
 
 type StoreTab = 'featured' | 'daily' | 'gems' | 'boosts' | 'bundles';
 
@@ -200,14 +201,13 @@ function DailyTab() {
     claimFreeGift, dailyReward, claimDailyReward,
   } = useGameStore();
 
-  const [giftResult, setGiftResult] = useState<string | null>(null);
+  const [revealReward, setRevealReward] = useState<string | null>(null);
   const timerState = FreeGiftTimer({ lastClaim: freeGiftLastClaim, claimsToday: freeGiftClaimsToday, lastDate: lastFreeGiftDate });
 
   const handleClaim = () => {
     const reward = claimFreeGift();
     if (reward) {
-      setGiftResult(reward.label);
-      setTimeout(() => setGiftResult(null), 3000);
+      setRevealReward(reward.label);
     }
   };
 
@@ -219,6 +219,16 @@ function DailyTab() {
 
   return (
     <div className="space-y-4">
+      {/* Lunchbox opening animation */}
+      <AnimatePresence>
+        {revealReward && (
+          <LunchboxReveal
+            reward={revealReward}
+            onClose={() => setRevealReward(null)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Free Lunchbox */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 border-2 border-blue-200">
         <div className="flex items-center gap-2 mb-2">
@@ -228,19 +238,6 @@ function DailyTab() {
         <div className="text-xs text-blue-700/80 font-body mb-3">
           {timerState.remaining} of {FREE_GIFT_MAX_DAILY} gifts left today
         </div>
-
-        <AnimatePresence>
-          {giftResult && (
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="bg-white rounded-xl p-3 border-2 border-emerald-300 text-center mb-3"
-            >
-              <div className="text-lg font-black text-emerald-600">{giftResult}!</div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <button
           onClick={handleClaim}

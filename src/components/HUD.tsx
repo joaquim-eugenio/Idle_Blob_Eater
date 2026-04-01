@@ -66,10 +66,12 @@ export function HUD() {
 
   return (
     <>
-    <div className="absolute top-0 left-0 right-0 p-4 pt-safe flex flex-col gap-2 pointer-events-none z-10">
-      <div className="flex justify-between items-start relative">
-        <div className="flex flex-col">
-          <div className="text-2xl font-black text-slate-800 drop-shadow-sm">
+    <div className="absolute top-0 left-0 right-0 p-4 pt-safe-extra flex flex-col gap-2 pointer-events-none z-10">
+      {/* Top row: Level left | $ centered | Settings right */}
+      <div className="flex items-center relative">
+        {/* Left: Level */}
+        <div className="flex flex-col shrink-0">
+          <div className="text-2xl font-black text-slate-800 drop-shadow-sm leading-tight">
             Level {currentLevel}
           </div>
           <div className="text-xs font-semibold text-slate-500 -mt-0.5 font-body flex items-center gap-1.5">
@@ -88,23 +90,29 @@ export function HUD() {
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-0.5">
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="p-1.5 text-slate-400 hover:text-slate-600 pointer-events-auto transition-colors"
-            aria-label="Settings"
-          >
-            <GearIcon size={18} />
-          </button>
-          <div key={flashKey} className="text-xl font-black text-emerald-600 bg-white border-2 border-emerald-400 px-3 py-1 rounded-full shadow-md shadow-emerald-200/30 money-flash">
+        {/* Center: Money (absolutely centered on screen) */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+          <div key={flashKey} className="text-lg font-black text-emerald-600 bg-white border-2 border-emerald-400 px-2.5 py-0.5 rounded-full shadow-md shadow-emerald-200/30 money-flash leading-tight">
             ${fmt(money)}
           </div>
           {moneyPerSecond > 0 && (
-            <div className="text-[11px] font-bold text-emerald-500/80 px-2">
+            <div className="text-[11px] font-bold text-emerald-500/80">
               ${fmt(moneyPerSecond)}/s
             </div>
           )}
         </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Right: Settings button */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="btn-bar-icon pointer-events-auto p-2.5 bg-slate-300 text-white rounded-full border-2 border-slate-400 border-b-slate-500 hover:bg-slate-200 active:scale-95 shrink-0"
+          aria-label="Settings"
+        >
+          <GearIcon size={24} />
+        </button>
       </div>
 
       {/* Hunger Bar */}

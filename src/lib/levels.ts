@@ -12,7 +12,7 @@ export interface WorldDef {
 
 export const WORLDS: WorldDef[] = [
   { id: 'crumbs',            name: 'Crumbs',            levelRange: [1, 5],        bgColor: '#f8fafc', gridColor: 'rgba(200,200,200,0.15)',     palette: ['#4ade80', '#facc15', '#f87171'], blobScale: 1.0 },
-  { id: 'desk_drawer',       name: 'Desk Drawer',       levelRange: [6, 10],       bgColor: '#fef3c7', gridColor: 'rgba(180,140,60,0.1)',       palette: ['#a8a29e', '#78716c', '#d6d3d1'], blobScale: 1.2 },
+  { id: 'desk_drawer',       name: 'Desk Drawer',       levelRange: [6, 10],       bgColor: '#fef3c7', gridColor: 'rgba(180,140,60,0.1)',       palette: ['#f59e0b', '#dc2626', '#3b82f6'], blobScale: 1.2 },
   { id: 'pencil_case',       name: 'Pencil Case',       levelRange: [11, 15],      bgColor: '#dbeafe', gridColor: 'rgba(59,130,246,0.1)',       palette: ['#3b82f6', '#ef4444', '#f59e0b'], blobScale: 1.4 },
   { id: 'lunchbox',          name: 'Lunchbox',          levelRange: [16, 20],      bgColor: '#fef9c3', gridColor: 'rgba(234,179,8,0.1)',        palette: ['#f97316', '#84cc16', '#ef4444'], blobScale: 1.8 },
   { id: 'toy_box',           name: 'Toy Box',           levelRange: [21, 25],      bgColor: '#fce7f3', gridColor: 'rgba(236,72,153,0.08)',      palette: ['#ec4899', '#8b5cf6', '#06b6d4'], blobScale: 2.2 },

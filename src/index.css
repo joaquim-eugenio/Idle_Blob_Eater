@@ -25,6 +25,9 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
+  .pt-safe-extra {
+    padding-top: max(env(safe-area-inset-top, 0px), 8px);
+  }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }

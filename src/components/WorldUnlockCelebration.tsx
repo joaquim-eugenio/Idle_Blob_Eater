@@ -4,6 +4,7 @@ import { StarIcon, TreeIcon } from './icons';
 import { useGameStore } from '../store/gameStore';
 import { WORLDS, type WorldDef } from '../lib/levels';
 import { getItemsForWorld, type ItemDef } from '../lib/itemCatalog';
+import { pickQuote, WORLD_UNLOCK_QUOTES } from '../lib/blobQuotes';
 
 function getWorldIndex(world: WorldDef): number {
   return WORLDS.findIndex(w => w.id === world.id) + 1;
@@ -152,6 +153,11 @@ export function WorldUnlockCelebration() {
   const previewItems = useMemo(
     () => toWorld ? pickPreviewItems(toWorld) : [],
     [toWorld],
+  );
+
+  const hungerQuote = useMemo(
+    () => pending ? pickQuote(WORLD_UNLOCK_QUOTES) : '',
+    [pending],
   );
 
   const handleExplore = useCallback(() => {
@@ -317,6 +323,15 @@ export function WorldUnlockCelebration() {
                       boxShadow: `0 0 20px ${toWorld.palette[0]}60`,
                     }}
                   />
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5, duration: 0.4 }}
+                    className="text-sm italic text-white/60 text-center font-body mt-1"
+                  >
+                    {hungerQuote}
+                  </motion.div>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -399,7 +399,7 @@ function splitOversizedItem(
   worldIdx: number,
   valueMult: number,
   skillOversizedValueMult: number,
-): { newItems: Item[]; removedId: string } {
+): { newItems: Item[]; removedId: string; fragmentCount: number } {
   const config = getOversizedConfig(worldIdx)!;
   const fragmentCount = config.fragmentCount;
   const effectiveValueMult = valueMult + skillOversizedValueMult;
@@ -426,7 +426,7 @@ function splitOversizedItem(
   }
 
   const newItems = allItems.filter(i => i.id !== item.id).concat(fragments);
-  return { newItems, removedId: item.id };
+  return { newItems, removedId: item.id, fragmentCount };
 }
 
 function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[] {
@@ -894,21 +894,11 @@ export const useGameStore = create<GameState>()(
         const def = getLevel(levelNum);
         const levelItems = buildLevelItems(levelNum, 200, 300);
 
-        const worldForLevel = getWorldForLevel(levelNum);
-        const wIdx = WORLDS.indexOf(worldForLevel);
-        const osCfg = getOversizedConfig(wIdx);
-        let oversizedFragTotal = 0;
-        for (const item of levelItems) {
-          if (item.isOversized && osCfg) {
-            oversizedFragTotal += osCfg.fragmentCount;
-          }
-        }
-
         return {
           currentLevel: levelNum,
           items: levelItems,
           levelItemsEaten: 0,
-          levelItemsTotal: def.totalItems + oversizedFragTotal,
+          levelItemsTotal: def.totalItems,
           levelComplete: false,
           levelFailed: false,
           reviveOffered: false,
@@ -1354,11 +1344,11 @@ export const useGameStore = create<GameState>()(
         if (newTaps >= effectiveTaps) {
           const world = getWorldForLevel(state.currentLevel);
           const wIdx = WORLDS.indexOf(world);
-          const { newItems } = splitOversizedItem(
+          const { newItems, fragmentCount } = splitOversizedItem(
             item, state.items, wIdx,
             OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
           );
-          return { items: newItems };
+          return { items: newItems, levelItemsTotal: state.levelItemsTotal + fragmentCount };
         }
 
         return {
@@ -2171,6 +2161,7 @@ export const useGameStore = create<GameState>()(
         const eatenSet = new Set<string>();
         let vomitCount = 0;
         let vomitHungerLost = 0;
+        let fragmentsCreated = 0;
 
         const osWorldIdx = WORLDS.indexOf(getWorldForLevel(state.currentLevel));
         const osCfg = getOversizedConfig(osWorldIdx);
@@ -2236,6 +2227,7 @@ export const useGameStore = create<GameState>()(
                     isOversizedFragment: true,
                   });
                 }
+                fragmentsCreated += fragCount;
               }
               continue;
             }
@@ -2387,10 +2379,11 @@ export const useGameStore = create<GameState>()(
         const newOversizedVomitCount = state._oversizedVomitCount + vomitCount;
 
         // --- Level completion detection ---
+        const newLevelItemsTotal = state.levelItemsTotal + fragmentsCreated;
         const newLevelItemsEaten = state.levelItemsEaten + itemsEaten;
         const nonStarItems = remainingItems.filter(i => i.type !== 'star' && !i.isTapFood && !i.isLegacy && !i.isOversized);
         let newLevelComplete = state.levelComplete;
-        if (nonStarItems.length === 0 && newLevelItemsEaten >= state.levelItemsTotal && state.levelItemsTotal > 0) {
+        if (nonStarItems.length === 0 && newLevelItemsEaten >= newLevelItemsTotal && newLevelItemsTotal > 0) {
           newLevelComplete = true;
           newLevelUpTime = Date.now();
         }
@@ -2541,12 +2534,13 @@ export const useGameStore = create<GameState>()(
               target.splitState = 'cracking';
               if (target.splitTapsReceived >= effectiveTaps) {
                 const wIdx = WORLDS.indexOf(getWorldForLevel(state.currentLevel));
-                const { newItems } = splitOversizedItem(
+                const { newItems, fragmentCount } = splitOversizedItem(
                   target, remainingItems, wIdx,
                   OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
                 );
                 remainingItems.length = 0;
                 remainingItems.push(...newItems);
+                fragmentsCreated += fragmentCount;
               }
             }
           }
@@ -2561,6 +2555,7 @@ export const useGameStore = create<GameState>()(
           money: newMoney,
           currentRunMoney: newRunMoney,
           levelItemsEaten: newLevelItemsEaten,
+          levelItemsTotal: newLevelItemsTotal,
           levelComplete: newLevelComplete,
           blobGrowth: state.blobGrowth + itemsEaten * 0.01,
           starSpawnTimer: newStarSpawnTimer,

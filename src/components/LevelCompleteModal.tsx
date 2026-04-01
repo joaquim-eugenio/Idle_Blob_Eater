@@ -5,6 +5,7 @@ import { useGameStore } from '../store/gameStore';
 import { getWorldForLevel } from '../lib/levels';
 import { getSuggestedUpgrade, getSuggestionReason, type RunContext } from '../lib/suggestUpgrade';
 import { shouldShowInterstitial, showInterstitialAd, type InterstitialContext } from '../lib/ads';
+import { pickQuote, LEVEL_CLEAR_QUOTES } from '../lib/blobQuotes';
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -121,13 +122,17 @@ export function LevelCompleteModal() {
     if (!successSuggestion) return;
     buySuggestedUpgrade(successSuggestion.id);
     setJustBought(true);
-    setTimeout(() => setJustBought(false), 1200);
   };
 
   const nextWorld = getWorldForLevel(currentLevel + 1);
   const currentWorld = getWorldForLevel(currentLevel);
   const worldChanged = nextWorld.id !== currentWorld.id;
   const isBossLevel = Number.isFinite(currentWorld.levelRange[1]) && currentWorld.levelRange[1] === currentLevel;
+
+  const hungerQuote = useMemo(
+    () => hasCollected ? pickQuote(LEVEL_CLEAR_QUOTES) : '',
+    [hasCollected],
+  );
 
   const showSuccess = hasCollected && levelRewards;
   const showFailure = levelFailed;
@@ -239,6 +244,10 @@ export function LevelCompleteModal() {
 
             <div className="text-3xl font-black text-slate-800">
               {isBossLevel ? 'World Clear!' : 'Level Clear!'}
+            </div>
+
+            <div className="text-sm italic text-slate-400 text-center font-body -mt-1">
+              {hungerQuote}
             </div>
 
             <div className="flex flex-col items-center gap-1 bg-emerald-50 rounded-xl px-6 py-3 w-full border-2 border-emerald-300">

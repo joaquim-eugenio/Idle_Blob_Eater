@@ -1,11 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SadFaceIcon, TVIcon, SkullIcon, WarningIcon } from './icons';
 import { useGameStore } from '../store/gameStore';
 import { showRewardedAd } from '../lib/ads';
-
-const COUNTDOWN_SECONDS = 10;
-const DECLINE_DELAY_MS = 3000;
 
 export function RevivePanel() {
   const reviveOffered = useGameStore((s) => s.reviveOffered);
@@ -16,11 +13,7 @@ export function RevivePanel() {
   const declineRevive = useGameStore((s) => s.declineRevive);
   const hasPhoenixBelch = useGameStore((s) => s.purchasedPermanentBoosts.includes('phoenix_belch'));
 
-  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
-  const [showDecline, setShowDecline] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const declineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasActed = useRef(false);
 
   const remaining = levelItemsTotal - levelItemsEaten;
@@ -29,54 +22,23 @@ export function RevivePanel() {
     : 0;
   const isHighProgress = progressPercent >= 50;
 
-  const cleanup = useCallback(() => {
-    if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
-    if (declineTimerRef.current) { clearTimeout(declineTimerRef.current); declineTimerRef.current = null; }
-  }, []);
-
   useEffect(() => {
     if (!reviveOffered) {
-      cleanup();
-      setCountdown(COUNTDOWN_SECONDS);
-      setShowDecline(false);
       setAdLoading(false);
       hasActed.current = false;
-      return;
     }
-
-    hasActed.current = false;
-
-    declineTimerRef.current = setTimeout(() => setShowDecline(true), DECLINE_DELAY_MS);
-
-    const start = Date.now();
-    countdownRef.current = setInterval(() => {
-      const elapsed = (Date.now() - start) / 1000;
-      const timeLeft = Math.max(0, COUNTDOWN_SECONDS - elapsed);
-      setCountdown(timeLeft);
-      if (timeLeft <= 0) {
-        cleanup();
-        if (!hasActed.current) {
-          hasActed.current = true;
-          declineRevive();
-        }
-      }
-    }, 100);
-
-    return cleanup;
-  }, [reviveOffered, cleanup, declineRevive]);
+  }, [reviveOffered]);
 
   const handleRevive = async () => {
     if (hasActed.current || adLoading) return;
 
     if (hasPhoenixBelch) {
       hasActed.current = true;
-      cleanup();
       reviveBlob();
       return;
     }
 
     setAdLoading(true);
-    cleanup();
 
     const success = await showRewardedAd();
     if (success) {
@@ -90,13 +52,8 @@ export function RevivePanel() {
   const handleDecline = () => {
     if (hasActed.current) return;
     hasActed.current = true;
-    cleanup();
     declineRevive();
   };
-
-  const circumference = Math.PI * 2 * 22;
-  const countdownFraction = countdown / COUNTDOWN_SECONDS;
-  const countdownUrgent = countdown <= 4;
 
   return (
     <AnimatePresence>
@@ -166,26 +123,6 @@ export function RevivePanel() {
               </div>
             </div>
 
-            {/* Countdown ring */}
-            <div className="relative w-14 h-14 flex items-center justify-center">
-              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 56 56">
-                <circle cx="28" cy="28" r="22" fill="none" stroke="#fecaca" strokeWidth="4" />
-                <motion.circle
-                  cx="28" cy="28" r="22"
-                  fill="none"
-                  stroke={countdownUrgent ? '#ef4444' : '#f97316'}
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={circumference * (1 - countdownFraction)}
-                  className="transition-[stroke-dashoffset] duration-100 ease-linear"
-                />
-              </svg>
-              <span className={`text-sm font-black ${countdownUrgent ? 'text-red-600' : 'text-orange-600'}`}>
-                {Math.ceil(countdown)}s
-              </span>
-            </div>
-
             {/* Revive CTA -- green stands out against the red/orange danger theme as "safety" */}
             <button
               onClick={handleRevive}
@@ -204,22 +141,13 @@ export function RevivePanel() {
               )}
             </button>
 
-            {/* Delayed decline option */}
-            <AnimatePresence>
-              {showDecline && (
-                <motion.button
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.6 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.4 }}
-                  onClick={handleDecline}
-                  className="text-xs text-slate-400 hover:text-slate-500 transition-colors font-body flex items-center gap-1"
-                >
-                  <SkullIcon size={12} />
-                  Let it go...
-                </motion.button>
-              )}
-            </AnimatePresence>
+            <button
+              onClick={handleDecline}
+              className="text-xs text-slate-400 opacity-60 hover:text-slate-500 hover:opacity-100 transition-all font-body flex items-center gap-1"
+            >
+              <SkullIcon size={12} />
+              Let it go...
+            </button>
           </motion.div>
         </motion.div>
       )}

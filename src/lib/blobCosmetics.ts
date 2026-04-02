@@ -1,5 +1,3 @@
-import { darken } from './drawUtils';
-
 interface BlobNode {
   x: number; y: number; vx: number; vy: number;
 }
@@ -533,17 +531,13 @@ function midpoint(a: { x: number; y: number }, b: { x: number; y: number }): { x
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 }
 
-function drawRedBowTie(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: number, _cy: number, radius: number, _time: number, numNodes: number) {
+function drawRedBowTie(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: number, cy: number, radius: number, _time: number, numNodes: number) {
   const bot = getNodePos(nodes, Math.floor(numNodes * 0.25), numNodes);
   const size = radius * 0.18;
   const tieY = bot.y - radius * 0.08;
   ctx.save();
   ctx.translate(bot.x, tieY);
-  const bowGrad = ctx.createLinearGradient(-size, -size * 0.6, size, size * 0.6);
-  bowGrad.addColorStop(0, '#ef4444');
-  bowGrad.addColorStop(0.5, '#dc2626');
-  bowGrad.addColorStop(1, '#991b1b');
-  ctx.fillStyle = bowGrad;
+  ctx.fillStyle = '#dc2626';
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(-size, -size * 0.6);
@@ -551,8 +545,6 @@ function drawRedBowTie(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: nu
   ctx.lineTo(-size, size * 0.6);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#7f1d1d'; ctx.lineWidth = radius * 0.012; ctx.lineJoin = 'round'; ctx.stroke();
-  ctx.fillStyle = bowGrad;
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(size, -size * 0.6);
@@ -560,14 +552,9 @@ function drawRedBowTie(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: nu
   ctx.lineTo(size, size * 0.6);
   ctx.closePath();
   ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = '#991b1b';
+  ctx.fillStyle = '#b91c1c';
   ctx.beginPath();
   ctx.arc(0, 0, size * 0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.beginPath();
-  ctx.ellipse(-size * 0.5, -size * 0.2, size * 0.2, size * 0.12, -0.3, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -599,23 +586,14 @@ function drawPartyHat(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: num
   const baseL = midpoint(top, left);
   const baseR = midpoint(top, right);
   const tipY = top.y - radius * 0.55;
-  const mx = (baseL.x + baseR.x) / 2;
   ctx.save();
-  const hatGrad = ctx.createLinearGradient(mx, tipY, mx, baseL.y);
-  hatGrad.addColorStop(0, '#a78bfa');
-  hatGrad.addColorStop(0.5, '#8b5cf6');
-  hatGrad.addColorStop(1, '#6d28d9');
-  ctx.fillStyle = hatGrad;
+  ctx.fillStyle = '#8b5cf6';
   ctx.beginPath();
   ctx.moveTo(baseL.x, baseL.y);
-  ctx.lineTo(mx, tipY);
+  ctx.lineTo((baseL.x + baseR.x) / 2, tipY);
   ctx.lineTo(baseR.x, baseR.y);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#4c1d95';
-  ctx.lineWidth = radius * 0.015;
-  ctx.lineJoin = 'round';
-  ctx.stroke();
   ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = radius * 0.02;
   const stripes = 3;
@@ -623,6 +601,7 @@ function drawPartyHat(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: num
     const t = i / (stripes + 1);
     const y = baseL.y + (tipY - baseL.y) * t;
     const halfW = (1 - t) * (baseR.x - baseL.x) * 0.5;
+    const mx = (baseL.x + baseR.x) / 2;
     ctx.beginPath();
     ctx.moveTo(mx - halfW, y);
     ctx.lineTo(mx + halfW, y);
@@ -630,11 +609,8 @@ function drawPartyHat(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: num
   }
   ctx.fillStyle = '#facc15';
   ctx.beginPath();
-  ctx.arc(mx, tipY, radius * 0.04, 0, Math.PI * 2);
+  ctx.arc((baseL.x + baseR.x) / 2, tipY, radius * 0.04, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#d97706';
-  ctx.lineWidth = radius * 0.01;
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -905,34 +881,19 @@ function drawCrown(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: number
   const mx = (nL.x + nR.x) / 2;
   ctx.save();
   const grad = ctx.createLinearGradient(mx, baseY - crownH, mx, baseY);
-  grad.addColorStop(0, '#fde68a');
-  grad.addColorStop(0.3, '#fbbf24');
-  grad.addColorStop(1, '#b45309');
+  grad.addColorStop(0, '#fbbf24');
+  grad.addColorStop(1, '#d97706');
   ctx.fillStyle = grad;
-  const buildCrown = () => {
-    ctx.beginPath();
-    ctx.moveTo(mx - w / 2, baseY);
-    ctx.lineTo(mx - w / 2, baseY - crownH * 0.6);
-    ctx.lineTo(mx - w / 4, baseY - crownH * 0.3);
-    ctx.lineTo(mx, baseY - crownH);
-    ctx.lineTo(mx + w / 4, baseY - crownH * 0.3);
-    ctx.lineTo(mx + w / 2, baseY - crownH * 0.6);
-    ctx.lineTo(mx + w / 2, baseY);
-    ctx.closePath();
-  };
-  buildCrown();
-  ctx.fill();
-  ctx.strokeStyle = '#92400e';
-  ctx.lineWidth = radius * 0.02;
-  ctx.lineJoin = 'round';
-  buildCrown();
-  ctx.stroke();
-  // Highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.beginPath();
-  ctx.ellipse(mx - w * 0.15, baseY - crownH * 0.65, w * 0.12, crownH * 0.15, -0.2, 0, Math.PI * 2);
+  ctx.moveTo(mx - w / 2, baseY);
+  ctx.lineTo(mx - w / 2, baseY - crownH * 0.6);
+  ctx.lineTo(mx - w / 4, baseY - crownH * 0.3);
+  ctx.lineTo(mx, baseY - crownH);
+  ctx.lineTo(mx + w / 4, baseY - crownH * 0.3);
+  ctx.lineTo(mx + w / 2, baseY - crownH * 0.6);
+  ctx.lineTo(mx + w / 2, baseY);
+  ctx.closePath();
   ctx.fill();
-  // Gems
   ctx.fillStyle = '#ef4444';
   ctx.beginPath();
   ctx.arc(mx, baseY - crownH * 0.85, radius * 0.03, 0, Math.PI * 2);
@@ -989,26 +950,19 @@ function drawDevilHorns(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: n
   const nR = getNodePos(nodes, Math.floor(numNodes * 0.85), numNodes);
   const hornH = radius * 0.35;
   ctx.save();
-  const hornGrad = ctx.createLinearGradient(0, nL.y, 0, nL.y - hornH);
-  hornGrad.addColorStop(0, '#991b1b');
-  hornGrad.addColorStop(0.6, '#b91c1c');
-  hornGrad.addColorStop(1, '#450a0a');
-  ctx.fillStyle = hornGrad;
+  ctx.fillStyle = '#991b1b';
   ctx.beginPath();
   ctx.moveTo(nL.x - radius * 0.05, nL.y);
   ctx.quadraticCurveTo(nL.x - radius * 0.15, nL.y - hornH * 0.6, nL.x - radius * 0.1, nL.y - hornH);
   ctx.quadraticCurveTo(nL.x, nL.y - hornH * 0.4, nL.x + radius * 0.05, nL.y);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#450a0a'; ctx.lineWidth = radius * 0.012; ctx.lineJoin = 'round'; ctx.stroke();
-  ctx.fillStyle = hornGrad;
   ctx.beginPath();
   ctx.moveTo(nR.x - radius * 0.05, nR.y);
   ctx.quadraticCurveTo(nR.x, nR.y - hornH * 0.4, nR.x + radius * 0.1, nR.y - hornH);
   ctx.quadraticCurveTo(nR.x + radius * 0.15, nR.y - hornH * 0.6, nR.x + radius * 0.05, nR.y);
   ctx.closePath();
   ctx.fill();
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -1023,29 +977,15 @@ function drawWizardHat(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: nu
   const tipX = mx + (nTop.x - mx) * 0.3;
   ctx.save();
   const grad = ctx.createLinearGradient(mx, baseY - hatH, mx, baseY);
-  grad.addColorStop(0, '#2e4a8f');
-  grad.addColorStop(0.4, '#1e3a5f');
-  grad.addColorStop(1, '#1e1b4b');
+  grad.addColorStop(0, '#1e3a5f');
+  grad.addColorStop(1, '#312e81');
   ctx.fillStyle = grad;
-  const buildHat = () => {
-    ctx.beginPath();
-    ctx.moveTo(mx - brimW / 2, baseY);
-    ctx.lineTo(tipX + radius * 0.15, baseY - hatH);
-    ctx.quadraticCurveTo(tipX + radius * 0.2, baseY - hatH - radius * 0.1, tipX + radius * 0.25, baseY - hatH + radius * 0.05);
-    ctx.lineTo(mx + brimW / 2, baseY);
-    ctx.closePath();
-  };
-  buildHat();
-  ctx.fill();
-  ctx.strokeStyle = '#0f172a';
-  ctx.lineWidth = radius * 0.015;
-  ctx.lineJoin = 'round';
-  buildHat();
-  ctx.stroke();
-  // Highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
   ctx.beginPath();
-  ctx.ellipse(mx - brimW * 0.12, baseY - hatH * 0.55, brimW * 0.12, hatH * 0.15, -0.2, 0, Math.PI * 2);
+  ctx.moveTo(mx - brimW / 2, baseY);
+  ctx.lineTo(tipX + radius * 0.15, baseY - hatH);
+  ctx.quadraticCurveTo(tipX + radius * 0.2, baseY - hatH - radius * 0.1, tipX + radius * 0.25, baseY - hatH + radius * 0.05);
+  ctx.lineTo(mx + brimW / 2, baseY);
+  ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = '#d97706';
   ctx.lineWidth = radius * 0.025;
@@ -1066,7 +1006,6 @@ function drawWizardHat(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: nu
   }
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = '#b45309'; ctx.lineWidth = radius * 0.01; ctx.stroke();
   ctx.restore();
 }
 
@@ -1081,35 +1020,16 @@ function drawTopHat(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: numbe
   ctx.save();
   ctx.translate(nTop.x, baseY);
   ctx.rotate(tilt);
-  // Brim
   ctx.fillStyle = '#1e293b';
   ctx.beginPath();
   ctx.ellipse(0, 0, brimW, radius * 0.06, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = '#0c1018';
-  ctx.lineWidth = radius * 0.012;
-  ctx.stroke();
-  // Body with gradient
-  const bodyGrad = ctx.createLinearGradient(-hatW, -hatH, hatW, 0);
-  bodyGrad.addColorStop(0, '#334155');
-  bodyGrad.addColorStop(0.3, '#1e293b');
-  bodyGrad.addColorStop(1, '#0f172a');
-  ctx.fillStyle = bodyGrad;
+  ctx.fillStyle = '#0f172a';
   ctx.fillRect(-hatW, -hatH, hatW * 2, hatH);
-  ctx.strokeStyle = '#0c1018'; ctx.lineWidth = radius * 0.012;
-  ctx.strokeRect(-hatW, -hatH, hatW * 2, hatH);
-  // Top
   ctx.beginPath();
   ctx.ellipse(0, -hatH, hatW, radius * 0.05, 0, 0, Math.PI * 2);
   ctx.fillStyle = '#1e293b';
   ctx.fill();
-  ctx.stroke();
-  // Highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.1)';
-  ctx.beginPath();
-  ctx.ellipse(-hatW * 0.35, -hatH * 0.5, hatW * 0.15, hatH * 0.35, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Gold band
   ctx.strokeStyle = '#d97706';
   ctx.lineWidth = radius * 0.025;
   ctx.beginPath();

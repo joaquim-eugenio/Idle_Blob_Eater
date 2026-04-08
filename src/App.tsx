@@ -16,13 +16,12 @@ import { Store } from './components/Store';
 import { BlobCustomizer } from './components/BlobCustomizer';
 import { WorldViewer } from './components/BiomeSelector';
 import { WorldUnlockCelebration } from './components/WorldUnlockCelebration';
-import { useGameLoop } from './hooks/useGameLoop';
+import { BenchmarkOverlay } from './components/BenchmarkOverlay';
 import { useOfflineProgress } from './hooks/useOfflineProgress';
 import { useGameStore } from './store/gameStore';
 
 export default function App() {
-  useGameLoop();
-
+  const benchmarkPhase = useGameStore(s => s._benchmarkPhase);
   const offline = useOfflineProgress();
   const dailyReward = useGameStore(s => s.dailyReward);
   const sessionCount = useGameStore(s => s.sessionCount);
@@ -64,28 +63,35 @@ export default function App() {
     };
   }, []);
 
+  const isBenchmark = benchmarkPhase !== 'idle';
+
   return (
     <div className="relative w-full h-[100dvh] bg-white overflow-hidden select-none touch-none">
       <GameCanvas />
-      <HUD />
-      <ActionBar />
-      <SkillTree />
-      {/* <EvolutionPanel /> */}
-      <RevivePanel />
-      <LevelCompleteModal />
-      <WorldUnlockCelebration />
+      {isBenchmark && <BenchmarkOverlay />}
+      {!isBenchmark && (
+        <>
+          <HUD />
+          <ActionBar />
+          <SkillTree />
+          {/* <EvolutionPanel /> */}
+          <RevivePanel />
+          <LevelCompleteModal />
+          <WorldUnlockCelebration />
 
-      {/* Bottom panel bar */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-100 to-white border-t-2 border-slate-300/60 pb-safe">
-        <div className="flex justify-evenly items-center px-4 py-2.5">
-          <AchievementPanel />
-          <StatsPanel />
-          <Store />
-          <BlobCustomizer />
-          <WorldViewer />
-        </div>
-      </div>
-      <Tutorial />
+          {/* Bottom panel bar */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-slate-100 to-white border-t-2 border-slate-300/60 pb-safe">
+            <div className="flex justify-evenly items-center px-4 py-2.5">
+              <AchievementPanel />
+              <StatsPanel />
+              <Store />
+              <BlobCustomizer />
+              <WorldViewer />
+            </div>
+          </div>
+          <Tutorial />
+        </>
+      )}
 
       {showDaily && (
         <DailyRewardModal

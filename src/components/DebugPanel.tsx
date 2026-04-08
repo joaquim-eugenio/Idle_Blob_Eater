@@ -172,28 +172,41 @@ export function DebugPanel({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
               <Section title="Performance Benchmark">
                 <p className="text-xs text-slate-500">
-                  Spawns 300 items on the current world to stress-test rendering performance. 
-                  An FPS counter will appear on the game canvas.
+                  Runs an automated stress test — renders hundreds of objects, particles, and effects
+                  on screen simultaneously while measuring FPS over a fixed duration.
                 </p>
-                <button
-                  onClick={() => {
-                    debugStartBenchmark();
-                    onClose();
-                  }}
-                  className={`w-full py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98] ${
-                    benchmarkActive
-                      ? 'bg-amber-100 text-amber-700 border border-amber-300'
-                      : 'bg-red-600 text-white hover:bg-red-500'
-                  }`}
-                >
-                  {benchmarkActive ? 'Benchmark Running...' : 'Start Benchmark (300 items)'}
-                </button>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => { debugStartBenchmark(200, 10); onClose(); }}
+                    className="py-2.5 rounded-xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-500 active:scale-[0.97] transition-all"
+                  >
+                    Light (200)
+                  </button>
+                  <button
+                    onClick={() => { debugStartBenchmark(400, 10); onClose(); }}
+                    className="py-2.5 rounded-xl font-bold text-sm bg-purple-600 text-white hover:bg-purple-500 active:scale-[0.97] transition-all"
+                  >
+                    Medium (400)
+                  </button>
+                  <button
+                    onClick={() => { debugStartBenchmark(600, 10); onClose(); }}
+                    className="py-2.5 rounded-xl font-bold text-sm bg-orange-600 text-white hover:bg-orange-500 active:scale-[0.97] transition-all"
+                  >
+                    Heavy (600)
+                  </button>
+                  <button
+                    onClick={() => { debugStartBenchmark(1000, 15); onClose(); }}
+                    className="py-2.5 rounded-xl font-bold text-sm bg-red-600 text-white hover:bg-red-500 active:scale-[0.97] transition-all"
+                  >
+                    Extreme (1000)
+                  </button>
+                </div>
                 {benchmarkActive && (
                   <button
-                    onClick={() => useGameStore.setState({ _benchmarkActive: false })}
-                    className="w-full py-2 rounded-xl font-bold text-xs bg-slate-200 text-slate-600 hover:bg-slate-300 transition-all"
+                    onClick={() => useGameStore.getState().debugStopBenchmark()}
+                    className="w-full py-2 rounded-xl font-bold text-xs bg-slate-200 text-slate-600 hover:bg-slate-300 transition-all mt-1"
                   >
-                    Stop FPS Counter
+                    Cancel Benchmark
                   </button>
                 )}
               </Section>

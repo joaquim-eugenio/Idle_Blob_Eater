@@ -451,14 +451,11 @@ function drawDragonScale(ctx: CanvasRenderingContext2D, cx: number, cy: number, 
       ctx.stroke();
     }
   }
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = '#f97316';
   ctx.beginPath();
   ctx.arc(cx, cy, radius * 0.95, 0, Math.PI * 2);
   ctx.strokeStyle = 'rgba(249, 115, 22, 0.3)';
   ctx.lineWidth = radius * 0.04;
   ctx.stroke();
-  ctx.shadowBlur = 0;
   ctx.restore();
 }
 
@@ -975,12 +972,9 @@ function drawHalo(ctx: CanvasRenderingContext2D, nodes: BlobNode[], _cx: number,
   ctx.save();
   ctx.strokeStyle = '#fbbf24';
   ctx.lineWidth = radius * 0.04;
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = '#fbbf24';
   ctx.beginPath();
   ctx.ellipse(haloX, haloY, radius * 0.25, radius * 0.08, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.shadowBlur = 0;
   ctx.restore();
 }
 

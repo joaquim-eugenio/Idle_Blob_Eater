@@ -6,6 +6,7 @@ import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
 import { TapHandIcon } from './icons';
 import { blobGradient, darken, lighten } from '../lib/drawUtils';
+import { drawCachedItem, setSpriteGeneration } from '../lib/spriteCache';
 
 const GAME_FONT = "'Fredoka', sans-serif";
 
@@ -43,48 +44,62 @@ class BlobNode {
   }
 }
 
+function buildStarPath(outerR: number, innerR: number): Path2D {
+  const p = new Path2D();
+  for (let si = 0; si < 10; si++) {
+    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
+    const sr = si % 2 === 0 ? outerR : innerR;
+    if (si === 0) p.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+    else p.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+  }
+  p.closePath();
+  return p;
+}
+const STAR_OUTER_PATH = buildStarPath(18, 7);
+const STAR_INNER_PATH = buildStarPath(8, 3);
+
+const STAR_GLOW_GRAD_STOPS: [number, string][] = [
+  [0, 'rgba(233,213,255,0.5)'],
+  [0.5, 'rgba(233,213,255,0.18)'],
+  [1, 'rgba(233,213,255,0)'],
+];
+const STAR_FILL_GRAD_STOPS: [number, string][] = [
+  [0, '#f0d4ff'], [0.5, '#d8b4fe'], [1, '#a855f7'],
+];
+
 function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
   const time = performance.now() / 1000;
-  ctx.shadowBlur = 40; ctx.shadowColor = '#e9d5ff';
   const pulse = 1 + Math.sin(time * 8 + item.x) * 0.15;
   ctx.scale(pulse, pulse);
 
+  // Soft glow halo
+  const glowR = 32;
+  const glow = ctx.createRadialGradient(0, 0, 6, 0, 0, glowR);
+  for (const [o, c] of STAR_GLOW_GRAD_STOPS) glow.addColorStop(o, c);
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+  ctx.fill();
+
   // Outer star with gradient fill
   const starGrad = ctx.createRadialGradient(-4, -5, 1, 0, 0, 18);
-  starGrad.addColorStop(0, '#f0d4ff');
-  starGrad.addColorStop(0.5, '#d8b4fe');
-  starGrad.addColorStop(1, '#a855f7');
+  for (const [o, c] of STAR_FILL_GRAD_STOPS) starGrad.addColorStop(o, c);
   ctx.fillStyle = starGrad;
-
-  const buildStar = (outerR: number, innerR: number) => {
-    ctx.beginPath();
-    for (let si = 0; si < 10; si++) {
-      const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-      const sr = si % 2 === 0 ? outerR : innerR;
-      if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-      else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-    }
-    ctx.closePath();
-  };
-
-  buildStar(18, 7);
-  ctx.fill();
+  ctx.fill(STAR_OUTER_PATH);
 
   // Outline
   ctx.strokeStyle = '#7c3aed';
   ctx.lineWidth = 1.8;
   ctx.lineJoin = 'round';
-  ctx.stroke();
+  ctx.stroke(STAR_OUTER_PATH);
 
   // Inner star highlight
   ctx.fillStyle = '#ffffff';
-  buildStar(8, 3);
-  ctx.fill();
+  ctx.fill(STAR_INNER_PATH);
 
   // Specular highlight on outer star
   ctx.save();
-  buildStar(18, 7);
-  ctx.clip();
+  ctx.clip(STAR_OUTER_PATH);
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.beginPath();
   ctx.ellipse(-5, -7, 8, 5, -0.3, 0, Math.PI * 2);
@@ -92,7 +107,6 @@ function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
   ctx.restore();
 
   // Sparkles
-  ctx.shadowBlur = 10; ctx.shadowColor = '#ffffff';
   for (let si = 0; si < 12; si++) {
     const sp = si % 2 === 0 ? 4 : -3;
     const sparkA = time * sp + (si * Math.PI * 2) / 12;
@@ -105,7 +119,6 @@ function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
       ctx.fill();
     }
   }
-  ctx.shadowBlur = 0;
 }
 
 function drawTapFood(ctx: CanvasRenderingContext2D) {
@@ -114,9 +127,16 @@ function drawTapFood(ctx: CanvasRenderingContext2D) {
   ctx.save();
   ctx.scale(pulse, pulse);
 
-  // Glow
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = '#60a5fa';
+  // Soft glow halo (replaces shadowBlur)
+  const glowR = 18;
+  const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, glowR);
+  glow.addColorStop(0, 'rgba(96,165,250,0.4)');
+  glow.addColorStop(0.6, 'rgba(96,165,250,0.12)');
+  glow.addColorStop(1, 'rgba(96,165,250,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+  ctx.fill();
 
   // Rounded body with gradient
   const r = 10;
@@ -130,7 +150,6 @@ function drawTapFood(ctx: CanvasRenderingContext2D) {
   ctx.fill();
 
   // Outline
-  ctx.shadowBlur = 0;
   ctx.strokeStyle = '#1d4ed8';
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -171,6 +190,7 @@ export function GameCanvas() {
     centerY: 300,
   });
   const fpsTimesRef = useRef<number[]>([]);
+  const lastTickTimeRef = useRef(0);
   const tutorialPosRef = useRef<{ x: number; y: number; r: number; itemId: string } | null>(null);
   const [tutorialVisible, setTutorialVisible] = useState(false);
 
@@ -291,11 +311,19 @@ export function GameCanvas() {
 
     let animationFrameId: number;
 
-    const render = () => {
+    const render = (frameTime: number) => {
       if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
       }
+
+      // Unified tick: run game logic before rendering
+      if (lastTickTimeRef.current !== 0) {
+        const delta = (frameTime - lastTickTimeRef.current) / 1000;
+        const cappedDelta = Math.min(delta, 0.1);
+        useGameStore.getState().tick(cappedDelta, window.innerWidth, window.innerHeight);
+      }
+      lastTickTimeRef.current = frameTime;
 
       const state = useGameStore.getState();
       const { blobPosition, items, currentLevel, upgrades, starBoostActive, boostActive,
@@ -303,6 +331,7 @@ export function GameCanvas() {
         levelItemsEaten, levelItemsTotal } = state;
 
       const world = getWorldForLevel(currentLevel);
+      setSpriteGeneration(`${world.name}:${world.palette.join(',')}`);
       const blobVisualScale = world.blobScale;
       const growFactor = 1 + 0.3 * Math.log(1 + (blobGrowth || 0) * 10);
       const levelInWorld = currentLevel - world.levelRange[0];
@@ -405,7 +434,7 @@ export function GameCanvas() {
       ctx.scale(zoom, zoom);
       ctx.translate(-camPosRef.current.x, -camPosRef.current.y);
 
-      // Dotted grid
+      // Dotted grid (batched into a single path)
       const gridSize = 100;
       const startX = Math.floor((camPosRef.current.x - canvas.width / 2 / zoom) / gridSize) * gridSize;
       const endX = startX + canvas.width / zoom + gridSize;
@@ -413,29 +442,31 @@ export function GameCanvas() {
       const endY = startY + canvas.height / zoom + gridSize;
       const dotR = 1.5 / zoom;
       ctx.fillStyle = world.gridColor;
+      ctx.beginPath();
       for (let gx = startX; gx <= endX; gx += gridSize) {
         for (let gy = startY; gy <= endY; gy += gridSize) {
-          ctx.beginPath();
+          ctx.moveTo(gx + dotR, gy);
           ctx.arc(gx, gy, dotR, 0, Math.PI * 2);
-          ctx.fill();
         }
       }
+      ctx.fill();
 
-      // Ambient particles
+      // Ambient particles (batched)
       {
         const pTime = performance.now() / 1000;
         const pCount = 18;
         ctx.globalAlpha = 0.12;
         ctx.fillStyle = world.palette[0];
+        ctx.beginPath();
         for (let pi = 0; pi < pCount; pi++) {
           const seed = pi * 137.508;
           const px = camPosRef.current.x + Math.sin(seed + pTime * 0.15) * (canvas.width / zoom) * 0.6;
           const py = camPosRef.current.y + Math.cos(seed * 0.7 + pTime * 0.12) * (canvas.height / zoom) * 0.6;
           const pr = (2 + Math.sin(seed) * 1.5) / zoom;
-          ctx.beginPath();
+          ctx.moveTo(px + pr, py);
           ctx.arc(px, py, pr, 0, Math.PI * 2);
-          ctx.fill();
         }
+        ctx.fill();
         ctx.globalAlpha = 1;
       }
 
@@ -517,147 +548,188 @@ export function GameCanvas() {
         ctx.stroke();
       }
 
-      // Items
+      // Items — viewport culling
+      const halfW = canvas.width / 2 / zoom;
+      const halfH = canvas.height / 2 / zoom;
+      const cullMargin = 80 * blobVisualScale;
+      const viewLeft = camPosRef.current.x - halfW - cullMargin;
+      const viewRight = camPosRef.current.x + halfW + cullMargin;
+      const viewTop = camPosRef.current.y - halfH - cullMargin;
+      const viewBottom = camPosRef.current.y + halfH + cullMargin;
+
+      // Pre-compute camera transform components for setTransform fast path
+      const camX = camPosRef.current.x;
+      const camY = camPosRef.current.y;
+      const screenCx = canvas.width / 2;
+      const screenCy = canvas.height / 2;
+
       items.forEach(item => {
-        ctx.save();
-        ctx.translate(item.x, item.y);
-        ctx.rotate(item.rotation || 0);
+        if (item.x < viewLeft || item.x > viewRight || item.y < viewTop || item.y > viewBottom) return;
 
-        if (item.type === 'star') {
-          const worldIdx = Math.max(0, WORLDS.indexOf(world));
-          const starSizeTier = Math.min(worldIdx + 1, 5);
-          const starScale = (6 + starSizeTier * 4) * world.blobScale / 36;
-          ctx.scale(starScale, starScale);
-          drawStarItem(ctx, item);
-        } else if (item.isTapFood) {
-          const tapSize = (6 + 2 * 4) * world.blobScale;
-          const tapScale = tapSize / 20;
-          ctx.scale(tapScale, tapScale);
-          drawTapFood(ctx);
-        } else if (item.isOversized) {
-          const catalogItem = ITEM_LOOKUP[item.type];
-          if (catalogItem) {
+        const isComplex = item.type === 'star' || item.isTapFood || item.isOversized;
+
+        if (isComplex) {
+          // Complex items need full save/restore for nested state changes
+          ctx.save();
+          ctx.translate(item.x, item.y);
+          ctx.rotate(item.rotation || 0);
+
+          if (item.type === 'star') {
             const worldIdx = Math.max(0, WORLDS.indexOf(world));
-            const nextW = worldIdx < WORLDS.length - 1 ? WORLDS[worldIdx + 1] : world;
-            const stage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
-            const stageFraction = stage / OVERSIZED_VOMIT_STAGES;
-            const sizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * stageFraction;
-            const sizeBase = (6 + catalogItem.sizeTier * 4) * nextW.blobScale * sizeMult;
-            const itemPalette = nextW.palette;
-            const crackProgress = (item.splitTapsReceived || 0) / (item.splitTapsRequired || 3);
-            const animTime = performance.now() / 1000;
+            const starSizeTier = Math.min(worldIdx + 1, 5);
+            const starScale = (6 + starSizeTier * 4) * world.blobScale / 36;
+            ctx.scale(starScale, starScale);
+            drawStarItem(ctx, item);
+          } else if (item.isTapFood) {
+            const tapSize = (6 + 2 * 4) * world.blobScale;
+            const tapScale = tapSize / 20;
+            ctx.scale(tapScale, tapScale);
+            drawTapFood(ctx);
+          } else if (item.isOversized) {
+            const catalogItem = ITEM_LOOKUP[item.type];
+            if (catalogItem) {
+              const worldIdx = Math.max(0, WORLDS.indexOf(world));
+              const nextW = worldIdx < WORLDS.length - 1 ? WORLDS[worldIdx + 1] : world;
+              const stage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
+              const stageFraction = stage / OVERSIZED_VOMIT_STAGES;
+              const sizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * stageFraction;
+              const sizeBase = (6 + catalogItem.sizeTier * 4) * nextW.blobScale * sizeMult;
+              const itemPalette = nextW.palette;
+              const crackProgress = (item.splitTapsReceived || 0) / (item.splitTapsRequired || 3);
+              const animTime = performance.now() / 1000;
 
-            // Swallowing animation: shrink and fade as item enters blob
-            if (item.splitState === 'swallowing') {
-              const swallowProgress = Math.min(1, (animTime - (item.swallowTime || 0)) / 0.4);
-              const swallowScale = 1 - swallowProgress * 0.8;
-              ctx.scale(swallowScale, swallowScale);
-              ctx.globalAlpha = 1 - swallowProgress;
-            }
-
-            const shakeAmp = crackProgress * 2;
-            if (shakeAmp > 0) {
-              ctx.translate(
-                (Math.random() - 0.5) * shakeAmp,
-                (Math.random() - 0.5) * shakeAmp,
-              );
-            }
-
-            const glowPulse = 0.3 + Math.sin(animTime * 3) * 0.15;
-            ctx.save();
-            ctx.globalAlpha = Math.min(ctx.globalAlpha, glowPulse);
-            const glowGrad = ctx.createRadialGradient(0, 0, sizeBase * 0.3, 0, 0, sizeBase * 0.85);
-            glowGrad.addColorStop(0, itemPalette[0]);
-            glowGrad.addColorStop(0.6, itemPalette[0]);
-            glowGrad.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.beginPath();
-            ctx.arc(0, 0, sizeBase * 0.85, 0, Math.PI * 2);
-            ctx.fillStyle = glowGrad;
-            ctx.fill();
-            ctx.restore();
-
-            // Pulsing dashed ring
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(0, 0, sizeBase * 0.65, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(255,255,255,${0.4 + Math.sin(animTime * 2) * 0.2})`;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.restore();
-
-            catalogItem.draw(ctx, sizeBase, itemPalette);
-
-            // Pulsing thick amber outline
-            const outlinePulse = 2.5 + Math.sin(animTime * 4) * 1;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(0, 0, sizeBase * 0.55, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(245,158,11,${0.5 + Math.sin(animTime * 3.5) * 0.2})`;
-            ctx.lineWidth = outlinePulse;
-            ctx.lineJoin = 'round';
-            ctx.stroke();
-            ctx.restore();
-
-            if (crackProgress > 0) {
-              ctx.save();
-              const crackCount = Math.ceil(crackProgress * 5);
-              for (let ci = 0; ci < crackCount; ci++) {
-                const ca = (ci / crackCount) * Math.PI * 2 + ci * 1.3;
-                const len = sizeBase * 0.35 * crackProgress;
-                // Gradient crack line
-                const cx0 = Math.cos(ca) * sizeBase * 0.1;
-                const cy0 = Math.sin(ca) * sizeBase * 0.1;
-                const cx1 = Math.cos(ca) * len;
-                const cy1 = Math.sin(ca) * len;
-                const crackGrad = ctx.createLinearGradient(cx0, cy0, cx1, cy1);
-                crackGrad.addColorStop(0, 'rgba(255,200,50,0.95)');
-                crackGrad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
-                crackGrad.addColorStop(1, 'rgba(255,200,50,0.4)');
-                ctx.strokeStyle = crackGrad;
-                ctx.shadowColor = 'rgba(255,200,50,0.6)';
-                ctx.shadowBlur = 4;
-                ctx.lineWidth = 2;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(cx0, cy0);
-                const mx = Math.cos(ca + 0.3) * len * 0.5;
-                const my = Math.sin(ca + 0.3) * len * 0.5;
-                ctx.lineTo(mx, my);
-                ctx.lineTo(cx1, cy1);
-                ctx.stroke();
+              if (item.splitState === 'swallowing') {
+                const swallowProgress = Math.min(1, (animTime - (item.swallowTime || 0)) / 0.4);
+                const swallowScale = 1 - swallowProgress * 0.8;
+                ctx.scale(swallowScale, swallowScale);
+                ctx.globalAlpha = 1 - swallowProgress;
               }
-              ctx.shadowBlur = 0;
+
+              const shakeAmp = crackProgress * 2;
+              if (shakeAmp > 0) {
+                ctx.translate(
+                  (Math.random() - 0.5) * shakeAmp,
+                  (Math.random() - 0.5) * shakeAmp,
+                );
+              }
+
+              const glowPulse = 0.3 + Math.sin(animTime * 3) * 0.15;
+              ctx.save();
+              ctx.globalAlpha = Math.min(ctx.globalAlpha, glowPulse);
+              const glowGrad = ctx.createRadialGradient(0, 0, sizeBase * 0.3, 0, 0, sizeBase * 0.85);
+              glowGrad.addColorStop(0, itemPalette[0]);
+              glowGrad.addColorStop(0.6, itemPalette[0]);
+              glowGrad.addColorStop(1, 'rgba(255,255,255,0)');
+              ctx.beginPath();
+              ctx.arc(0, 0, sizeBase * 0.85, 0, Math.PI * 2);
+              ctx.fillStyle = glowGrad;
+              ctx.fill();
               ctx.restore();
+
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(0, 0, sizeBase * 0.65, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(255,255,255,${0.4 + Math.sin(animTime * 2) * 0.2})`;
+              ctx.lineWidth = 2;
+              ctx.setLineDash([4, 4]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.restore();
+
+              drawCachedItem(ctx, catalogItem, sizeBase, itemPalette);
+
+              const outlinePulse = 2.5 + Math.sin(animTime * 4) * 1;
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(0, 0, sizeBase * 0.55, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(245,158,11,${0.5 + Math.sin(animTime * 3.5) * 0.2})`;
+              ctx.lineWidth = outlinePulse;
+              ctx.lineJoin = 'round';
+              ctx.stroke();
+              ctx.restore();
+
+              if (crackProgress > 0) {
+                ctx.save();
+                const crackCount = Math.ceil(crackProgress * 5);
+                for (let ci = 0; ci < crackCount; ci++) {
+                  const ca = (ci / crackCount) * Math.PI * 2 + ci * 1.3;
+                  const len = sizeBase * 0.35 * crackProgress;
+                  const cx0 = Math.cos(ca) * sizeBase * 0.1;
+                  const cy0 = Math.sin(ca) * sizeBase * 0.1;
+                  const cx1 = Math.cos(ca) * len;
+                  const cy1 = Math.sin(ca) * len;
+                  const crackGrad = ctx.createLinearGradient(cx0, cy0, cx1, cy1);
+                  crackGrad.addColorStop(0, 'rgba(255,200,50,0.95)');
+                  crackGrad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+                  crackGrad.addColorStop(1, 'rgba(255,200,50,0.4)');
+                  ctx.strokeStyle = crackGrad;
+                  ctx.lineWidth = 2;
+                  ctx.lineCap = 'round';
+                  ctx.beginPath();
+                  ctx.moveTo(cx0, cy0);
+                  const mx = Math.cos(ca + 0.3) * len * 0.5;
+                  const my = Math.sin(ca + 0.3) * len * 0.5;
+                  ctx.lineTo(mx, my);
+                  ctx.lineTo(cx1, cy1);
+                  ctx.stroke();
+                }
+                ctx.restore();
+              }
             }
           }
-        } else if (item.isOversizedFragment) {
-          const catalogItem = ITEM_LOOKUP[item.type];
-          if (catalogItem) {
-            const sizeBase = (6 + catalogItem.sizeTier * 4) * world.blobScale;
-            catalogItem.draw(ctx, sizeBase, world.palette);
-          }
+          ctx.restore();
         } else {
-          const catalogItem = ITEM_LOOKUP[item.type];
-          if (catalogItem) {
-            const itemWorld = item.isLegacy ? WORLD_LOOKUP[catalogItem.world] : world;
-            const itemPalette = item.isLegacy ? itemWorld.palette : world.palette;
-            const sizeBase = (6 + catalogItem.sizeTier * 4) * itemWorld.blobScale;
-            if (item.isLegacy) {
-              ctx.globalAlpha = 0.7;
-            }
-            catalogItem.draw(ctx, sizeBase, itemPalette);
-            if (item.isLegacy) {
-              ctx.globalAlpha = 1;
+          // Fast path: use setTransform to avoid save/restore overhead
+          const rot = item.rotation || 0;
+          if (rot !== 0) {
+            const cos = Math.cos(rot);
+            const sin = Math.sin(rot);
+            ctx.setTransform(
+              zoom * cos, zoom * sin,
+              -zoom * sin, zoom * cos,
+              (item.x - camX) * zoom + screenCx,
+              (item.y - camY) * zoom + screenCy
+            );
+          } else {
+            ctx.setTransform(
+              zoom, 0, 0, zoom,
+              (item.x - camX) * zoom + screenCx,
+              (item.y - camY) * zoom + screenCy
+            );
+          }
+
+          if (item.isOversizedFragment) {
+            const catalogItem = ITEM_LOOKUP[item.type];
+            if (catalogItem) {
+              const sizeBase = (6 + catalogItem.sizeTier * 4) * world.blobScale;
+              drawCachedItem(ctx, catalogItem, sizeBase, world.palette);
             }
           } else {
-            ctx.fillStyle = world.palette[0];
-            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+            const catalogItem = ITEM_LOOKUP[item.type];
+            if (catalogItem) {
+              const itemWorld = item.isLegacy ? WORLD_LOOKUP[catalogItem.world] : world;
+              const itemPalette = item.isLegacy ? itemWorld.palette : world.palette;
+              const sizeBase = (6 + catalogItem.sizeTier * 4) * itemWorld.blobScale;
+              if (item.isLegacy) {
+                ctx.globalAlpha = 0.7;
+              }
+              drawCachedItem(ctx, catalogItem, sizeBase, itemPalette);
+              if (item.isLegacy) {
+                ctx.globalAlpha = 1;
+              }
+            } else {
+              ctx.fillStyle = world.palette[0];
+              ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+            }
           }
         }
-        ctx.restore();
       });
+
+      // Restore camera transform after setTransform fast path
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.translate(screenCx, screenCy);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-camX, -camY);
 
       // Blob
       const abState = state.abilities;
@@ -765,14 +837,31 @@ export function GameCanvas() {
       const specialSkinId = state.currentSpecialSkin;
       const blobFillColor = starBoostActive ? '#a855f7' : baseColor;
 
-      if (abState.size.active) {
-        ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee';
-      } else if (starBoostActive) {
-        ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe';
-      } else if (boostActive) {
-        ctx.shadowBlur = 20; ctx.shadowColor = '#facc15';
-      } else {
-        ctx.shadowBlur = 6; ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowOffsetY = 3 / zoom;
+      // Blob glow / drop-shadow (gradient halo instead of shadowBlur)
+      {
+        let glowColor: string;
+        let glowAlpha: number;
+        let glowRadius: number;
+        if (abState.size.active) {
+          glowColor = '34,211,238'; glowAlpha = 0.35; glowRadius = radius * 2.0;
+        } else if (starBoostActive) {
+          glowColor = '216,180,254'; glowAlpha = 0.3; glowRadius = radius * 1.9;
+        } else if (boostActive) {
+          glowColor = '250,204,21'; glowAlpha = 0.25; glowRadius = radius * 1.6;
+        } else {
+          glowColor = '0,0,0'; glowAlpha = 0.18; glowRadius = radius * 1.3;
+        }
+        const bGlow = ctx.createRadialGradient(
+          blobPosition.x, blobPosition.y + 2 / zoom, radius * 0.3,
+          blobPosition.x, blobPosition.y + 2 / zoom, glowRadius
+        );
+        bGlow.addColorStop(0, `rgba(${glowColor},${glowAlpha})`);
+        bGlow.addColorStop(0.6, `rgba(${glowColor},${glowAlpha * 0.3})`);
+        bGlow.addColorStop(1, `rgba(${glowColor},0)`);
+        ctx.fillStyle = bGlow;
+        ctx.beginPath();
+        ctx.arc(blobPosition.x, blobPosition.y + 2 / zoom, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
       }
 
       ctx.fillStyle = blobGradient(ctx, blobPosition.x, blobPosition.y, radius, blobFillColor);
@@ -798,7 +887,6 @@ export function GameCanvas() {
       }
 
       // Outline stroke
-      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
       buildBlobPath();
       ctx.strokeStyle = darken(blobFillColor, 0.35);
       ctx.lineWidth = Math.max(1.5, 2.5 / zoom);
@@ -877,7 +965,6 @@ export function GameCanvas() {
           ctx.lineWidth = (3 - li * 0.3) / zoom;
           ctx.stroke();
         }
-        ctx.shadowBlur = 0;
       }
 
       if (abState.size.active) {
@@ -898,8 +985,16 @@ export function GameCanvas() {
         const pulse = 1 + Math.sin(time * 6) * 0.12;
         const flicker = 0.6 + Math.sin(time * 8) * 0.15 + Math.sin(time * 13) * 0.1;
         ctx.save();
-        ctx.shadowBlur = 18 / zoom;
-        ctx.shadowColor = '#fb923c';
+        // Soft glow for frenzy halo (replaces shadowBlur)
+        const fGlow = ctx.createRadialGradient(haloX, haloY, 0, haloX, haloY, radius * 0.5 * pulse);
+        fGlow.addColorStop(0, `rgba(251,146,60,${flicker * 0.25})`);
+        fGlow.addColorStop(0.6, `rgba(251,146,60,${flicker * 0.08})`);
+        fGlow.addColorStop(1, 'rgba(251,146,60,0)');
+        ctx.fillStyle = fGlow;
+        ctx.beginPath();
+        ctx.arc(haloX, haloY, radius * 0.5 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+
         ctx.strokeStyle = `rgba(251, 146, 60, ${flicker})`;
         ctx.lineWidth = (3.5 / zoom) * pulse;
         ctx.beginPath();
@@ -910,7 +1005,6 @@ export function GameCanvas() {
         ctx.beginPath();
         ctx.ellipse(haloX, haloY, radius * 0.28 * pulse, radius * 0.07 * pulse, 0, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.shadowBlur = 0;
         ctx.restore();
       }
 
@@ -1193,28 +1287,35 @@ export function GameCanvas() {
         if (tutorialVisible) setTutorialVisible(false);
       }
 
-      if (state._benchmarkActive) {
-        const now = performance.now();
-        const frameTimes = fpsTimesRef.current;
-        frameTimes.push(now);
-        while (frameTimes.length > 0 && frameTimes[0] < now - 1000) frameTimes.shift();
-        const fps = frameTimes.length;
-        const itemCount = state.items.length;
-
-        const label = `FPS: ${fps}  |  Items: ${itemCount}`;
-        ctx.save();
-        ctx.font = 'bold 14px monospace';
-        const textW = ctx.measureText(label).width;
-        const px = canvas.width - textW - 24;
-        const py = 12;
-        ctx.fillStyle = 'rgba(0,0,0,0.65)';
-        ctx.beginPath();
-        ctx.roundRect(px - 8, py - 4, textW + 16, 24, 8);
-        ctx.fill();
-        ctx.fillStyle = fps < 30 ? '#ef4444' : fps < 50 ? '#facc15' : '#4ade80';
-        ctx.textBaseline = 'top';
-        ctx.fillText(label, px, py);
-        ctx.restore();
+      // During benchmark: auto-spawn ripples & floating text for stress testing
+      if (state._benchmarkActive && state._benchmarkPhase === 'running') {
+        const bnow = performance.now() / 1000;
+        if (Math.random() < 0.4) {
+          ripplesRef.current.push({
+            x: blobPosition.x + (Math.random() - 0.5) * 200 * blobVisualScale,
+            y: blobPosition.y + (Math.random() - 0.5) * 200 * blobVisualScale,
+            birth: bnow,
+            type: (['normal', 'cooldown', 'blob', 'crack'] as const)[Math.floor(Math.random() * 4)],
+          });
+        }
+        if (Math.random() < 0.3) {
+          floatingTextsRef.current.push({
+            x: blobPosition.x + (Math.random() - 0.5) * 300 * blobVisualScale,
+            y: blobPosition.y + (Math.random() - 0.5) * 300 * blobVisualScale,
+            text: `+$${Math.floor(Math.random() * 100)}`,
+            birth: bnow,
+            value: Math.floor(Math.random() * 50),
+          });
+        }
+        if (Math.random() < 0.15) {
+          floatingTextsRef.current.push({
+            x: blobPosition.x + (Math.random() - 0.5) * 100,
+            y: blobPosition.y - 30,
+            text: `x${Math.floor(2 + Math.random() * 8)}`,
+            birth: bnow,
+            value: -2,
+          });
+        }
       }
 
       animationFrameId = requestAnimationFrame(render);

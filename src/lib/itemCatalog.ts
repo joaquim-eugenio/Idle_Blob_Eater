@@ -2709,17 +2709,19 @@ function enhanceItem(item: ItemDef): ItemDef {
         });
       }
 
+      // Drop-shadow via gradient halo (replaces per-item shadowBlur)
+      const shR = s * 0.55;
+      const shGrad = ctx.createRadialGradient(0, s * 0.03, s * 0.15, 0, s * 0.03, shR);
+      shGrad.addColorStop(0, 'rgba(0,0,0,0.14)');
+      shGrad.addColorStop(0.6, 'rgba(0,0,0,0.04)');
+      shGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = shGrad;
+      ctx.beginPath();
+      ctx.arc(0, s * 0.03, shR, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.18)';
-      ctx.shadowBlur = s * 0.06;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = s * 0.03;
-
       origDraw.call(this, ctx, s, c);
-
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
       ctx.restore();
 
       if (!manual) {

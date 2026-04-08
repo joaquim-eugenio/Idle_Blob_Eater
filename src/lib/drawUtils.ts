@@ -32,14 +32,28 @@ export function hslToString(h: number, s: number, l: number, a = 1): string {
   return `hsl(${h|0}, ${s|0}%, ${l|0}%)`;
 }
 
+const _darkenCache = new Map<string, string>();
 export function darken(hex: string, amount = 0.25): string {
-  const [h, s, l] = hexToHsl(hex);
-  return hslToString(h, Math.min(100, s + 5), Math.max(0, l * (1 - amount)));
+  const key = `${hex}|${amount}`;
+  let v = _darkenCache.get(key);
+  if (!v) {
+    const [h, s, l] = hexToHsl(hex);
+    v = hslToString(h, Math.min(100, s + 5), Math.max(0, l * (1 - amount)));
+    _darkenCache.set(key, v);
+  }
+  return v;
 }
 
+const _lightenCache = new Map<string, string>();
 export function lighten(hex: string, amount = 0.2): string {
-  const [h, s, l] = hexToHsl(hex);
-  return hslToString(h, Math.max(0, s - 3), Math.min(100, l + (100 - l) * amount));
+  const key = `${hex}|${amount}`;
+  let v = _lightenCache.get(key);
+  if (!v) {
+    const [h, s, l] = hexToHsl(hex);
+    v = hslToString(h, Math.max(0, s - 3), Math.min(100, l + (100 - l) * amount));
+    _lightenCache.set(key, v);
+  }
+  return v;
 }
 
 const _gradCache = new Map<string, [number, number, number]>();
@@ -49,29 +63,49 @@ function cachedHsl(hex: string): [number, number, number] {
   return v;
 }
 
+const _itemRadialStops = new Map<string, [string, string, string]>();
 export function itemGradient(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, r: number,
   baseColor: string
 ): CanvasGradient {
-  const [h, s, l] = cachedHsl(baseColor);
+  let stops = _itemRadialStops.get(baseColor);
+  if (!stops) {
+    const [h, s, l] = cachedHsl(baseColor);
+    stops = [
+      hslToString(h, Math.max(0, s - 5), Math.min(100, l + 18)),
+      hslToString(h, s, l),
+      hslToString(h, Math.min(100, s + 8), Math.max(0, l - 14)),
+    ];
+    _itemRadialStops.set(baseColor, stops);
+  }
   const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.05, x, y, r);
-  grad.addColorStop(0, hslToString(h, Math.max(0, s - 5), Math.min(100, l + 18)));
-  grad.addColorStop(0.6, hslToString(h, s, l));
-  grad.addColorStop(1, hslToString(h, Math.min(100, s + 8), Math.max(0, l - 14)));
+  grad.addColorStop(0, stops[0]);
+  grad.addColorStop(0.6, stops[1]);
+  grad.addColorStop(1, stops[2]);
   return grad;
 }
 
+const _itemLinearStops = new Map<string, [string, string, string]>();
 export function itemLinearGradient(
   ctx: CanvasRenderingContext2D,
   x1: number, y1: number, x2: number, y2: number,
   baseColor: string
 ): CanvasGradient {
-  const [h, s, l] = cachedHsl(baseColor);
+  let stops = _itemLinearStops.get(baseColor);
+  if (!stops) {
+    const [h, s, l] = cachedHsl(baseColor);
+    stops = [
+      hslToString(h, Math.max(0, s - 5), Math.min(100, l + 15)),
+      hslToString(h, s, l),
+      hslToString(h, Math.min(100, s + 8), Math.max(0, l - 12)),
+    ];
+    _itemLinearStops.set(baseColor, stops);
+  }
   const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-  grad.addColorStop(0, hslToString(h, Math.max(0, s - 5), Math.min(100, l + 15)));
-  grad.addColorStop(0.5, hslToString(h, s, l));
-  grad.addColorStop(1, hslToString(h, Math.min(100, s + 8), Math.max(0, l - 12)));
+  grad.addColorStop(0, stops[0]);
+  grad.addColorStop(0.5, stops[1]);
+  grad.addColorStop(1, stops[2]);
   return grad;
 }
 
@@ -92,15 +126,25 @@ export function itemHighlight(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.restore();
 }
 
+const _blobStopCache = new Map<string, [string, string, string]>();
 export function blobGradient(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number, radius: number,
   baseColor: string
 ): CanvasGradient {
-  const [h, s, l] = cachedHsl(baseColor);
+  let stops = _blobStopCache.get(baseColor);
+  if (!stops) {
+    const [h, s, l] = cachedHsl(baseColor);
+    stops = [
+      hslToString(h, Math.max(0, s - 8), Math.min(100, l + 22)),
+      hslToString(h, s, l),
+      hslToString(h, Math.min(100, s + 10), Math.max(0, l - 18)),
+    ];
+    _blobStopCache.set(baseColor, stops);
+  }
   const grad = ctx.createRadialGradient(cx - radius * 0.25, cy - radius * 0.25, radius * 0.05, cx, cy, radius);
-  grad.addColorStop(0, hslToString(h, Math.max(0, s - 8), Math.min(100, l + 22)));
-  grad.addColorStop(0.55, hslToString(h, s, l));
-  grad.addColorStop(1, hslToString(h, Math.min(100, s + 10), Math.max(0, l - 18)));
+  grad.addColorStop(0, stops[0]);
+  grad.addColorStop(0.55, stops[1]);
+  grad.addColorStop(1, stops[2]);
   return grad;
 }

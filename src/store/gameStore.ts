@@ -27,6 +27,10 @@ import {
 } from '../lib/storeItems';
 import { purchaseProduct } from '../lib/iap';
 
+// Mutable frame-time buffer kept outside Zustand to avoid per-frame array copies
+let _benchFrameTimes: number[] = [];
+export function getBenchFrameTimes() { return _benchFrameTimes; }
+
 export interface Item {
   id: string;
   x: number;
@@ -684,6 +688,32 @@ interface GameState {
   _autoSplitAccum: number;
   _oversizedVomitCount: number;
   _benchmarkActive: boolean;
+  _benchmarkPhase: 'idle' | 'running' | 'results';
+  _benchmarkStartTime: number;
+  _benchmarkDuration: number;
+  _benchmarkItemCount: number;
+  _benchmarkWorldHalfW: number;
+  _benchmarkWorldHalfH: number;
+  _benchmarkResults: {
+    avgFps: number;
+    minFps: number;
+    maxFps: number;
+    p1Fps: number;
+    totalFrames: number;
+    itemCount: number;
+    duration: number;
+  } | null;
+  _benchmarkSavedState: {
+    items: Item[];
+    blobPosition: { x: number; y: number };
+    levelItemsTotal: number;
+    levelItemsEaten: number;
+    levelComplete: boolean;
+    levelFailed: boolean;
+    hunger: number;
+    _levelInitialized: boolean;
+    _introPlaying: boolean;
+  } | null;
 
   autopilotActive: boolean;
   autopilotSnapshot: AutopilotSnapshot | null;
@@ -757,7 +787,8 @@ interface GameState {
   debugAddResources: (money: number, gems: number, essence: number) => void;
   debugFillHunger: () => void;
   debugUnlockAllCosmetics: () => void;
-  debugStartBenchmark: () => void;
+  debugStartBenchmark: (itemCount?: number, duration?: number) => void;
+  debugStopBenchmark: () => void;
   debugSetLevel: (level: number) => void;
 }
 
@@ -875,6 +906,14 @@ export const useGameStore = create<GameState>()(
       _autoSplitAccum: 0,
       _oversizedVomitCount: 0,
       _benchmarkActive: false,
+      _benchmarkPhase: 'idle' as const,
+      _benchmarkStartTime: 0,
+      _benchmarkDuration: 10,
+      _benchmarkItemCount: 400,
+      _benchmarkWorldHalfW: 300,
+      _benchmarkWorldHalfH: 200,
+      _benchmarkResults: null,
+      _benchmarkSavedState: null,
 
       autopilotActive: false,
       autopilotSnapshot: null,
@@ -1878,26 +1917,41 @@ export const useGameStore = create<GameState>()(
         get().initLevel(level);
       },
 
-      debugStartBenchmark: () => set((state) => {
+      debugStartBenchmark: (itemCount = 400, duration = 10) => {
+        _benchFrameTimes = [];
+        set((state) => {
+        const saved = {
+          items: state.items,
+          blobPosition: { ...state.blobPosition },
+          levelItemsTotal: state.levelItemsTotal,
+          levelItemsEaten: state.levelItemsEaten,
+          levelComplete: state.levelComplete,
+          levelFailed: state.levelFailed,
+          hunger: state.hunger,
+          _levelInitialized: state._levelInitialized,
+          _introPlaying: state._introPlaying,
+        };
+
+        const allPools = WORLDS.flatMap(w => getItemsForWorld(w.id));
+        const pool = allPools.length > 0 ? allPools : getItemsForWorld('crumbs');
+        const blobX = 0, blobY = 0;
+
         const world = getWorldForLevel(state.currentLevel);
-        const pool = getItemsForWorld(world.id);
-        if (pool.length === 0) return {};
-        const blobX = 200, blobY = 300;
+        const zoom = 2.5 / world.blobScale;
+        const worldHalfW = (window.innerWidth / zoom) * 0.45;
+        const worldHalfH = (window.innerHeight / zoom) * 0.45;
+
         const benchItems: Item[] = [];
-        const count = 300;
-        const spread = 800 * world.blobScale;
-        for (let i = 0; i < count; i++) {
-          const angle = Math.random() * Math.PI * 2;
-          const dist = 80 + Math.random() * spread;
+        for (let i = 0; i < itemCount; i++) {
           const pick = pool[Math.floor(Math.random() * pool.length)];
           benchItems.push({
-            id: Math.random().toString(36).substr(2, 9),
-            x: blobX + Math.cos(angle) * dist,
-            y: blobY + Math.sin(angle) * dist,
-            vx: (Math.random() - 0.5) * 4,
-            vy: (Math.random() - 0.5) * 4,
+            id: `bench_${i}_${Math.random().toString(36).substr(2, 5)}`,
+            x: blobX + (Math.random() - 0.5) * 2 * worldHalfW,
+            y: blobY + (Math.random() - 0.5) * 2 * worldHalfH,
+            vx: (Math.random() - 0.5) * 6 * world.blobScale,
+            vy: (Math.random() - 0.5) * 6 * world.blobScale,
             rotation: Math.random() * Math.PI * 2,
-            rotationSpeed: (Math.random() - 0.5) * 2,
+            rotationSpeed: (Math.random() - 0.5) * 3,
             type: pick.id,
             value: pick.baseValue,
             weight: pick.weight,
@@ -1905,13 +1959,37 @@ export const useGameStore = create<GameState>()(
         }
         return {
           items: benchItems,
-          levelItemsTotal: count,
+          blobPosition: { x: blobX, y: blobY },
+          levelItemsTotal: itemCount,
           levelItemsEaten: 0,
           levelComplete: false,
           levelFailed: false,
           hunger: BASE_MAX_HUNGER,
           _benchmarkActive: true,
+          _benchmarkPhase: 'running' as const,
+          _benchmarkStartTime: performance.now(),
+          _benchmarkDuration: duration,
+          _benchmarkItemCount: itemCount,
+          _benchmarkWorldHalfW: worldHalfW,
+          _benchmarkWorldHalfH: worldHalfH,
+          _benchmarkResults: null,
+          _benchmarkSavedState: saved,
           _levelInitialized: true,
+          _introPlaying: false,
+        };
+      });
+      },
+
+      debugStopBenchmark: () => set((state) => {
+        const saved = state._benchmarkSavedState;
+        if (!saved) return { _benchmarkActive: false, _benchmarkPhase: 'idle' as const };
+        return {
+          ...saved,
+          _benchmarkActive: false,
+          _benchmarkPhase: 'idle' as const,
+          _benchmarkStartTime: 0,
+          _benchmarkResults: null,
+          _benchmarkSavedState: null,
         };
       }),
 
@@ -1957,10 +2035,67 @@ export const useGameStore = create<GameState>()(
         spicyMealActive: false, offlineBoost24hExpires: 0,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
         _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
-        _autoTapAccum: 0, _benchmarkActive: false,
+        _autoTapAccum: 0, _benchmarkActive: false, _benchmarkPhase: 'idle' as const,
+        _benchmarkStartTime: 0, _benchmarkItemCount: 400,
+        _benchmarkWorldHalfW: 300, _benchmarkWorldHalfH: 200,
+        _benchmarkResults: null, _benchmarkSavedState: null,
       }),
 
       tick: (delta, width, height) => set((state) => {
+        // Benchmark mode: move items, move blob, skip all game logic
+        if (state._benchmarkActive && state._benchmarkPhase === 'running') {
+          const elapsed = (performance.now() - state._benchmarkStartTime) / 1000;
+          if (elapsed >= state._benchmarkDuration) {
+            const ft = _benchFrameTimes;
+            const intervals: number[] = [];
+            for (let i = 1; i < ft.length; i++) intervals.push(ft[i] - ft[i - 1]);
+            intervals.sort((a, b) => a - b);
+            const toFps = (ms: number) => ms > 0 ? Math.round(1000 / ms) : 0;
+            const avg = intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 16.67;
+            const p1 = intervals.length > 0 ? intervals[Math.floor(intervals.length * 0.99)] : avg;
+            const maxInterval = intervals.length > 0 ? intervals[intervals.length - 1] : avg;
+            const minInterval = intervals.length > 0 ? intervals[0] : avg;
+            return {
+              _benchmarkPhase: 'results' as const,
+              _benchmarkResults: {
+                avgFps: toFps(avg),
+                minFps: toFps(maxInterval),
+                maxFps: toFps(minInterval),
+                p1Fps: toFps(p1),
+                totalFrames: ft.length,
+                itemCount: state._benchmarkItemCount,
+                duration: state._benchmarkDuration,
+              },
+            };
+          }
+
+          const t = performance.now() / 1000;
+          const halfW = state._benchmarkWorldHalfW;
+          const halfH = state._benchmarkWorldHalfH;
+          const bx = Math.sin(t * 0.7) * halfW * 0.3;
+          const by = Math.cos(t * 0.5) * halfH * 0.3;
+          const newItems = state.items.map(item => {
+            let nx = item.x + item.vx * delta;
+            let ny = item.y + item.vy * delta;
+            let nvx = item.vx;
+            let nvy = item.vy;
+            if (nx < -halfW) { nx = -halfW; nvx = Math.abs(nvx); }
+            if (nx > halfW) { nx = halfW; nvx = -Math.abs(nvx); }
+            if (ny < -halfH) { ny = -halfH; nvy = Math.abs(nvy); }
+            if (ny > halfH) { ny = halfH; nvy = -Math.abs(nvy); }
+            return {
+              ...item,
+              x: nx, y: ny, vx: nvx, vy: nvy,
+              rotation: item.rotation + item.rotationSpeed * delta,
+            };
+          });
+          _benchFrameTimes.push(performance.now());
+          return {
+            blobPosition: { x: bx, y: by },
+            items: newItems,
+          };
+        }
+
         if (!state._levelInitialized) {
           const def = getLevel(state.currentLevel);
           const levelItems = buildLevelItems(state.currentLevel, state.blobPosition.x, state.blobPosition.y);

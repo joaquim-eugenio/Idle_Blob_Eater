@@ -1,9 +1,13 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { useGameStore, Item, getCurrentWorld } from '../store/gameStore';
-import { BASE_SUCTION, BLOB_SKINS } from '../lib/constants';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { useGameStore, Item, getCurrentWorld, computeTapCooldown } from '../store/gameStore';
+import { BASE_SUCTION, BLOB_SKINS, OVERSIZED_SIZE_MULT, OVERSIZED_VOMIT_STAGES, getOversizedConfig } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
+import { TapHandIcon } from './icons';
+import { blobGradient, darken, lighten } from '../lib/drawUtils';
+
+const GAME_FONT = "'Fredoka', sans-serif";
 
 const LEVEL_COLORS = [
   '#0088ff', '#22c55e', '#f97316', '#ef4444',
@@ -25,6 +29,7 @@ interface FloatingText {
 
 interface Ripple {
   x: number; y: number; birth: number;
+  type: 'normal' | 'cooldown' | 'blob' | 'crack';
 }
 
 const NUM_NODES = 16;
@@ -43,24 +48,50 @@ function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
   ctx.shadowBlur = 40; ctx.shadowColor = '#e9d5ff';
   const pulse = 1 + Math.sin(time * 8 + item.x) * 0.15;
   ctx.scale(pulse, pulse);
-  ctx.fillStyle = '#d8b4fe';
-  ctx.beginPath();
-  for (let si = 0; si < 10; si++) {
-    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-    const sr = si % 2 === 0 ? 18 : 7;
-    if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-    else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-  }
+
+  // Outer star with gradient fill
+  const starGrad = ctx.createRadialGradient(-4, -5, 1, 0, 0, 18);
+  starGrad.addColorStop(0, '#f0d4ff');
+  starGrad.addColorStop(0.5, '#d8b4fe');
+  starGrad.addColorStop(1, '#a855f7');
+  ctx.fillStyle = starGrad;
+
+  const buildStar = (outerR: number, innerR: number) => {
+    ctx.beginPath();
+    for (let si = 0; si < 10; si++) {
+      const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
+      const sr = si % 2 === 0 ? outerR : innerR;
+      if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+      else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
+    }
+    ctx.closePath();
+  };
+
+  buildStar(18, 7);
   ctx.fill();
+
+  // Outline
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 1.8;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Inner star highlight
   ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  for (let si = 0; si < 10; si++) {
-    const sa = (si / 10) * Math.PI * 2 - Math.PI / 2;
-    const sr = si % 2 === 0 ? 8 : 3;
-    if (si === 0) ctx.moveTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-    else ctx.lineTo(Math.cos(sa) * sr, Math.sin(sa) * sr);
-  }
+  buildStar(8, 3);
   ctx.fill();
+
+  // Specular highlight on outer star
+  ctx.save();
+  buildStar(18, 7);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(-5, -7, 8, 5, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Sparkles
   ctx.shadowBlur = 10; ctx.shadowColor = '#ffffff';
   for (let si = 0; si < 12; si++) {
     const sp = si % 2 === 0 ? 4 : -3;
@@ -78,11 +109,46 @@ function drawStarItem(ctx: CanvasRenderingContext2D, item: Item) {
 }
 
 function drawTapFood(ctx: CanvasRenderingContext2D) {
-  ctx.fillStyle = '#60a5fa';
-  ctx.fillRect(-10, -10, 20, 20);
-  ctx.strokeStyle = '#93c5fd';
+  const t = performance.now() / 1000;
+  const pulse = 1 + Math.sin(t * 5) * 0.08;
+  ctx.save();
+  ctx.scale(pulse, pulse);
+
+  // Glow
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#60a5fa';
+
+  // Rounded body with gradient
+  const r = 10;
+  const grad = ctx.createRadialGradient(-3, -3, 1, 0, 0, r);
+  grad.addColorStop(0, '#93c5fd');
+  grad.addColorStop(0.5, '#60a5fa');
+  grad.addColorStop(1, '#2563eb');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Outline
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#1d4ed8';
   ctx.lineWidth = 2;
-  ctx.strokeRect(-10, -10, 20, 20);
+  ctx.stroke();
+
+  // Highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(-3, -3.5, 4.5, 3, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Inner "!" mark
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = "bold 10px 'Fredoka', sans-serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('!', 0, 0.5);
+
+  ctx.restore();
 }
 
 export function GameCanvas() {
@@ -91,8 +157,10 @@ export function GameCanvas() {
   const prevItemsRef = useRef<Item[]>([]);
   const camPosRef = useRef({ x: 200, y: 300 });
   const floatingTextsRef = useRef<FloatingText[]>([]);
+  const prevComboRef = useRef(0);
   const ripplesRef = useRef<Ripple[]>([]);
   const eatPopRef = useRef(0);
+  const vomitAnimRef = useRef(0);
   const displayedSizeScaleRef = useRef(0);
   const introRef = useRef({
     level: 0,
@@ -103,6 +171,18 @@ export function GameCanvas() {
     centerY: 300,
   });
   const fpsTimesRef = useRef<number[]>([]);
+  const tutorialPosRef = useRef<{ x: number; y: number; r: number; itemId: string } | null>(null);
+  const [tutorialVisible, setTutorialVisible] = useState(false);
+
+  const handleTutorialTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const state = useGameStore.getState();
+    const osItem = state.items.find(i => i.isOversized && i.splitState !== 'splitting');
+    if (osItem) state.tapOversizedItem(osItem.id);
+    state.dismissHint('oversized_food');
+    setTutorialVisible(false);
+  }, []);
 
   const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -131,8 +211,75 @@ export function GameCanvas() {
     const worldX = camPosRef.current.x + (screenX - canvas.width / 2) / zoom;
     const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
 
-    ripplesRef.current.push({ x: worldX, y: worldY, birth: performance.now() / 1000 });
+    const now = performance.now() / 1000;
+    const isTutorialActive = state.activeHint === 'oversized_food';
 
+    const worldForTap = getWorldForLevel(state.currentLevel);
+    const wIdx = WORLDS.indexOf(worldForTap);
+    const nextWorldForTap = wIdx < WORLDS.length - 1 ? WORLDS[wIdx + 1] : worldForTap;
+    for (const item of state.items) {
+      if (!item.isOversized || item.splitState === 'splitting' || item.splitState === 'swallowing') continue;
+      const catalogItem = ITEM_LOOKUP[item.type];
+      if (!catalogItem) continue;
+      const tapStage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
+      const tapStageFrac = tapStage / OVERSIZED_VOMIT_STAGES;
+      const tapSizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * tapStageFrac;
+      const itemSize = (6 + catalogItem.sizeTier * 4) * nextWorldForTap.blobScale * tapSizeMult;
+      const hitDist = Math.hypot(worldX - item.x, worldY - item.y);
+      if (hitDist < itemSize * (isTutorialActive ? 1.2 : 0.8)) {
+        ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'crack' });
+        const tapsAfter = (item.splitTapsReceived || 0) + 1;
+        const osCfg = getOversizedConfig(wIdx);
+        const total = item.splitTapsRequired || (osCfg?.tapsRequired ?? 3);
+        floatingTextsRef.current.push({
+          x: item.x, y: item.y - itemSize * 0.5,
+          text: tapsAfter >= total ? 'SPLIT!' : `${tapsAfter}/${total}`,
+          birth: now, value: -1,
+        });
+        state.tapOversizedItem(item.id);
+        if (isTutorialActive) {
+          state.dismissHint('oversized_food');
+        }
+        return;
+      }
+    }
+
+    if (isTutorialActive) return;
+
+    const bx = state.blobPosition.x;
+    const by = state.blobPosition.y;
+    const tapDist = Math.hypot(worldX - bx, worldY - by);
+    const MIN_SPAWN_DIST = 40;
+
+    if (tapDist < MIN_SPAWN_DIST) {
+      ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'blob' });
+
+      const nodes = nodesRef.current;
+      const angle = Math.atan2(worldY - by, worldX - bx);
+      for (let ni = 0; ni < NUM_NODES; ni++) {
+        const nodeAngle = (ni / NUM_NODES) * Math.PI * 2;
+        let diff = Math.abs(nodeAngle - angle);
+        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+        if (diff < Math.PI / 2) {
+          const force = (Math.PI / 2 - diff) * 15 * world.blobScale;
+          nodes[ni].vx -= Math.cos(angle) * force;
+          nodes[ni].vy -= Math.sin(angle) * force;
+        }
+      }
+
+      const POKE_TEXTS = ['Hey!', 'That tickles!', 'Feed me!', 'Hehe!', 'Boop!'];
+      const text = POKE_TEXTS[Math.floor(Math.random() * POKE_TEXTS.length)];
+      floatingTextsRef.current.push({ x: bx, y: by - 20, text, birth: now, value: -1 });
+      return;
+    }
+
+    const cooldown = computeTapCooldown(state.upgrades, state.unlockedSkillNodes);
+    if (now - state.lastTapTime < cooldown) {
+      ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'cooldown' });
+      return;
+    }
+
+    ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'normal' });
     state.tapFood(worldX, worldY);
   }, []);
 
@@ -209,7 +356,14 @@ export function GameCanvas() {
         }
       }
 
-      ctx.fillStyle = world.bgColor;
+      // Background with subtle radial gradient centered on blob
+      const bgGrad = ctx.createRadialGradient(
+        canvas.width / 2, canvas.height / 2, 0,
+        canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height) * 0.7
+      );
+      bgGrad.addColorStop(0, lighten(world.bgColor, 0.08));
+      bgGrad.addColorStop(1, darken(world.bgColor, 0.08));
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
@@ -251,18 +405,39 @@ export function GameCanvas() {
       ctx.scale(zoom, zoom);
       ctx.translate(-camPosRef.current.x, -camPosRef.current.y);
 
-      // Grid
-      ctx.strokeStyle = world.gridColor;
-      ctx.lineWidth = 1 / zoom;
+      // Dotted grid
       const gridSize = 100;
       const startX = Math.floor((camPosRef.current.x - canvas.width / 2 / zoom) / gridSize) * gridSize;
       const endX = startX + canvas.width / zoom + gridSize;
       const startY = Math.floor((camPosRef.current.y - canvas.height / 2 / zoom) / gridSize) * gridSize;
       const endY = startY + canvas.height / zoom + gridSize;
-      ctx.beginPath();
-      for (let gx = startX; gx <= endX; gx += gridSize) { ctx.moveTo(gx, startY); ctx.lineTo(gx, endY); }
-      for (let gy = startY; gy <= endY; gy += gridSize) { ctx.moveTo(startX, gy); ctx.lineTo(endX, gy); }
-      ctx.stroke();
+      const dotR = 1.5 / zoom;
+      ctx.fillStyle = world.gridColor;
+      for (let gx = startX; gx <= endX; gx += gridSize) {
+        for (let gy = startY; gy <= endY; gy += gridSize) {
+          ctx.beginPath();
+          ctx.arc(gx, gy, dotR, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Ambient particles
+      {
+        const pTime = performance.now() / 1000;
+        const pCount = 18;
+        ctx.globalAlpha = 0.12;
+        ctx.fillStyle = world.palette[0];
+        for (let pi = 0; pi < pCount; pi++) {
+          const seed = pi * 137.508;
+          const px = camPosRef.current.x + Math.sin(seed + pTime * 0.15) * (canvas.width / zoom) * 0.6;
+          const py = camPosRef.current.y + Math.cos(seed * 0.7 + pTime * 0.12) * (canvas.height / zoom) * 0.6;
+          const pr = (2 + Math.sin(seed) * 1.5) / zoom;
+          ctx.beginPath();
+          ctx.arc(px, py, pr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
 
       // Suction radius
       const gameBlobScale = blobVisualScale;
@@ -315,11 +490,30 @@ export function GameCanvas() {
         const age = now - rip.birth;
         if (age > 0.6) { ripplesRef.current.splice(i, 1); continue; }
         const progress = age / 0.6;
-        const ripRadius = 20 + progress * 60;
+
+        let ripRadius: number, color: string, lineW: number;
+        if (rip.type === 'cooldown') {
+          ripRadius = 15 + progress * 25;
+          color = `rgba(150, 150, 150, ${0.35 * (1 - progress)})`;
+          lineW = (2 / zoom) * (1 - progress);
+        } else if (rip.type === 'blob') {
+          ripRadius = 15 + progress * 40;
+          color = `rgba(255, 255, 255, ${0.5 * (1 - progress)})`;
+          lineW = (2.5 / zoom) * (1 - progress);
+        } else if (rip.type === 'crack') {
+          ripRadius = 10 + progress * 35;
+          color = `rgba(255, 200, 50, ${0.6 * (1 - progress)})`;
+          lineW = (3 / zoom) * (1 - progress);
+        } else {
+          ripRadius = 20 + progress * 60;
+          color = `rgba(59, 130, 246, ${0.5 * (1 - progress)})`;
+          lineW = (3 / zoom) * (1 - progress);
+        }
+
         ctx.beginPath();
         ctx.arc(rip.x, rip.y, ripRadius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(59, 130, 246, ${0.5 * (1 - progress)})`;
-        ctx.lineWidth = (3 / zoom) * (1 - progress);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineW;
         ctx.stroke();
       }
 
@@ -331,17 +525,119 @@ export function GameCanvas() {
 
         if (item.type === 'star') {
           const worldIdx = Math.max(0, WORLDS.indexOf(world));
-          const starSizeTier = worldIdx + 1;
+          const starSizeTier = Math.min(worldIdx + 1, 5);
           const starScale = (6 + starSizeTier * 4) * world.blobScale / 36;
           ctx.scale(starScale, starScale);
           drawStarItem(ctx, item);
         } else if (item.isTapFood) {
-          const worldIdx = Math.max(0, WORLDS.indexOf(world));
-          const tapSizeTier = worldIdx + 1;
-          const tapSize = (6 + tapSizeTier * 4) * world.blobScale;
+          const tapSize = (6 + 2 * 4) * world.blobScale;
           const tapScale = tapSize / 20;
           ctx.scale(tapScale, tapScale);
           drawTapFood(ctx);
+        } else if (item.isOversized) {
+          const catalogItem = ITEM_LOOKUP[item.type];
+          if (catalogItem) {
+            const worldIdx = Math.max(0, WORLDS.indexOf(world));
+            const nextW = worldIdx < WORLDS.length - 1 ? WORLDS[worldIdx + 1] : world;
+            const stage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
+            const stageFraction = stage / OVERSIZED_VOMIT_STAGES;
+            const sizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * stageFraction;
+            const sizeBase = (6 + catalogItem.sizeTier * 4) * nextW.blobScale * sizeMult;
+            const itemPalette = nextW.palette;
+            const crackProgress = (item.splitTapsReceived || 0) / (item.splitTapsRequired || 3);
+            const animTime = performance.now() / 1000;
+
+            // Swallowing animation: shrink and fade as item enters blob
+            if (item.splitState === 'swallowing') {
+              const swallowProgress = Math.min(1, (animTime - (item.swallowTime || 0)) / 0.4);
+              const swallowScale = 1 - swallowProgress * 0.8;
+              ctx.scale(swallowScale, swallowScale);
+              ctx.globalAlpha = 1 - swallowProgress;
+            }
+
+            const shakeAmp = crackProgress * 2;
+            if (shakeAmp > 0) {
+              ctx.translate(
+                (Math.random() - 0.5) * shakeAmp,
+                (Math.random() - 0.5) * shakeAmp,
+              );
+            }
+
+            const glowPulse = 0.3 + Math.sin(animTime * 3) * 0.15;
+            ctx.save();
+            ctx.globalAlpha = Math.min(ctx.globalAlpha, glowPulse);
+            const glowGrad = ctx.createRadialGradient(0, 0, sizeBase * 0.3, 0, 0, sizeBase * 0.85);
+            glowGrad.addColorStop(0, itemPalette[0]);
+            glowGrad.addColorStop(0.6, itemPalette[0]);
+            glowGrad.addColorStop(1, 'rgba(255,255,255,0)');
+            ctx.beginPath();
+            ctx.arc(0, 0, sizeBase * 0.85, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
+            ctx.fill();
+            ctx.restore();
+
+            // Pulsing dashed ring
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, sizeBase * 0.65, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255,255,255,${0.4 + Math.sin(animTime * 2) * 0.2})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            catalogItem.draw(ctx, sizeBase, itemPalette);
+
+            // Pulsing thick amber outline
+            const outlinePulse = 2.5 + Math.sin(animTime * 4) * 1;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(0, 0, sizeBase * 0.55, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(245,158,11,${0.5 + Math.sin(animTime * 3.5) * 0.2})`;
+            ctx.lineWidth = outlinePulse;
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            ctx.restore();
+
+            if (crackProgress > 0) {
+              ctx.save();
+              const crackCount = Math.ceil(crackProgress * 5);
+              for (let ci = 0; ci < crackCount; ci++) {
+                const ca = (ci / crackCount) * Math.PI * 2 + ci * 1.3;
+                const len = sizeBase * 0.35 * crackProgress;
+                // Gradient crack line
+                const cx0 = Math.cos(ca) * sizeBase * 0.1;
+                const cy0 = Math.sin(ca) * sizeBase * 0.1;
+                const cx1 = Math.cos(ca) * len;
+                const cy1 = Math.sin(ca) * len;
+                const crackGrad = ctx.createLinearGradient(cx0, cy0, cx1, cy1);
+                crackGrad.addColorStop(0, 'rgba(255,200,50,0.95)');
+                crackGrad.addColorStop(0.5, 'rgba(255,255,255,0.9)');
+                crackGrad.addColorStop(1, 'rgba(255,200,50,0.4)');
+                ctx.strokeStyle = crackGrad;
+                ctx.shadowColor = 'rgba(255,200,50,0.6)';
+                ctx.shadowBlur = 4;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(cx0, cy0);
+                const mx = Math.cos(ca + 0.3) * len * 0.5;
+                const my = Math.sin(ca + 0.3) * len * 0.5;
+                ctx.lineTo(mx, my);
+                ctx.lineTo(cx1, cy1);
+                ctx.stroke();
+              }
+              ctx.shadowBlur = 0;
+              ctx.restore();
+            }
+          }
+        } else if (item.isOversizedFragment) {
+          const catalogItem = ITEM_LOOKUP[item.type];
+          if (catalogItem) {
+            const sizeBase = (6 + catalogItem.sizeTier * 4) * world.blobScale;
+            catalogItem.draw(ctx, sizeBase, world.palette);
+          }
         } else {
           const catalogItem = ITEM_LOOKUP[item.type];
           if (catalogItem) {
@@ -421,6 +717,37 @@ export function GameCanvas() {
       }
       prevItemsRef.current = currentItems;
 
+      // Vomit detection: items that were swallowing in previous frame but are now gone
+      const VOMIT_TEXTS = ['BLEURGH!', 'Too big!', "Can't swallow!", 'URK!', 'NOPE!', '*gag*'];
+      const currentIds = new Set(currentItems.map(i => i.id));
+      const prevSwallowing = prevItems.filter(i => i.isOversized && i.splitState === 'swallowing');
+      for (const swallowed of prevSwallowing) {
+        if (!currentIds.has(swallowed.id)) {
+          vomitAnimRef.current = now;
+          const text = VOMIT_TEXTS[Math.floor(Math.random() * VOMIT_TEXTS.length)];
+          floatingTextsRef.current.push({
+            x: blobPosition.x, y: blobPosition.y - radius * 1.5,
+            text, birth: now, value: -1,
+          });
+          for (let ni = 0; ni < NUM_NODES; ni++) {
+            nodes[ni].vx += (Math.random() - 0.5) * 12 * blobVisualScale;
+            nodes[ni].vy += (Math.random() - 0.5) * 12 * blobVisualScale;
+          }
+        }
+      }
+
+      // Combo floating text
+      if (comboCount >= 2 && comboCount > prevComboRef.current) {
+        floatingTextsRef.current.push({
+          x: blobPosition.x - radius * 1.2,
+          y: blobPosition.y + radius * 0.8,
+          text: `x${Math.min(comboCount, 10)}`,
+          birth: now,
+          value: -2,
+        });
+      }
+      prevComboRef.current = comboCount;
+
       // Physics
       for (let i = 0; i < NUM_NODES; i++) {
         const node = nodes[i];
@@ -436,28 +763,31 @@ export function GameCanvas() {
       // Draw blob body
       const baseColor = getBlobColor(currentLevel, currentSkin);
       const specialSkinId = state.currentSpecialSkin;
+      const blobFillColor = starBoostActive ? '#a855f7' : baseColor;
+
       if (abState.size.active) {
-        ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee'; ctx.fillStyle = baseColor;
+        ctx.shadowBlur = 35; ctx.shadowColor = '#22d3ee';
       } else if (starBoostActive) {
-        ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe'; ctx.fillStyle = '#a855f7';
+        ctx.shadowBlur = 30; ctx.shadowColor = '#d8b4fe';
       } else if (boostActive) {
-        ctx.shadowBlur = 20; ctx.shadowColor = '#facc15'; ctx.fillStyle = baseColor;
-      } else if (frenzyActive) {
-        ctx.shadowBlur = 0; ctx.fillStyle = baseColor;
+        ctx.shadowBlur = 20; ctx.shadowColor = '#facc15';
       } else {
-        ctx.shadowBlur = 0; ctx.fillStyle = baseColor;
+        ctx.shadowBlur = 6; ctx.shadowColor = 'rgba(0,0,0,0.25)'; ctx.shadowOffsetY = 3 / zoom;
       }
 
-      ctx.beginPath();
-      let prevNode = nodes[NUM_NODES - 1];
-      let firstMidX = (prevNode.x + nodes[0].x) / 2;
-      let firstMidY = (prevNode.y + nodes[0].y) / 2;
-      ctx.moveTo(firstMidX, firstMidY);
-      for (let i = 0; i < NUM_NODES; i++) {
-        const currNode = nodes[i];
-        const nextNode = nodes[(i + 1) % NUM_NODES];
-        ctx.quadraticCurveTo(currNode.x, currNode.y, (currNode.x + nextNode.x) / 2, (currNode.y + nextNode.y) / 2);
-      }
+      ctx.fillStyle = blobGradient(ctx, blobPosition.x, blobPosition.y, radius, blobFillColor);
+
+      const buildBlobPath = () => {
+        ctx.beginPath();
+        const pn = nodes[NUM_NODES - 1];
+        ctx.moveTo((pn.x + nodes[0].x) / 2, (pn.y + nodes[0].y) / 2);
+        for (let i = 0; i < NUM_NODES; i++) {
+          const cn = nodes[i];
+          const nn = nodes[(i + 1) % NUM_NODES];
+          ctx.quadraticCurveTo(cn.x, cn.y, (cn.x + nn.x) / 2, (cn.y + nn.y) / 2);
+        }
+      };
+      buildBlobPath();
 
       if (specialSkinId && !starBoostActive) {
         ctx.save();
@@ -466,7 +796,48 @@ export function GameCanvas() {
       } else {
         ctx.fill();
       }
-      ctx.shadowBlur = 0;
+
+      // Outline stroke
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      buildBlobPath();
+      ctx.strokeStyle = darken(blobFillColor, 0.35);
+      ctx.lineWidth = Math.max(1.5, 2.5 / zoom);
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      // Specular highlight
+      ctx.save();
+      ctx.beginPath();
+      buildBlobPath();
+      ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.beginPath();
+      ctx.ellipse(
+        blobPosition.x - radius * 0.22,
+        blobPosition.y - radius * 0.28,
+        radius * 0.45, radius * 0.3,
+        -0.4, 0, Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
+
+      const vomitAge = now - vomitAnimRef.current;
+      if (vomitAge < 0.6) {
+        const vAlpha = 0.3 * (1 - vomitAge / 0.6);
+        ctx.save();
+        ctx.globalAlpha = vAlpha;
+        ctx.fillStyle = 'rgba(100, 220, 80, 1)';
+        ctx.beginPath();
+        let vPrev = nodes[NUM_NODES - 1];
+        ctx.moveTo((vPrev.x + nodes[0].x) / 2, (vPrev.y + nodes[0].y) / 2);
+        for (let vi = 0; vi < NUM_NODES; vi++) {
+          const vCurr = nodes[vi];
+          const vNext = nodes[(vi + 1) % NUM_NODES];
+          ctx.quadraticCurveTo(vCurr.x, vCurr.y, (vCurr.x + vNext.x) / 2, (vCurr.y + vNext.y) / 2);
+        }
+        ctx.fill();
+        ctx.restore();
+      }
 
       // Active ability VFX
       if (abState.magnet.active) {
@@ -482,21 +853,27 @@ export function GameCanvas() {
         }
       }
 
-      if (abState.speed.active) {
+      if (abState.speed.active || starBoostActive) {
         const moveAngle = Math.atan2(
           blobPosition.y - camPosRef.current.y,
           blobPosition.x - camPosRef.current.x
         );
-        for (let li = 0; li < 6; li++) {
-          const spread = (li - 2.5) * 0.3;
+        const isSpeedAbility = abState.speed.active;
+        const trailCount = isSpeedAbility ? 6 : 4;
+        const trailR = isSpeedAbility ? 250 : 216;
+        const trailG = isSpeedAbility ? 204 : 180;
+        const trailB = isSpeedAbility ? 21 : 254;
+        const trailScale = isSpeedAbility ? 1.5 : 1.2;
+        for (let li = 0; li < trailCount; li++) {
+          const spread = (li - (trailCount - 1) / 2) * 0.3;
           const trailAngle = moveAngle + Math.PI + spread;
-          const trailLen = radius * (1.5 + Math.sin(time * 12 + li) * 0.5);
+          const trailLen = radius * (trailScale + Math.sin(time * 12 + li) * 0.5);
           const tx = blobPosition.x + Math.cos(trailAngle) * trailLen;
           const ty = blobPosition.y + Math.sin(trailAngle) * trailLen;
           ctx.beginPath();
           ctx.moveTo(blobPosition.x, blobPosition.y);
           ctx.lineTo(tx, ty);
-          ctx.strokeStyle = `rgba(250, 204, 21, ${0.3 - li * 0.04})`;
+          ctx.strokeStyle = `rgba(${trailR}, ${trailG}, ${trailB}, ${0.3 - li * 0.04})`;
           ctx.lineWidth = (3 - li * 0.3) / zoom;
           ctx.stroke();
         }
@@ -555,7 +932,7 @@ export function GameCanvas() {
 
       // Face
       const equippedFace = state.currentFace;
-      ctx.fillStyle = '#1a237e';
+      const irisColor = '#1a237e';
 
       const isEating = comboCount > 0;
       const isSleepy = hungerPct < 0.25;
@@ -564,20 +941,34 @@ export function GameCanvas() {
 
       const eyeY = cy - radius * 0.1 + dy;
       const eyeSize = radius * 0.08;
+      const leftEyeX = cx - radius * 0.25 + dx;
+      const rightEyeX = cx + radius * 0.25 + dx;
+
+      const drawEye = (ex: number, ey: number, scale: number) => {
+        const r = eyeSize * scale;
+        // White sclera
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(ex, ey, r * 1.35, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+        ctx.lineWidth = Math.max(0.5, r * 0.08);
+        ctx.stroke();
+        // Iris
+        ctx.fillStyle = irisColor;
+        ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.fill();
+        // Pupil highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(ex + r * 0.3, ey - r * 0.35, r * 0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.beginPath(); ctx.arc(ex - r * 0.25, ey + r * 0.3, r * 0.15, 0, Math.PI * 2); ctx.fill();
+      };
 
       if (!faceOverridesDefaultEyes(equippedFace)) {
         if (isLevelDone) {
-          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.2, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.3, eyeSize * 0.35, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#1a237e';
+          drawEye(leftEyeX, eyeY, 1.2);
+          drawEye(rightEyeX, eyeY, 1.2);
         } else if (isSleepy) {
-          const leftEyeX = cx - radius * 0.25 + dx;
-          const rightEyeX = cx + radius * 0.25 + dx;
-          ctx.strokeStyle = '#1a237e';
-          ctx.lineWidth = Math.max(1.5, radius * 0.03);
+          ctx.strokeStyle = irisColor;
+          ctx.lineWidth = Math.max(1.5, radius * 0.035);
           ctx.lineCap = 'round';
           ctx.beginPath();
           ctx.moveTo(leftEyeX - eyeSize, eyeY + eyeSize * 0.5);
@@ -588,15 +979,11 @@ export function GameCanvas() {
           ctx.quadraticCurveTo(rightEyeX, eyeY - eyeSize * 0.2, rightEyeX + eyeSize, eyeY + eyeSize * 0.5);
           ctx.stroke();
         } else if (isExcited) {
-          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize * 1.3, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.beginPath(); ctx.arc(cx - radius * 0.23 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.27 + dx, eyeY - eyeSize * 0.4, eyeSize * 0.4, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#1a237e';
+          drawEye(leftEyeX, eyeY, 1.3);
+          drawEye(rightEyeX, eyeY, 1.3);
         } else {
-          ctx.beginPath(); ctx.arc(cx - radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
-          ctx.beginPath(); ctx.arc(cx + radius * 0.25 + dx, eyeY, eyeSize, 0, Math.PI * 2); ctx.fill();
+          drawEye(leftEyeX, eyeY, 1.0);
+          drawEye(rightEyeX, eyeY, 1.0);
         }
       }
 
@@ -604,18 +991,41 @@ export function GameCanvas() {
       const mouthY = cy + radius * 0.15 + dy;
       const mouthX = cx + dx;
       if (!faceOverridesDefaultMouth(equippedFace)) {
-        if (isLevelDone) {
+        const drawMouth = (mr: number, full: boolean) => {
+          ctx.save();
+          ctx.fillStyle = '#1a237e';
           ctx.beginPath();
-          ctx.arc(mouthX, mouthY, radius * 0.15, 0, Math.PI, false);
+          if (full) {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI * 2);
+          } else {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI, false);
+          }
           ctx.fill();
+          // Inner depth gradient
+          const mg = ctx.createRadialGradient(mouthX, mouthY, mr * 0.1, mouthX, mouthY + mr * 0.3, mr);
+          mg.addColorStop(0, 'rgba(40,0,60,0.4)');
+          mg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = mg;
+          ctx.beginPath();
+          if (full) {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI * 2);
+          } else {
+            ctx.arc(mouthX, mouthY, mr, 0, Math.PI, false);
+          }
+          ctx.fill();
+          ctx.restore();
+        };
+        if (isLevelDone) {
+          drawMouth(radius * 0.15, false);
         } else if (isEating && comboCount >= 3) {
-          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.12, 0, Math.PI * 2); ctx.fill();
+          drawMouth(radius * 0.12, true);
         } else if (isSleepy) {
+          ctx.fillStyle = irisColor;
           ctx.beginPath(); ctx.arc(mouthX, mouthY + radius * 0.02, radius * 0.05, 0, Math.PI, false); ctx.fill();
         } else if (isExcited || isEating) {
-          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.13, 0, Math.PI, false); ctx.fill();
+          drawMouth(radius * 0.13, false);
         } else {
-          ctx.beginPath(); ctx.arc(mouthX, mouthY, radius * 0.1, 0, Math.PI, false); ctx.fill();
+          drawMouth(radius * 0.1, false);
         }
       }
 
@@ -677,19 +1087,27 @@ export function GameCanvas() {
         const screenX = (ft.x - camPosRef.current.x) * zoom + canvas.width / 2;
         const screenY = (ft.y - camPosRef.current.y) * zoom + canvas.height / 2 - age * 40;
         const alpha = 1 - age;
-        const valueScale = Math.min(2, 1 + ft.value / 50);
+        const valueScale = ft.value < 0 ? 1 : Math.min(2, 1 + ft.value / 50);
         const scale = (1 + age * 0.3) * valueScale;
 
         ctx.save();
         ctx.globalAlpha = alpha;
-        ctx.font = `bold ${Math.round(14 * scale)}px sans-serif`;
+        const isCombo = ft.value === -2;
+        const fontSize = isCombo ? Math.round(22 * scale) : Math.round(14 * scale);
+        ctx.font = `bold ${fontSize}px ${GAME_FONT}`;
         ctx.textAlign = 'center';
-        ctx.fillStyle = '#000000';
-        ctx.fillText(ft.text, screenX + 1, screenY + 1);
 
-        const tier = ft.value > 20 ? '#f59e0b' : ft.value > 10 ? '#eab308' : '#22c55e';
-        ctx.fillStyle = tier;
-        ctx.fillText(ft.text, screenX, screenY);
+        if (isCombo) {
+          ctx.fillStyle = '#facc15';
+          ctx.fillText(ft.text, screenX, screenY);
+        } else {
+          ctx.fillStyle = '#000000';
+          ctx.fillText(ft.text, screenX + 1, screenY + 1);
+          const tier = ft.value < 0 ? '#f0abfc'
+            : ft.value > 20 ? '#f59e0b' : ft.value > 10 ? '#eab308' : '#22c55e';
+          ctx.fillStyle = tier;
+          ctx.fillText(ft.text, screenX, screenY);
+        }
         ctx.restore();
       }
 
@@ -699,7 +1117,7 @@ export function GameCanvas() {
         const textScale = levelUpAge < 0.3 ? 0.5 + (levelUpAge / 0.3) * 0.5 : 1.0;
         ctx.save();
         ctx.globalAlpha = textAlpha;
-        ctx.font = `bold ${Math.round(48 * textScale)}px sans-serif`;
+        ctx.font = `900 ${Math.round(48 * textScale)}px ${GAME_FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#000000';
@@ -740,18 +1158,39 @@ export function GameCanvas() {
           ctx.textBaseline = 'middle';
 
           const titleY = canvas.height * 0.38;
-          ctx.font = 'bold 52px sans-serif';
+          ctx.font = `900 52px ${GAME_FONT}`;
           ctx.fillStyle = 'rgba(0,0,0,0.3)';
           ctx.fillText(`Level ${currentLevel}`, canvas.width / 2 + 2, titleY + 2);
           ctx.fillStyle = '#ffffff';
           ctx.fillText(`Level ${currentLevel}`, canvas.width / 2, titleY);
 
-          ctx.font = 'bold 22px sans-serif';
+          ctx.font = `22px ${GAME_FONT}`;
           ctx.fillStyle = 'rgba(255,255,255,0.7)';
           ctx.fillText(world.name, canvas.width / 2, titleY + 40);
 
           ctx.restore();
         }
+      }
+
+      // Oversized food tutorial: update position ref for HTML overlay
+      if (state.activeHint === 'oversized_food') {
+        const osItem = items.find(i => i.isOversized && i.splitState !== 'splitting');
+        if (osItem) {
+          const sx = (osItem.x - camPosRef.current.x) * zoom + canvas.width / 2;
+          const sy = (osItem.y - camPosRef.current.y) * zoom + canvas.height / 2;
+          const catalogE = ITEM_LOOKUP[osItem.type];
+          const osStage = osItem.oversizedStage || OVERSIZED_VOMIT_STAGES;
+          const stageFrac = osStage / OVERSIZED_VOMIT_STAGES;
+          const sizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * stageFrac;
+          const itemRad = catalogE
+            ? (6 + catalogE.sizeTier * 4) * (getWorldForLevel(currentLevel + 1)?.blobScale || 1) * sizeMult * zoom
+            : 30;
+          tutorialPosRef.current = { x: sx, y: sy, r: itemRad * 1.5, itemId: osItem.id };
+          if (!tutorialVisible) setTutorialVisible(true);
+        }
+      } else if (tutorialPosRef.current) {
+        tutorialPosRef.current = null;
+        if (tutorialVisible) setTutorialVisible(false);
       }
 
       if (state._benchmarkActive) {
@@ -785,12 +1224,102 @@ export function GameCanvas() {
     return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
+  const tp = tutorialVisible ? tutorialPosRef.current : null;
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0"
-      onClick={handleTap}
-      onTouchStart={handleTap}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0"
+        onClick={handleTap}
+        onTouchStart={handleTap}
+      />
+      {tp && (
+        <div
+          className="fixed inset-0"
+          style={{ zIndex: 9999, touchAction: 'none' }}
+          onClick={handleTutorialTap}
+          onTouchStart={handleTutorialTap}
+        >
+          {/* Full-screen dark overlay with spotlight cutout */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: `radial-gradient(circle at ${tp.x}px ${tp.y}px, transparent ${tp.r}px, rgba(0,0,0,0.65) ${tp.r + 18}px)`,
+            }}
+          />
+
+          {/* Pulsing glow ring */}
+          <div
+            className="absolute rounded-full pointer-events-none"
+            style={{
+              left: tp.x - tp.r - 4,
+              top: tp.y - tp.r - 4,
+              width: (tp.r + 4) * 2,
+              height: (tp.r + 4) * 2,
+              border: '3px solid rgba(255,220,80,0.8)',
+              boxShadow: '0 0 18px 4px rgba(255,220,80,0.4), inset 0 0 18px 4px rgba(255,220,80,0.15)',
+              animation: 'tutPulse 1.2s ease-in-out infinite',
+            }}
+          />
+
+          {/* Tapping hand icon */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              left: tp.x + tp.r * 0.3,
+              top: tp.y + tp.r * 0.1,
+              animation: 'tutTap 1s ease-in-out infinite',
+              filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.5))',
+              transformOrigin: 'center bottom',
+            }}
+          >
+            <TapHandIcon size={Math.min(56, window.innerWidth * 0.11)} />
+          </div>
+
+          {/* Text */}
+          <div
+            className="absolute left-0 right-0 pointer-events-none text-center"
+            style={{ top: tp.y - tp.r - 64 }}
+          >
+            <div
+              style={{
+                fontFamily: "'Fredoka', sans-serif",
+                fontWeight: 900,
+                fontSize: Math.min(30, window.innerWidth * 0.06),
+                color: '#fde68a',
+                textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 0 20px rgba(253,230,138,0.3)',
+              }}
+            >
+              Tap to break!
+            </div>
+            <div
+              style={{
+                fontFamily: "'Fredoka', sans-serif",
+                fontSize: Math.min(15, window.innerWidth * 0.032),
+                color: 'rgba(255,255,255,0.85)',
+                textShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                marginTop: 4,
+              }}
+            >
+              This food is too big to eat whole
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes tutPulse {
+              0%, 100% { transform: scale(1); opacity: 0.7; }
+              50% { transform: scale(1.08); opacity: 1; }
+            }
+            @keyframes tutTap {
+              0%, 100% { transform: translateY(0) scale(1); }
+              40% { transform: translateY(-10px) scale(1.05); }
+              55% { transform: translateY(4px) scale(0.92); }
+              70% { transform: translateY(-2px) scale(1); }
+            }
+          `}</style>
+        </div>
+      )}
+    </>
   );
 }

@@ -22,9 +22,12 @@ export interface InterstitialContext {
   sessionAdCount: number;
   lastInterstitialTime: number;
   lastRewardedAdTime: number;
+  noInterstitialAds?: boolean;
 }
 
 export function shouldShowInterstitial(ctx: InterstitialContext): boolean {
+  if (ctx.noInterstitialAds) return false;
+
   const cfg = INTERSTITIAL_CONFIG;
 
   if (ctx.highestLevelReached <= cfg.graceLevels) return false;

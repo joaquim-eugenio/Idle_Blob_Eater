@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
 import { useGameStore } from '../store/gameStore';
 import { DAILY_REWARDS, STREAK_MULTIPLIERS } from '../lib/constants';
-import { Gift, Flame, X } from 'lucide-react';
+import { GiftIcon, FireIcon, CloseIcon } from './icons';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -12,13 +11,6 @@ interface Props {
 export function DailyRewardModal({ onClaim, onDismiss }: Props) {
   const dailyReward = useGameStore(s => s.dailyReward);
   const claimDailyReward = useGameStore(s => s.claimDailyReward);
-  const pushPause = useGameStore(s => s.pushPause);
-  const popPause = useGameStore(s => s.popPause);
-
-  useEffect(() => {
-    pushPause();
-    return () => popPause();
-  }, [pushPause, popPause]);
 
   const currentDay = dailyReward.cycleDay;
   const streak = dailyReward.streak;
@@ -30,26 +22,26 @@ export function DailyRewardModal({ onClaim, onDismiss }: Props) {
   };
 
   return (
-    <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6">
+    <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-6">
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-sm p-4 sm:p-5 text-center"
+        className="bg-white rounded-3xl border-3 border-amber-400 shadow-lg shadow-amber-200/40 w-full max-w-sm p-4 sm:p-5 text-center"
       >
         <div className="flex justify-end -mb-2">
           <button
             onClick={onDismiss}
-            className="p-1.5 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-600 border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors"
             aria-label="Close daily reward modal"
           >
-            <X size={16} />
+            <CloseIcon size={16} />
           </button>
         </div>
-        <div className="text-3xl mb-1"><Gift size={40} className="mx-auto text-amber-500" /></div>
+        <div className="text-3xl mb-1"><GiftIcon size={40} className="mx-auto text-amber-500" /></div>
         <h2 className="text-xl font-black text-slate-800 mb-1">Daily Reward</h2>
         {streak > 1 && (
           <div className="flex items-center justify-center gap-1 text-orange-500 text-sm font-bold mb-3">
-            <Flame size={16} />
+            <FireIcon size={16} />
             {streak} day streak! ({streakMult}x bonus)
           </div>
         )}
@@ -63,7 +55,7 @@ export function DailyRewardModal({ onClaim, onDismiss }: Props) {
                 key={i}
                 className={`rounded-lg p-1.5 text-center border-2 transition-all ${
                   isToday
-                    ? 'border-amber-400 bg-amber-50 scale-110 shadow-md'
+                    ? 'border-amber-500 bg-amber-50 scale-110 shadow-md shadow-amber-200/40'
                     : isPast
                       ? 'border-slate-200 bg-slate-100 opacity-50'
                       : 'border-slate-200 bg-white'
@@ -80,7 +72,7 @@ export function DailyRewardModal({ onClaim, onDismiss }: Props) {
 
         <button
           onClick={handleClaim}
-          className="w-full py-2.5 sm:py-3 bg-amber-400 text-amber-900 rounded-xl font-bold text-base sm:text-lg hover:bg-amber-300 active:scale-[0.98] transition-all shadow-lg shadow-amber-200"
+          className="btn-game w-full py-2.5 sm:py-3 bg-amber-500 text-white rounded-xl font-bold text-base sm:text-lg border-b-4 border-amber-700 hover:bg-amber-400 transition-all"
         >
           Claim Day {currentDay + 1}!
         </button>

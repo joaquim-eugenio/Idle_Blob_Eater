@@ -1,0 +1,158 @@
+---
+description: Canvas 2D game performance optimization techniques — sprite caching (flyweight), culling, batching, shadow removal, transform fast paths, and state-store hygiene
+globs: 
+alwaysApply: false
+---
+
+# Canvas 2D Performance Optimization Playbook
+
+Apply these techniques when a Canvas 2D game (or any procedural-drawing app) needs to render hundreds of objects at 60 FPS.
+
+## 1. Sprite Cache — Flyweight Pattern
+
+Pre-render each unique visual into an off-screen canvas **once**, then blit with `drawImage`.
+
+- **Cache key** = `itemId + sizeBase + palette` — every combination that changes appearance.
+- **Render scale**: draw at 4× device size into the cache for crisp results at any zoom.
+- **CRITICAL**: use `document.createElement('canvas')` — **not** `OffscreenCanvas`. `OffscreenCanvas.getContext('2d')` returns `OffscreenCanvasRenderingContext2D`, which does NOT share the `CanvasRenderingContext2D` prototype chain. Any code that patches the context via `Object.defineProperty(ctx, 'fillStyle', …)` using a descriptor from `CanvasRenderingContext2D.prototype` will throw on an `OffscreenCanvasRenderingContext2D`. Regular `HTMLCanvasElement` contexts are true `CanvasRenderingContext2D` instances and work everywhere.
+- Invalidate the cache when the active palette/world changes (`setSpriteGeneration(key)`).
+
+```typescript
+const el = document.createElement('canvas');
+el.width = pxSize; el.height = pxSize;
+const ctx = el.getContext('2d')!;        // real CanvasRenderingContext2D
+ctx.scale(RENDER_SCALE, RENDER_SCALE);
+ctx.translate(halfSize, halfSize);
+itemDef.draw(ctx, sizeBase, palette);    // runs once per unique visual
+```
+
+At render time, a single `ctx.drawImage(cachedCanvas, …)` replaces dozens of path/gradient/fill calls per object.
+
+## 2. Viewport Frustum Culling
+
+Skip every object whose world-space position falls outside the camera rect + a margin:
+
+```typescript
+const halfW = canvas.width / 2 / zoom;
+const halfH = canvas.height / 2 / zoom;
+const margin = 80 * blobScale;
+items.forEach(item => {
+  if (item.x < camX - halfW - margin || item.x > camX + halfW + margin ||
+      item.y < camY - halfH - margin || item.y > camY + halfH + margin) return;
+  // …draw
+});
+```
+
+## 3. Eliminate `shadowBlur`
+
+`ctx.shadowBlur` is the single most expensive Canvas 2D property. Replace with a radial-gradient "halo" drawn before the item:
+
+```typescript
+const shR = size * 0.55;
+const shGrad = ctx.createRadialGradient(0, size * 0.03, size * 0.15, 0, size * 0.03, shR);
+shGrad.addColorStop(0, 'rgba(0,0,0,0.14)');
+shGrad.addColorStop(0.6, 'rgba(0,0,0,0.04)');
+shGrad.addColorStop(1, 'rgba(0,0,0,0)');
+ctx.fillStyle = shGrad;
+ctx.beginPath(); ctx.arc(0, size * 0.03, shR, 0, Math.PI * 2); ctx.fill();
+```
+
+Remove **every** `ctx.shadowBlur`, `ctx.shadowColor`, `ctx.shadowOffsetX/Y` assignment from the hot path.
+
+## 4. Batch Identical Draw Calls
+
+Merge many small identical shapes (grid dots, ambient particles) into **one** `beginPath` → loop of `moveTo/arc` → **one** `fill`:
+
+```typescript
+ctx.fillStyle = color;
+ctx.beginPath();
+for (const p of points) {
+  ctx.moveTo(p.x + r, p.y);
+  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+}
+ctx.fill();  // single GPU dispatch for all dots
+```
+
+## 5. `setTransform` Instead of `save/restore`
+
+For simple items (translate + rotate), skip `save()/restore()` and compute the affine matrix directly:
+
+```typescript
+const cos = Math.cos(rot), sin = Math.sin(rot);
+ctx.setTransform(
+  zoom * cos,  zoom * sin,
+  -zoom * sin, zoom * cos,
+  (item.x - camX) * zoom + screenCx,
+  (item.y - camY) * zoom + screenCy
+);
+drawCachedItem(ctx, …);
+```
+
+After the item loop, restore with `ctx.setTransform(1,0,0,1,0,0)`. Reserve `save()/restore()` only for items that modify `globalAlpha`, `clip`, or `setLineDash`.
+
+## 6. Reuse `Path2D` Objects
+
+Build complex paths once at module scope and reuse:
+
+```typescript
+const STAR_PATH = new Path2D();
+for (let i = 0; i < 10; i++) { /* build star vertices */ }
+// in draw: ctx.fill(STAR_PATH); ctx.stroke(STAR_PATH);
+```
+
+## 7. Cache Color Computations and Gradient Stops
+
+`darken()`, `lighten()`, and HSL parsing are expensive when called thousands of times per frame. Memoize with a `Map<string, result>`:
+
+```typescript
+const _darkenCache = new Map<string, string>();
+export function darken(hex: string, amount = 0.25): string {
+  const key = `${hex}|${amount}`;
+  let v = _darkenCache.get(key);
+  if (!v) { v = computeDarken(hex, amount); _darkenCache.set(key, v); }
+  return v;
+}
+```
+
+Also cache **gradient color-stop arrays** keyed by base color so the HSL math runs once per unique color, not once per gradient creation.
+
+## 8. Single `requestAnimationFrame` Loop
+
+Merge game-tick logic and rendering into one `rAF` callback. Two separate `rAF` loops cause double scheduling overhead and can drift out of sync.
+
+## 9. High-Frequency Data Outside the State Store
+
+Never store per-frame mutable arrays (e.g. frame timestamps for FPS tracking) inside Zustand/Redux state. Each `set()` creates a new object, triggers subscriber diffing, and causes React re-renders.
+
+Instead, keep a module-level mutable array and expose a getter:
+
+```typescript
+let _frameTimes: number[] = [];
+export function getFrameTimes() { return _frameTimes; }
+// in tick: _frameTimes.push(performance.now());
+// in UI: poll with setInterval(fn, 250) instead of subscribing to store
+```
+
+## 10. World-Space vs. Pixel-Space
+
+When spawning or bounding objects programmatically (benchmarks, procedural levels), always convert screen pixels to world coordinates:
+
+```typescript
+const worldHalfW = (window.innerWidth / zoom) * 0.45;
+const worldHalfH = (window.innerHeight / zoom) * 0.45;
+```
+
+The camera applies `zoom = baseZoom / blobScale`. Spawning in pixel coords will scatter objects far outside the visible area.
+
+## Priority Order
+
+Apply in this order for maximum impact per effort:
+
+1. Sprite cache (flyweight) — eliminates 90%+ of per-frame draw calls
+2. Remove `shadowBlur` — single biggest per-pixel cost
+3. Viewport culling — skip invisible objects entirely
+4. Batch small shapes — reduces state-change overhead
+5. `setTransform` fast path — avoids canvas state stack
+6. Cache colors / gradient stops — reduces CPU allocation
+7. Merge rAF loops — reduces scheduling overhead
+8. `Path2D` reuse — minor but free

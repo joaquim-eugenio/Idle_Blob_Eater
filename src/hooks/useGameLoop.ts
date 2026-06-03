@@ -1,23 +1,12 @@
-import { useEffect, useRef } from 'react';
-import { useGameStore } from '../store/gameStore';
-
+// The game tick is driven directly from GameCanvas's render loop. Running a
+// separate requestAnimationFrame for the simulation (as this hook used to)
+// caused tick/render to drift out of sync across frames — the browser could
+// schedule them in either order, occasionally running two ticks before a
+// render or two renders before a tick, which made the blob's motion look
+// like it was "skipping frames". See .cursor/rules/canvas2d-performance.mdc
+// section 7: "Single requestAnimationFrame loop".
+//
+// This hook is kept as a no-op for API compatibility with App.tsx.
 export function useGameLoop() {
-  const requestRef = useRef<number>(0);
-  const lastTimeRef = useRef<number>(0);
-
-  useEffect(() => {
-    const animate = (time: number) => {
-      if (lastTimeRef.current !== 0) {
-        const delta = (time - lastTimeRef.current) / 1000;
-        // Cap delta to prevent huge jumps if tab is inactive
-        const cappedDelta = Math.min(delta, 0.1);
-        useGameStore.getState().tick(cappedDelta, window.innerWidth, window.innerHeight);
-      }
-      lastTimeRef.current = time;
-      requestRef.current = requestAnimationFrame(animate);
-    };
-
-    requestRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, []);
+  // intentionally empty
 }

@@ -6,6 +6,14 @@ import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
 import { TapHandIcon } from './icons';
 import { blobGradient, darken, lighten } from '../lib/drawUtils';
+import {
+  EatParticle,
+  spawnEatBurst,
+  spawnMilestoneBurst,
+  updateAndDrawParticles,
+  pickHapticPattern,
+  triggerHaptic,
+} from '../lib/eatEffects';
 
 const GAME_FONT = "'Fredoka', sans-serif";
 
@@ -25,7 +33,20 @@ function getBlobColor(level: number, skinId: string): string {
 
 interface FloatingText {
   x: number; y: number; text: string; birth: number; value: number;
+  color?: string;
+  fontScale?: number;
 }
+
+// Combo milestones — crossing one triggers a screen-shake + big banner + extra burst.
+// Ordered ascending; we always pick the highest one that was just crossed.
+const COMBO_MILESTONES: { at: number; text: string; color: string }[] = [
+  { at: 5,   text: 'NICE!',     color: '#fbbf24' },
+  { at: 10,  text: 'GREAT!',    color: '#f97316' },
+  { at: 15,  text: 'AMAZING!',  color: '#ef4444' },
+  { at: 25,  text: 'EPIC!',     color: '#ec4899' },
+  { at: 50,  text: 'INSANE!',   color: '#a855f7' },
+  { at: 100, text: 'GODLIKE!',  color: '#ffffff' },
+];
 
 interface Ripple {
   x: number; y: number; birth: number;
@@ -162,6 +183,11 @@ export function GameCanvas() {
   const eatPopRef = useRef(0);
   const vomitAnimRef = useRef(0);
   const displayedSizeScaleRef = useRef(0);
+  const particlesRef = useRef<EatParticle[]>([]);
+  const screenShakeRef = useRef(0);
+  const blobFlashRef = useRef<{ color: string; birth: number } | null>(null);
+  const lastHapticTimeRef = useRef(0);
+  const lastFrameTimeRef = useRef(0);
   const introRef = useRef({
     level: 0,
     startTime: 0,
@@ -297,6 +323,18 @@ export function GameCanvas() {
         canvas.height = window.innerHeight;
       }
 
+      const frameNow = performance.now();
+      const delta = lastFrameTimeRef.current === 0
+        ? 0.016
+        : Math.min(0.1, (frameNow - lastFrameTimeRef.current) / 1000);
+      lastFrameTimeRef.current = frameNow;
+
+      // Drive the simulation FIRST, then render the freshly-updated state in
+      // the same animation frame. Previously the tick lived on a separate
+      // rAF (useGameLoop), which let tick + render drift apart and made the
+      // blob look like it was stuttering / "jumping frames".
+      useGameStore.getState().tick(delta, window.innerWidth, window.innerHeight);
+
       const state = useGameStore.getState();
       const { blobPosition, items, currentLevel, upgrades, starBoostActive, boostActive,
         currentSkin, comboCount, hunger, unlockedSkillNodes, levelComplete, blobGrowth,
@@ -401,7 +439,13 @@ export function GameCanvas() {
         }
       }
 
-      ctx.translate(canvas.width / 2, canvas.height / 2);
+      // Decaying screen shake (juice on every eat). Applied in screen pixels.
+      const shakeAmp = screenShakeRef.current;
+      const shakeX = shakeAmp > 0.05 ? (Math.random() - 0.5) * 2 * shakeAmp : 0;
+      const shakeY = shakeAmp > 0.05 ? (Math.random() - 0.5) * 2 * shakeAmp : 0;
+      screenShakeRef.current = shakeAmp > 0.05 ? shakeAmp * 0.82 : 0;
+
+      ctx.translate(canvas.width / 2 + shakeX, canvas.height / 2 + shakeY);
       ctx.scale(zoom, zoom);
       ctx.translate(-camPosRef.current.x, -camPosRef.current.y);
 
@@ -682,38 +726,90 @@ export function GameCanvas() {
         }
       }
 
-      // Eating bump
+      // Eating bump — this is the "dopamine spike" hot path. Each eaten item
+      // detonates a confetti+sparkle+shockwave burst, jiggles the blob, adds a
+      // brief blob color flash matching the food, kicks the screen-shake, and
+      // (rate-limited) fires a haptic pulse on supported devices.
       const currentItems = items;
       const prevItems = prevItemsRef.current;
       if (prevItems.length > 0) {
         const currentItemIds = new Set(currentItems.map(i => i.id));
         const eatenItems = prevItems.filter(i => !currentItemIds.has(i.id));
         if (eatenItems.length > 0) {
-          eatPopRef.current = Math.min(0.3, eatPopRef.current + eatenItems.length * 0.15);
+          // Bigger, punchier squish than before.
+          eatPopRef.current = Math.min(0.45, eatPopRef.current + eatenItems.length * 0.22);
         }
+        let totalEatValue = 0;
+        let anyRealFoodEaten = false;
         eatenItems.forEach(item => {
           const dist = Math.hypot(item.x - blobPosition.x, item.y - blobPosition.y);
-          if (dist < suctionRadius + 50) {
-            if (item.type !== 'star' && item.value > 0) {
-              floatingTextsRef.current.push({
-                x: item.x, y: item.y,
-                text: `+$${Math.floor(item.value)}`,
-                birth: now, value: item.value,
-              });
-            }
-            const angle = Math.atan2(item.y - blobPosition.y, item.x - blobPosition.x);
-            for (let ni = 0; ni < NUM_NODES; ni++) {
-              const nodeAngle = (ni / NUM_NODES) * Math.PI * 2;
-              let diff = Math.abs(nodeAngle - angle);
-              if (diff > Math.PI) diff = 2 * Math.PI - diff;
-              if (diff < Math.PI / 2) {
-                const force = (Math.PI / 2 - diff) * 25 * blobVisualScale;
-                nodes[ni].vx += Math.cos(angle) * force;
-                nodes[ni].vy += Math.sin(angle) * force;
-              }
+          if (dist >= suctionRadius + 50) return;
+
+          if (item.type !== 'star' && item.value > 0) {
+            floatingTextsRef.current.push({
+              x: item.x, y: item.y,
+              text: `+$${Math.floor(item.value)}`,
+              birth: now, value: item.value,
+            });
+          }
+
+          // Outward jiggle on blob nodes — kicked up from 25 → 40 for visible bulge.
+          const angle = Math.atan2(item.y - blobPosition.y, item.x - blobPosition.x);
+          for (let ni = 0; ni < NUM_NODES; ni++) {
+            const nodeAngle = (ni / NUM_NODES) * Math.PI * 2;
+            let diff = Math.abs(nodeAngle - angle);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            if (diff < Math.PI / 2) {
+              const force = (Math.PI / 2 - diff) * 40 * blobVisualScale;
+              nodes[ni].vx += Math.cos(angle) * force;
+              nodes[ni].vy += Math.sin(angle) * force;
             }
           }
+
+          // Skip cosmetic burst for stars (they have their own celebration via boost)
+          if (item.type === 'star') return;
+          anyRealFoodEaten = true;
+          totalEatValue += item.value;
+
+          // Resolve item's signature color from its world palette.
+          const catalogItem = ITEM_LOOKUP[item.type];
+          const itemWorld = item.isLegacy && catalogItem ? WORLD_LOOKUP[catalogItem.world] : world;
+          const itemPalette = itemWorld.palette;
+          const itemSize = catalogItem
+            ? (6 + catalogItem.sizeTier * 4) * itemWorld.blobScale
+            : 14 * blobVisualScale;
+
+          spawnEatBurst(
+            particlesRef.current,
+            item.x, item.y,
+            itemPalette,
+            itemSize,
+            item.value,
+            comboCount,
+            radius,
+            now,
+          );
+
+          // Screen shake scales with item value tier + active combo.
+          let shakeAdd = 0.9;
+          if (item.value >= 10) shakeAdd += 0.8;
+          if (item.value >= 50) shakeAdd += 1.4;
+          if (comboCount >= 5) shakeAdd += 0.8;
+          if (comboCount >= 10) shakeAdd += 1.2;
+          screenShakeRef.current = Math.min(11, screenShakeRef.current + shakeAdd);
+
+          // Blob color flash with the food's primary color — overwritten if
+          // multiple items eaten in the same frame (latest wins, fine).
+          blobFlashRef.current = { color: itemPalette[0] || '#ffffff', birth: now };
         });
+
+        // Rate-limited haptic pulse (avoid battery drain on rapid eats).
+        if (anyRealFoodEaten && state.hapticsEnabled) {
+          if (now - lastHapticTimeRef.current > 0.08) {
+            triggerHaptic(pickHapticPattern(totalEatValue, comboCount));
+            lastHapticTimeRef.current = now;
+          }
+        }
       }
       prevItemsRef.current = currentItems;
 
@@ -741,10 +837,40 @@ export function GameCanvas() {
         floatingTextsRef.current.push({
           x: blobPosition.x - radius * 1.2,
           y: blobPosition.y + radius * 0.8,
-          text: `x${Math.min(comboCount, 10)}`,
+          text: `x${Math.min(comboCount, 99)}`,
           birth: now,
           value: -2,
         });
+      }
+
+      // Combo MILESTONE banners — the big dopamine payoff for stringing eats.
+      if (comboCount > prevComboRef.current) {
+        for (const ms of COMBO_MILESTONES) {
+          if (prevComboRef.current < ms.at && comboCount >= ms.at) {
+            floatingTextsRef.current.push({
+              x: blobPosition.x,
+              y: blobPosition.y - radius * 1.6,
+              text: ms.text,
+              birth: now,
+              value: -3,
+              color: ms.color,
+              fontScale: 1 + Math.min(0.8, (ms.at / 50)),
+            });
+            screenShakeRef.current = Math.min(16, screenShakeRef.current + 3 + (ms.at >= 25 ? 2 : 0));
+            spawnMilestoneBurst(
+              particlesRef.current,
+              blobPosition.x,
+              blobPosition.y - radius * 0.4,
+              ms.color,
+              radius,
+              now,
+            );
+            if (state.hapticsEnabled) {
+              triggerHaptic(pickHapticPattern(50, ms.at));
+              lastHapticTimeRef.current = now;
+            }
+          }
+        }
       }
       prevComboRef.current = comboCount;
 
@@ -795,6 +921,24 @@ export function GameCanvas() {
         ctx.restore();
       } else {
         ctx.fill();
+      }
+
+      // Brief "food-color" flash on the blob after every eat. Keeps the eaten
+      // food visually present for a beat without flashing the whole screen.
+      if (blobFlashRef.current) {
+        const flashAge = now - blobFlashRef.current.birth;
+        const FLASH_DUR = 0.28;
+        if (flashAge < FLASH_DUR) {
+          const fa = (1 - flashAge / FLASH_DUR) * 0.55;
+          ctx.save();
+          buildBlobPath();
+          ctx.globalAlpha = fa;
+          ctx.fillStyle = blobFlashRef.current.color;
+          ctx.fill();
+          ctx.restore();
+        } else {
+          blobFlashRef.current = null;
+        }
       }
 
       // Outline stroke
@@ -1075,36 +1219,100 @@ export function GameCanvas() {
         }
       }
 
+      // Eat-burst particles (confetti, sparkles, shockwaves). Drawn last so
+      // they pop in FRONT of everything for maximum perceived impact.
+      {
+        const halfW = canvas.width * 0.5 / zoom;
+        const halfH = canvas.height * 0.5 / zoom;
+        const margin = 80 * blobVisualScale;
+        updateAndDrawParticles(
+          ctx,
+          particlesRef.current,
+          now,
+          delta,
+          camPosRef.current.x - halfW - margin,
+          camPosRef.current.x + halfW + margin,
+          camPosRef.current.y - halfH - margin,
+          camPosRef.current.y + halfH + margin,
+          zoom,
+        );
+      }
+
       ctx.restore();
 
-      // Screen-space floating text
+      // Screen-space floating text. Three flavors:
+      //   value === -3 → milestone banner (NICE!/EPIC!/...)  — biggest, custom color, outlined
+      //   value === -2 → combo counter (x3, x7, ...)         — gold, mid-size
+      //   value === -1 → flavor blurb (Hey!, Boop!, ...)     — pink, small
+      //   value >= 0   → cash gain (+$N)                     — tier-colored, pop-scale
       const texts = floatingTextsRef.current;
       for (let i = texts.length - 1; i >= 0; i--) {
         const ft = texts[i];
+        const isMilestone = ft.value === -3;
+        const isCombo = ft.value === -2;
+        const life = isMilestone ? 1.4 : 1.0;
         const age = now - ft.birth;
-        if (age > 1.0) { texts.splice(i, 1); continue; }
+        if (age > life) { texts.splice(i, 1); continue; }
 
+        const rise = isMilestone ? age * 60 : age * 40;
         const screenX = (ft.x - camPosRef.current.x) * zoom + canvas.width / 2;
-        const screenY = (ft.y - camPosRef.current.y) * zoom + canvas.height / 2 - age * 40;
-        const alpha = 1 - age;
-        const valueScale = ft.value < 0 ? 1 : Math.min(2, 1 + ft.value / 50);
-        const scale = (1 + age * 0.3) * valueScale;
+        const screenY = (ft.y - camPosRef.current.y) * zoom + canvas.height / 2 - rise;
+
+        // Pop-in with overshoot: 0 → 1.25 → 1.0 in the first 0.18s, then drift up.
+        const popDur = 0.18;
+        const popPhase = Math.min(1, age / popDur);
+        let popScale: number;
+        if (popPhase < 0.55) {
+          popScale = 0.4 + (popPhase / 0.55) * 0.9;       // 0.4 → 1.3
+        } else {
+          popScale = 1.3 - ((popPhase - 0.55) / 0.45) * 0.3; // 1.3 → 1.0
+        }
+        const valueScale = ft.value < 0 ? 1 : Math.min(2.2, 1 + ft.value / 40);
+        const driftScale = 1 + (age / life) * 0.2;
+        const scale = popScale * valueScale * driftScale * (ft.fontScale || 1);
+
+        const alpha = age < life * 0.6 ? 1 : 1 - (age - life * 0.6) / (life * 0.4);
 
         ctx.save();
         ctx.globalAlpha = alpha;
-        const isCombo = ft.value === -2;
-        const fontSize = isCombo ? Math.round(22 * scale) : Math.round(14 * scale);
-        ctx.font = `bold ${fontSize}px ${GAME_FONT}`;
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
 
-        if (isCombo) {
+        if (isMilestone) {
+          const fontSize = Math.round(38 * scale);
+          ctx.font = `900 ${fontSize}px ${GAME_FONT}`;
+          // Double-stroke outline (black + white) for chunky readable banner
+          ctx.lineJoin = 'round';
+          ctx.miterLimit = 2;
+          ctx.lineWidth = Math.max(6, fontSize * 0.22);
+          ctx.strokeStyle = '#000000';
+          ctx.strokeText(ft.text, screenX, screenY);
+          ctx.lineWidth = Math.max(3, fontSize * 0.10);
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.strokeText(ft.text, screenX, screenY);
+          ctx.fillStyle = ft.color || '#fde047';
+          ctx.fillText(ft.text, screenX, screenY);
+        } else if (isCombo) {
+          const fontSize = Math.round(24 * scale);
+          ctx.font = `900 ${fontSize}px ${GAME_FONT}`;
+          ctx.lineWidth = Math.max(2, fontSize * 0.12);
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = '#000000';
+          ctx.strokeText(ft.text, screenX, screenY);
           ctx.fillStyle = '#facc15';
           ctx.fillText(ft.text, screenX, screenY);
         } else {
-          ctx.fillStyle = '#000000';
-          ctx.fillText(ft.text, screenX + 1, screenY + 1);
+          const fontSize = Math.round(15 * scale);
+          ctx.font = `900 ${fontSize}px ${GAME_FONT}`;
+          ctx.lineWidth = Math.max(2, fontSize * 0.14);
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = '#000000';
+          ctx.strokeText(ft.text, screenX, screenY);
           const tier = ft.value < 0 ? '#f0abfc'
-            : ft.value > 20 ? '#f59e0b' : ft.value > 10 ? '#eab308' : '#22c55e';
+            : ft.value > 50 ? '#fb923c'
+            : ft.value > 20 ? '#f59e0b'
+            : ft.value > 10 ? '#facc15'
+            : '#4ade80';
           ctx.fillStyle = tier;
           ctx.fillText(ft.text, screenX, screenY);
         }

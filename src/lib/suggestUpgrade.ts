@@ -48,7 +48,7 @@ const BRANCH_BASE_WEIGHT: Record<SkillBranchId, number> = {
   survival: 4,
   hunt: 3,
   feast: 2,
-  automation: 1,
+  momentum: 1,
   evolution: 2.5,
 };
 
@@ -64,7 +64,7 @@ const NODE_TYPE_BONUS: Record<SkillNodeType, number> = {
 
 function countNodesByBranch(unlockedIds: string[]): Record<SkillBranchId, number> {
   const counts: Record<SkillBranchId, number> = {
-    hunt: 0, feast: 0, survival: 0, automation: 0, evolution: 0,
+    hunt: 0, feast: 0, survival: 0, momentum: 0, evolution: 0,
   };
   for (const id of unlockedIds) {
     const node = SKILL_NODE_LOOKUP[id];
@@ -169,7 +169,7 @@ const BRANCH_TIPS: Record<SkillBranchId, string> = {
   hunt: 'Move faster to catch more food!',
   feast: 'Get more value from every bite!',
   survival: 'Your blob needs more hunger capacity!',
-  automation: 'Let your blob work smarter!',
+  momentum: 'Master your swipe — coast farther, dash harder!',
   evolution: '',
 };
 

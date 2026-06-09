@@ -7,16 +7,21 @@ export const BASE_SPAWN_RATE = 800;
 export const BASE_SPAWN_VALUE = 1;
 
 export const UPGRADE_SOFT_CAP = 30;
-export const BASE_TAP_COOLDOWN = 0.5;
-export const BASE_TAP_VALUE_MULT = 1.5;
-export const OFFLINE_BASE_EFFICIENCY = 0.1;
-export const OFFLINE_MAX_HOURS = 8;
 
-export const AUTOPILOT_BASE_CLEAR_RATE = 0.05;
-export const AUTOPILOT_DEFAULT_MAX_HOURS = 8;
-export const AUTOPILOT_DIMINISHING_THRESHOLD_HOURS = 4;
-export const AUTOPILOT_DIMINISHING_FACTOR = 0.5;
-export const AUTOPILOT_DRAIN_MULT = 0.02;
+// Analog-stick movement: while a finger is held on the canvas the blob
+// continuously moves in the direction (touch − blob), with magnitude scaling
+// from the blob outward. On release, friction brings the blob back to rest.
+export const SWIPE_FRICTION = 4.0;             // exponential decay rate per second after release
+export const STEER_DEADZONE_PX = 10;           // touches inside this radius produce no movement
+export const STEER_MAX_DIST_PX = 200;          // distance from blob screen-pos that maps to full magnitude
+export const STEER_SPEED_MULT = 5;             // max speed = base speed × this × magnitude
+export const STEER_ACCEL_LERP = 0.35;          // velocity → target lerp factor per frame (snappy, not instant)
+export const STEER_PERFECT_WINDOW = 1.5;       // seconds per input session to chain 3 eats → PERFECT
+export const SWIPE_MIN_VEL = 4;                // velocity floor before snapping to zero
+export const RAM_VEL_THRESHOLD = 60;           // |velocity| required to crack oversized
+export const PERFECT_SWIPE_THRESHOLD = 3;      // items eaten in one swipe → "PERFECT!"
+export const FRENZY_DASH_THRESHOLD = 25;       // combo count required to trigger Frenzy Dash
+export const FRENZY_DASH_DURATION = 3;         // seconds of frenzy dash on activation
 
 export const OVERSIZED_SIZE_MULT = 1.6;
 export const OVERSIZED_MIN_WORLD_IDX = 1;
@@ -38,7 +43,7 @@ export interface OversizedConfig {
 
 export function getOversizedConfig(worldIndex: number): OversizedConfig | null {
   if (worldIndex < OVERSIZED_MIN_WORLD_IDX) return null;
-  const p = Math.min(1, (worldIndex - 1) / 22);
+  const p = Math.min(1, (worldIndex - 1) / 46);
 
   return {
     spawnChance: Math.min(1.0, 0.55 + p * 0.45),
@@ -72,9 +77,6 @@ export const UPGRADE_COSTS: Record<string, (level: number) => number> = {
   spawnRate: (level) => Math.floor(20 * Math.pow(2.0, level)),
   spawnValue: (level) => Math.floor(25 * Math.pow(2.0, level)),
   spawnSynergy: (level) => Math.floor(500 * Math.pow(4.0, level)),
-  tapValue: (level) => Math.floor(15 * Math.pow(1.8, level)),
-  tapCooldown: (level) => Math.floor(20 * Math.pow(1.8, level)),
-  tapSynergy: (level) => Math.floor(500 * Math.pow(4.0, level)),
 };
 
 export const EVOLUTION_UPGRADES: Record<string, { name: string; desc: string; maxLevel: number; cost: (level: number) => number }> = {
@@ -83,10 +85,10 @@ export const EVOLUTION_UPGRADES: Record<string, { name: string; desc: string; ma
   globalSuction: { name: 'Magnetic Pull', desc: '+10% suction per level', maxLevel: 20, cost: (l) => Math.floor(3 * Math.pow(1.5, l)) },
   hungerResist: { name: 'Efficient Digestion', desc: '-5% hunger drain per level', maxLevel: 15, cost: (l) => Math.floor(4 * Math.pow(1.6, l)) },
   spawnValueMult: { name: 'Rich Feast', desc: '+15% item value per level', maxLevel: 20, cost: (l) => Math.floor(3 * Math.pow(1.5, l)) },
-  tapMastery: { name: 'Tap Mastery', desc: '+20% tap value per level', maxLevel: 10, cost: (l) => Math.floor(5 * Math.pow(2, l)) },
-  offlineRate: { name: 'Idle Earnings', desc: '+10% offline efficiency per level', maxLevel: 5, cost: (l) => Math.floor(10 * Math.pow(2, l)) },
+  swipeMastery: { name: 'Swipe Mastery', desc: '+8% swipe impulse per level', maxLevel: 15, cost: (l) => Math.floor(5 * Math.pow(1.7, l)) },
+  glideMastery: { name: 'Glide Mastery', desc: 'Coast longer between swipes', maxLevel: 10, cost: (l) => Math.floor(8 * Math.pow(1.8, l)) },
   startingLevel: { name: 'Head Start', desc: 'Start at a higher level after prestige', maxLevel: 5, cost: (l) => Math.floor(15 * Math.pow(2.5, l)) },
-  autopilotRate: { name: 'Idle Mastery', desc: '+15% autopilot clear rate per level', maxLevel: 5, cost: (l) => Math.floor(12 * Math.pow(2.2, l)) },
+  dashRadius: { name: 'Dash Radius', desc: 'Wider eat radius while dashing', maxLevel: 10, cost: (l) => Math.floor(10 * Math.pow(2, l)) },
 };
 
 export interface AchievementDef {
@@ -137,6 +139,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'globe_trotter', name: 'Globe Trotter', desc: 'Complete 10 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 10, reward: { type: 'gems', value: 10 } },
   { id: 'world_conqueror', name: 'World Conqueror', desc: 'Complete 15 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 15, reward: { type: 'gems', value: 15 } },
   { id: 'dimension_master', name: 'Dimension Master', desc: 'Complete 20 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 20, reward: { type: 'gems', value: 25 } },
+  { id: 'world_master', name: 'World Master', desc: 'Complete 30 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 30, reward: { type: 'gems', value: 30 } },
+  { id: 'cosmic_lord', name: 'Cosmic Lord', desc: 'Complete 40 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 40, reward: { type: 'gems', value: 50 } },
+  { id: 'omniversal', name: 'Omniversal', desc: 'Complete 47 different worlds', category: 'levels', stat: 'worldsCompleted', threshold: 47, reward: { type: 'gems', value: 100 } },
 ];
 
 export interface BiomeDef {
@@ -278,9 +283,9 @@ export const RARITY_COLORS: Record<CosmeticRarity, { bg: string; border: string;
   legendary: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-600', badge: 'bg-amber-200 text-amber-800' },
 };
 
-export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 76, 82, 88, 94, 100];
+export const LEVEL_MILESTONES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 121, 127, 133, 138, 144, 150, 155, 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 210, 215, 220, 225, 230, 235, 240];
 
-export type SkillBranchId = 'hunt' | 'feast' | 'survival' | 'automation' | 'evolution';
+export type SkillBranchId = 'hunt' | 'feast' | 'survival' | 'momentum' | 'evolution';
 export type SkillNodeType = 'minor' | 'trait' | 'mechanic' | 'conditional' | 'choice' | 'keystone' | 'gate';
 
 export interface SkillNodeDef {
@@ -306,10 +311,6 @@ export interface SkillNodeDef {
     hungerMaxFlat: number;
     comboWindow: number;
     comboCap: number;
-    tapValueMult: number;
-    tapCooldownMult: number;
-    offlineEfficiency: number;
-    autoTapRate: number;
     starSpawnRateMult: number;
     lowHungerFrenzyMult: number;
     lowHungerThreshold: number;
@@ -323,13 +324,16 @@ export interface SkillNodeDef {
     critEatChance: number;
     hungerOnEat: number;
     speedPerCombo: number;
-    passiveMoneyRate: number;
-    autoSplitRate: number;
-    splitTapReduction: number;
     oversizedValueMult: number;
-    autopilotEfficiency: number;
-    autopilotHungerResist: number;
-    autopilotMaxHours: number;
+    // Momentum branch — swipe-dash effects.
+    swipeImpulseMult: number;       // additive multiplier on swipe impulse magnitude
+    frictionReduction: number;      // additive reduction on friction (0..1, capped to 0.9)
+    dashEatRadius: number;          // extra suction radius while velocity > threshold
+    perfectSwipeMult: number;       // bonus multiplier on items collected during a perfect swipe
+    magnetWhileDashing: number;     // magnet radius bonus that activates only while dashing
+    streakWindow: number;           // extra seconds added to swipe-streak / combo window
+    streakBonusMult: number;        // additive multiplier scaling with active streak
+    ramHitsReduction: number;       // reduces ram hits required to crack oversized
   }>;
 }
 
@@ -382,7 +386,7 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'feast_keystone',     title: 'Golden Appetite',    shortDesc: 'Combo cap raised + value spike', branch: 'feast', chapter: 1, type: 'keystone', cost: 2250, row: 6, requires: ['feast_overkill'],    effects: { comboCap: 18, valueMult: 0.09 } },
   { id: 'feast_choice_cash',  title: 'Cashout Burst',      shortDesc: 'Huge single-hit value spikes', branch: 'feast', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['feast_keystone'],    gateRequired: 'gateA', choiceGroup: 'feast_style', effects: { valueMult: 0.18 } },
   { id: 'feast_choice_chain', title: 'Infinite Chain',     shortDesc: 'Sustained combo power',        branch: 'feast', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['feast_keystone'],    gateRequired: 'gateA', choiceGroup: 'feast_style', effects: { comboWindow: 1.0, comboCap: 26 } },
-  { id: 'feast_gulper',       title: 'Iron Stomach',       shortDesc: 'Fewer taps to split and vomit splits yield more value', branch: 'feast', chapter: 2, type: 'trait', cost: 15000, row: 9.5, requires: ['feast_keystone'], gateRequired: 'gateA', effects: { splitTapReduction: 1, oversizedValueMult: 0.25 } },
+  { id: 'feast_gulper',       title: 'Iron Stomach',       shortDesc: 'Fewer rams to crack & vomit splits yield more value', branch: 'feast', chapter: 2, type: 'trait', cost: 15000, row: 9.5, requires: ['feast_keystone'], gateRequired: 'gateA', effects: { ramHitsReduction: 1, oversizedValueMult: 0.25 } },
   { id: 'feast_epicurean',    title: 'Epicurean Palette',  shortDesc: 'Refined eating with combo-value scaling', branch: 'feast', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['feast_choice_cash', 'feast_choice_chain'], gateRequired: 'gateA', effects: { valueMult: 0.10, comboCap: 22, comboValueScale: 0.015, overkillCashRatio: 0.05 } },
   { id: 'feast_critical_mass', title: 'Critical Mass',     shortDesc: 'Chance for massive value explosions on each eat', branch: 'feast', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['feast_epicurean'], gateRequired: 'gateA', choiceGroup: 'feast_mastery', effects: { critEatChance: 0.15, valueMult: 0.16, overkillCashRatio: 0.12 } },
   { id: 'feast_perpetual',    title: 'Perpetual Feast',    shortDesc: 'Combo never dies, value scales infinitely', branch: 'feast', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['feast_epicurean'], gateRequired: 'gateA', choiceGroup: 'feast_mastery', effects: { comboWindow: 1.2, comboCap: 30, comboValueScale: 0.025, hungerOnEat: 3 } },
@@ -396,59 +400,61 @@ export const SKILL_TREE_NODES: SkillNodeDef[] = [
   { id: 'survival_iron',       title: 'Iron Stomach',          shortDesc: 'Increased hunger capacity',       branch: 'survival', chapter: 1, type: 'choice',       cost: 375,    row: 3, requires: ['survival_digestive'],     choiceGroup: 'survival_early', effects: { hungerMaxFlat: 30, hungerDrainMult: -0.04 } },
   { id: 'survival_endurance',  title: 'Endurance',             shortDesc: '-4% hunger drain',                branch: 'survival', chapter: 1, type: 'minor',        cost: 225,    row: 4, requires: ['survival_shield', 'survival_iron'], effects: { hungerDrainMult: -0.04 } },
   { id: 'survival_frenzy',     title: 'Low-Hunger Frenzy',     shortDesc: 'Speed/value boost when starving', branch: 'survival', chapter: 1, type: 'conditional',  cost: 900,    row: 5, requires: ['survival_endurance'],     effects: { lowHungerThreshold: 0.3, lowHungerFrenzyMult: 0.3 } },
-  { id: 'survival_hibernation', title: 'Hibernation Mode',    shortDesc: '-70% hunger drain during autopilot', branch: 'survival', chapter: 1, type: 'mechanic', cost: 5000, row: 6, requires: ['survival_shield'], effects: { autopilotHungerResist: 0.7 } },
+  { id: 'survival_hibernation', title: 'Second Wind',         shortDesc: 'Frenzy shield activates more often', branch: 'survival', chapter: 1, type: 'mechanic', cost: 5000, row: 6, requires: ['survival_shield'], effects: { frenzyShieldSeconds: 1.0 } },
   { id: 'survival_keystone',   title: 'Last Stand Metabolism', shortDesc: 'High hunger tank + frenzy',       branch: 'survival', chapter: 1, type: 'keystone',     cost: 2250,   row: 6, requires: ['survival_frenzy'],        effects: { hungerMaxFlat: 55, hungerDrainMult: -0.1 } },
   { id: 'survival_tradeoff',   title: 'Risk Reactor',          shortDesc: 'More risk, bigger frenzy',        branch: 'survival', chapter: 2, type: 'conditional',  cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { lowHungerFrenzyMult: 0.32, lowHungerThreshold: 0.42 } },
   { id: 'survival_reservoir',  title: 'Deep Reservoir',        shortDesc: 'Large hunger capacity',           branch: 'survival', chapter: 2, type: 'trait',        cost: 12000,  row: 9, requires: ['survival_keystone'],      gateRequired: 'gateA', choiceGroup: 'survival_style', effects: { hungerMaxFlat: 110 } },
   { id: 'survival_adaptation', title: 'Metabolic Adaptation',  shortDesc: 'Body sustains itself and heals through eating', branch: 'survival', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['survival_tradeoff', 'survival_reservoir'], gateRequired: 'gateA', effects: { hungerDrainMult: -0.12, hungerMaxFlat: 50, hungerOnEat: 2, lowHungerFrenzyMult: 0.10 } },
   { id: 'survival_berserker',  title: 'Berserker Core',        shortDesc: 'Living on the edge grants explosive power', branch: 'survival', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['survival_adaptation'], gateRequired: 'gateA', choiceGroup: 'survival_mastery', effects: { lowHungerFrenzyMult: 0.40, lowHungerThreshold: 0.45, speedMult: 0.15, valueMult: 0.10 } },
   { id: 'survival_fortress',   title: 'Fortress Metabolism',   shortDesc: 'Nearly unkillable with passive hunger regen', branch: 'survival', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['survival_adaptation'], gateRequired: 'gateA', choiceGroup: 'survival_mastery', effects: { hungerMaxFlat: 130, hungerDrainMult: -0.20, frenzyShieldSeconds: 2.5, hungerOnEat: 5 } },
-  { id: 'survival_deep_sleep',  title: 'Deep Sleep',            shortDesc: '-20% autopilot drain, +10 max hunger', branch: 'survival', chapter: 3, type: 'trait', cost: 45000, row: 11, requires: ['survival_apex'], gateRequired: 'gateB', effects: { autopilotHungerResist: 0.2, hungerMaxFlat: 10 } },
+  { id: 'survival_deep_sleep',  title: 'Iron Reserves',         shortDesc: '-5% hunger drain, +10 max hunger',   branch: 'survival', chapter: 3, type: 'trait', cost: 45000, row: 11, requires: ['survival_apex'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.05, hungerMaxFlat: 10 } },
   { id: 'survival_apex',       title: 'Immortal Core',         shortDesc: 'Late run stamina + economy',      branch: 'survival', chapter: 3, type: 'keystone',     cost: 120000, row: 12, requires: ['survival_berserker', 'survival_fortress'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.30, valueMult: 0.15, hungerMaxFlat: 80, frenzyShieldSeconds: 1.2, lowHungerFrenzyMult: 0.15 } },
   { id: 'survival_mastery_node', title: 'Undying Core',        shortDesc: 'Ultimate survival and hunger mastery', branch: 'survival', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['survival_apex'], gateRequired: 'gateB', effects: { hungerDrainMult: -0.30, hungerMaxFlat: 160, lowHungerFrenzyMult: 0.30, valueMult: 0.15, hungerOnEat: 4, frenzyShieldSeconds: 1.5 } },
 
-  // ── Automation branch ──
-  { id: 'auto_servo',          title: 'Basic Servo',       shortDesc: '+0.1 auto-tap rate',             branch: 'automation', chapter: 1, type: 'minor',    cost: 38,     row: 1, requires: [],                    effects: { autoTapRate: 0.1 } },
-  { id: 'auto_tap_drone',      title: 'Tap Drone',         shortDesc: 'Passive tap food generation',    branch: 'automation', chapter: 1, type: 'mechanic', cost: 150,    row: 2, requires: ['auto_servo'],         effects: { autoTapRate: 0.25, tapValueMult: 0.2 } },
-  { id: 'auto_tap_optimizer',  title: 'Efficient Systems', shortDesc: 'Improved tap output and reduced hunger drain', branch: 'automation', chapter: 1, type: 'trait', cost: 375, row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { tapValueMult: 0.25, tapCooldownMult: -0.1, hungerDrainMult: -0.03 } },
-  { id: 'auto_power_grid',     title: 'Power Grid',        shortDesc: 'Passive tapping and offline gains', branch: 'automation', chapter: 1, type: 'choice', cost: 375, row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { autoTapRate: 0.25, offlineEfficiency: 0.08 } },
-  { id: 'auto_signal',         title: 'Proximity Sensors', shortDesc: 'Slight suction expansion and tap boost', branch: 'automation', chapter: 1, type: 'minor', cost: 225, row: 4, requires: ['auto_tap_optimizer', 'auto_power_grid'], effects: { tapValueMult: 0.08, suctionFlat: 5 } },
-  { id: 'auto_autopilot_unlock', title: 'Autopilot Mode',  shortDesc: 'Blob clears the level while you are away', branch: 'automation', chapter: 1, type: 'mechanic', cost: 500, row: 4.5, requires: ['auto_tap_drone'], effects: { autopilotEfficiency: 0.5 } },
-  { id: 'auto_split_drone',    title: 'Splitter Drone',    shortDesc: 'Drone automatically cracks oversized food', branch: 'automation', chapter: 1, type: 'mechanic', cost: 600, row: 4.5, requires: ['auto_signal'], effects: { autoSplitRate: 0.5 } },
-  { id: 'auto_offline_core',   title: 'Offline Core',      shortDesc: 'Offline efficiency increase',    branch: 'automation', chapter: 1, type: 'mechanic', cost: 900,    row: 5, requires: ['auto_signal'],        effects: { offlineEfficiency: 0.15 } },
-  { id: 'auto_keystone',       title: 'Autopilot Brain',   shortDesc: 'Supercharged auto-tap',          branch: 'automation', chapter: 1, type: 'keystone', cost: 2250,   row: 6, requires: ['auto_offline_core'],  effects: { autoTapRate: 0.5, offlineEfficiency: 0.1 } },
-  { id: 'auto_idle_pathfinding', title: 'Smart Pathing',   shortDesc: '+30% autopilot efficiency',       branch: 'automation', chapter: 2, type: 'trait',    cost: 8000,   row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', effects: { autopilotEfficiency: 0.3 } },
-  { id: 'auto_extended_battery', title: 'Extended Battery', shortDesc: 'Autopilot lasts up to 12h',     branch: 'automation', chapter: 2, type: 'trait',    cost: 15000,  row: 9.5, requires: ['auto_idle_pathfinding'], gateRequired: 'gateA', effects: { autopilotMaxHours: 4 } },
-  { id: 'auto_choice_builder', title: 'Builder AI',        shortDesc: 'Tap efficiency focus',            branch: 'automation', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { autoTapRate: 0.45, valueMult: 0.08 } },
-  { id: 'auto_choice_farmer',  title: 'Magnetic Field',    shortDesc: 'Items across the level drift toward the blob', branch: 'automation', chapter: 2, type: 'choice', cost: 12000, row: 9, requires: ['auto_keystone'], gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { magnetRadius: 1.3, autoTapRate: 0.35 } },
-  { id: 'auto_split_elite',    title: 'Crusher Protocol',  shortDesc: 'Faster auto-splitting and reduced taps needed', branch: 'automation', chapter: 2, type: 'trait', cost: 18000, row: 9.5, requires: ['auto_split_drone', 'auto_keystone'], gateRequired: 'gateA', effects: { autoSplitRate: 1.5, splitTapReduction: 1 } },
-  { id: 'auto_neural_net',     title: 'Neural Network',    shortDesc: 'AI systems optimize all automation pipelines', branch: 'automation', chapter: 2, type: 'trait', cost: 35000, row: 10, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateA', effects: { autoTapRate: 0.5, tapValueMult: 0.15, offlineEfficiency: 0.10, passiveMoneyRate: 0.5 } },
-  { id: 'auto_swarm',          title: 'Drone Swarm',       shortDesc: 'Flood the field with micro-drones', branch: 'automation', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { autoTapRate: 1.0, magnetRadius: 0.8, suctionFlat: 12, multiEatRadius: 20 } },
-  { id: 'auto_overclock',      title: 'Overclock Protocol', shortDesc: 'Each tap and auto-eat is massively amplified', branch: 'automation', chapter: 2, type: 'choice', cost: 60000, row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { tapValueMult: 0.45, tapCooldownMult: -0.25, valueMult: 0.10, passiveMoneyRate: 1.0 } },
-  { id: 'auto_perpetual_motion', title: 'Perpetual Motion', shortDesc: 'Full autopilot efficiency, no diminishing returns', branch: 'automation', chapter: 3, type: 'keystone', cost: 80000, row: 11, requires: ['auto_neural_net', 'auto_extended_battery'], gateRequired: 'gateB', effects: { autopilotEfficiency: 0.5, autopilotMaxHours: 8 } },
-  { id: 'auto_apex',           title: 'Singularity Ops',   shortDesc: 'Massive passive scaling',        branch: 'automation', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['auto_swarm', 'auto_overclock'], gateRequired: 'gateB', effects: { offlineEfficiency: 0.30, autoTapRate: 1.2, magnetRadius: 0.8, suctionMult: 0.15, tapValueMult: 0.15 } },
-  { id: 'auto_mastery_node',   title: 'Singularity Engine', shortDesc: 'Ultimate passive automation power', branch: 'automation', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['auto_apex'], gateRequired: 'gateB', effects: { autoTapRate: 1.5, offlineEfficiency: 0.25, magnetRadius: 1.0, tapValueMult: 0.30, passiveMoneyRate: 2.0 } },
+  // ── Momentum branch (swipe-dash) ──
+  // NOTE: node IDs preserved for save-compat; unlocked auto_* nodes seamlessly
+  // map to momentum effects. Branch identifier is now 'momentum'.
+  { id: 'auto_servo',          title: 'Quick Push',          shortDesc: '+10% swipe impulse',                          branch: 'momentum', chapter: 1, type: 'minor',    cost: 38,     row: 1, requires: [],                    effects: { swipeImpulseMult: 0.10 } },
+  { id: 'auto_tap_drone',      title: 'Smooth Glide',        shortDesc: 'Bigger swipes, longer coast',                  branch: 'momentum', chapter: 1, type: 'mechanic', cost: 150,    row: 2, requires: ['auto_servo'],         effects: { swipeImpulseMult: 0.15, frictionReduction: 0.10 } },
+  { id: 'auto_tap_optimizer',  title: 'Efficient Stride',    shortDesc: 'Less friction, less hunger drain',             branch: 'momentum', chapter: 1, type: 'trait',    cost: 375,    row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { frictionReduction: 0.20, hungerDrainMult: -0.03 } },
+  { id: 'auto_power_grid',     title: 'Dash Sweep',          shortDesc: 'Wider eat radius while moving fast',           branch: 'momentum', chapter: 1, type: 'choice',   cost: 375,    row: 3, requires: ['auto_tap_drone'], choiceGroup: 'auto_early', effects: { dashEatRadius: 12, frictionReduction: 0.10 } },
+  { id: 'auto_signal',         title: 'Steady Hand',         shortDesc: 'Bigger swipes, +5 suction',                    branch: 'momentum', chapter: 1, type: 'minor',    cost: 225,    row: 4, requires: ['auto_tap_optimizer', 'auto_power_grid'], effects: { swipeImpulseMult: 0.08, suctionFlat: 5 } },
+  { id: 'auto_autopilot_unlock', title: 'Streak Spark',      shortDesc: 'Build swipe-streaks faster, +5% streak bonus', branch: 'momentum', chapter: 1, type: 'mechanic', cost: 500,    row: 4.5, requires: ['auto_tap_drone'], effects: { streakWindow: 0.4, streakBonusMult: 0.05 } },
+  { id: 'auto_split_drone',    title: 'Heavy Body',          shortDesc: 'Crack oversized food in 1 fewer ram',          branch: 'momentum', chapter: 1, type: 'mechanic', cost: 600,    row: 4.5, requires: ['auto_signal'], effects: { ramHitsReduction: 1 } },
+  { id: 'auto_offline_core',   title: 'Long Glide',          shortDesc: 'Streak window extended',                       branch: 'momentum', chapter: 1, type: 'mechanic', cost: 900,    row: 5, requires: ['auto_signal'],        effects: { streakWindow: 0.6, frictionReduction: 0.10 } },
+  { id: 'auto_keystone',       title: 'Momentum Core',       shortDesc: 'Frictionless coast + streak bonus',            branch: 'momentum', chapter: 1, type: 'keystone', cost: 2250,   row: 6, requires: ['auto_offline_core'],  effects: { frictionReduction: 0.25, streakBonusMult: 0.10 } },
+  { id: 'auto_idle_pathfinding', title: 'Sharp Turning',     shortDesc: 'Stronger swipe impulse, snappier feel',        branch: 'momentum', chapter: 2, type: 'trait',    cost: 8000,   row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', effects: { swipeImpulseMult: 0.20 } },
+  { id: 'auto_extended_battery', title: 'Wide Wake',         shortDesc: 'Larger dash eat radius',                       branch: 'momentum', chapter: 2, type: 'trait',    cost: 15000,  row: 9.5, requires: ['auto_idle_pathfinding'], gateRequired: 'gateA', effects: { dashEatRadius: 18 } },
+  { id: 'auto_choice_builder', title: 'Power Swipe',         shortDesc: 'Big impulse and more value per item',          branch: 'momentum', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { swipeImpulseMult: 0.30, valueMult: 0.08 } },
+  { id: 'auto_choice_farmer',  title: 'Slipstream',          shortDesc: 'Magnet activates while dashing',               branch: 'momentum', chapter: 2, type: 'choice',   cost: 12000,  row: 9, requires: ['auto_keystone'],     gateRequired: 'gateA', choiceGroup: 'auto_style', effects: { magnetWhileDashing: 0.8, dashEatRadius: 10 } },
+  { id: 'auto_split_elite',    title: 'Battering Body',      shortDesc: 'Huge crack reduction on oversized',            branch: 'momentum', chapter: 2, type: 'trait',    cost: 18000,  row: 9.5, requires: ['auto_split_drone', 'auto_keystone'], gateRequired: 'gateA', effects: { ramHitsReduction: 2 } },
+  { id: 'auto_neural_net',     title: 'Flow State',          shortDesc: 'Perfect swipe rewards + streak window',        branch: 'momentum', chapter: 2, type: 'trait',    cost: 35000,  row: 10, requires: ['auto_choice_builder', 'auto_choice_farmer'], gateRequired: 'gateA', effects: { swipeImpulseMult: 0.25, perfectSwipeMult: 0.20, streakWindow: 0.5 } },
+  { id: 'auto_swarm',          title: 'Vortex Stride',       shortDesc: 'Massive dash radius and magnet trail',         branch: 'momentum', chapter: 2, type: 'choice',   cost: 60000,  row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { dashEatRadius: 25, magnetWhileDashing: 0.8, suctionFlat: 12, multiEatRadius: 20 } },
+  { id: 'auto_overclock',      title: 'Overclock Strike',    shortDesc: 'Devastating perfect-swipe payouts',            branch: 'momentum', chapter: 2, type: 'choice',   cost: 60000,  row: 10, requires: ['auto_neural_net'], gateRequired: 'gateA', choiceGroup: 'auto_mastery', effects: { perfectSwipeMult: 0.50, valueMult: 0.10, frictionReduction: 0.20 } },
+  { id: 'auto_perpetual_motion', title: 'Perpetual Motion',  shortDesc: 'Frictionless coasting + bigger swipes',        branch: 'momentum', chapter: 3, type: 'keystone', cost: 80000,  row: 11, requires: ['auto_neural_net', 'auto_extended_battery'], gateRequired: 'gateB', effects: { frictionReduction: 0.40, swipeImpulseMult: 0.30 } },
+  { id: 'auto_apex',           title: 'Singularity Stride',  shortDesc: 'Sweep enormous fields per swipe',              branch: 'momentum', chapter: 3, type: 'keystone', cost: 120000, row: 12, requires: ['auto_swarm', 'auto_overclock'], gateRequired: 'gateB', effects: { swipeImpulseMult: 0.40, magnetWhileDashing: 0.8, suctionMult: 0.15, perfectSwipeMult: 0.30 } },
+  { id: 'auto_mastery_node',   title: 'Endless Wake',        shortDesc: 'Ultimate swipe-streak power',                  branch: 'momentum', chapter: 3, type: 'keystone', cost: 300000, row: 14, requires: ['auto_apex'], gateRequired: 'gateB', effects: { swipeImpulseMult: 0.50, magnetWhileDashing: 1.0, perfectSwipeMult: 0.50, streakBonusMult: 0.15 } },
 
   // ── Cross-branch Fusion ──
   { id: 'fusion_predator_feast', title: 'Devouring Strike',  shortDesc: 'The predator becomes a gourmet', branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['hunt_target_lock', 'feast_keystone'], gateRequired: 'gateA', effects: { valueMult: 0.18, speedMult: 0.12, comboWindow: 0.4, critEatChance: 0.08 } },
   { id: 'fusion_hunt_survival',  title: 'Survival Instinct', shortDesc: 'Desperation fuels the hunt',    branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['hunt_target_lock', 'survival_keystone'], gateRequired: 'gateA', effects: { speedMult: 0.14, hungerDrainMult: -0.10, lowHungerFrenzyMult: 0.18, speedPerCombo: 0.015 } },
-  { id: 'fusion_feast_auto',     title: 'Automated Harvest', shortDesc: 'Automation optimizes food-to-cash', branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['feast_keystone', 'auto_keystone'], gateRequired: 'gateA', effects: { autoTapRate: 0.5, valueMult: 0.10, overkillCashRatio: 0.08, comboValueScale: 0.01 } },
-  { id: 'fusion_survival_auto',  title: 'Perpetual Engine',  shortDesc: 'Self-sustaining automation',    branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['survival_keystone', 'auto_keystone'], gateRequired: 'gateA', effects: { hungerDrainMult: -0.12, autoTapRate: 0.4, offlineEfficiency: 0.15, hungerOnEat: 3, passiveMoneyRate: 0.8 } },
+  { id: 'fusion_feast_auto',     title: 'Streaming Feast',   shortDesc: 'Streak rewards stack with combos',  branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['feast_keystone', 'auto_keystone'], gateRequired: 'gateA', effects: { swipeImpulseMult: 0.20, valueMult: 0.10, overkillCashRatio: 0.08, comboValueScale: 0.01 } },
+  { id: 'fusion_survival_auto',  title: 'Endurance Glide',   shortDesc: 'Long coast + sustained hunger',     branch: 'evolution', chapter: 2, type: 'mechanic', cost: 40000, row: 10, requires: ['survival_keystone', 'auto_keystone'], gateRequired: 'gateA', effects: { hungerDrainMult: -0.12, frictionReduction: 0.20, hungerOnEat: 3, swipeImpulseMult: 0.20 } },
 
   // ── Gates and Apex ──
   { id: 'gate_a_unlock',       title: 'Gate A',             shortDesc: '2 keystones required',         branch: 'evolution', chapter: 2, type: 'gate',     cost: 0,      row: 7,  requires: [] },
   { id: 'gate_b_unlock',       title: 'Gate B',             shortDesc: 'All branches at mastery',      branch: 'evolution', chapter: 3, type: 'gate',     cost: 0,      row: 11, requires: [] },
-  { id: 'apex_transcendence',  title: 'Apex Transcendence', shortDesc: 'Cross-branch capstone',        branch: 'evolution', chapter: 3, type: 'keystone', cost: 375000, row: 13, requires: ['hunt_apex', 'feast_apex', 'survival_apex', 'auto_apex'], gateRequired: 'gateB', effects: { valueMult: 0.30, speedMult: 0.25, suctionMult: 0.25, offlineEfficiency: 0.20, hungerDrainMult: -0.10, multiEatRadius: 20 } },
+  { id: 'apex_transcendence',  title: 'Apex Transcendence', shortDesc: 'Cross-branch capstone',        branch: 'evolution', chapter: 3, type: 'keystone', cost: 375000, row: 13, requires: ['hunt_apex', 'feast_apex', 'survival_apex', 'auto_apex'], gateRequired: 'gateB', effects: { valueMult: 0.30, speedMult: 0.25, suctionMult: 0.25, swipeImpulseMult: 0.30, hungerDrainMult: -0.10, multiEatRadius: 20 } },
   { id: 'gate_c_unlock',       title: 'Gate C',             shortDesc: 'All masteries + Transcendence', branch: 'evolution', chapter: 3, type: 'gate',    cost: 0,      row: 15, requires: [] },
   { id: 'ultimate_singularity', title: 'The Singularity',   shortDesc: 'Everything is consumed simultaneously', branch: 'evolution', chapter: 3, type: 'keystone', cost: 750000, row: 16, requires: ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node', 'apex_transcendence'], gateRequired: 'gateC', choiceGroup: 'ultimate_path', effects: { speedMult: 0.50, suctionMult: 0.45, multiEatRadius: 50, magnetRadius: 1.5, weightReduction: 0.6 } },
-  { id: 'ultimate_omnivore',   title: 'Omnivore Transcendence', shortDesc: 'Every bite is worth a fortune', branch: 'evolution', chapter: 3, type: 'keystone', cost: 750000, row: 16, requires: ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node', 'apex_transcendence'], gateRequired: 'gateC', choiceGroup: 'ultimate_path', effects: { valueMult: 0.55, comboValueScale: 0.05, critEatChance: 0.20, hungerOnEat: 8, passiveMoneyRate: 5.0 } },
+  { id: 'ultimate_omnivore',   title: 'Omnivore Transcendence', shortDesc: 'Every bite is worth a fortune', branch: 'evolution', chapter: 3, type: 'keystone', cost: 750000, row: 16, requires: ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node', 'apex_transcendence'], gateRequired: 'gateC', choiceGroup: 'ultimate_path', effects: { valueMult: 0.55, comboValueScale: 0.05, critEatChance: 0.20, hungerOnEat: 8, streakBonusMult: 0.30 } },
 ];
 
 export const SKILL_NODE_LOOKUP = Object.fromEntries(
   SKILL_TREE_NODES.map((node) => [node.id, node])
 ) as Record<string, SkillNodeDef>;
 
-export const SKILL_BRANCH_ORDER: SkillBranchId[] = ['hunt', 'feast', 'survival', 'automation'];
+export const SKILL_BRANCH_ORDER: SkillBranchId[] = ['hunt', 'feast', 'survival', 'momentum'];
 
 export const ACTIVE_ABILITIES = [
   { id: 'magnet', name: 'Magnet Pull',  desc: 'Pull all items toward blob',          icon: 'Magnet',    duration: 3, cooldown: 18, unlockLevel: 1  },
@@ -487,7 +493,7 @@ export const SKILL_BRANCH_LABELS: Record<SkillBranchId, string> = {
   hunt: 'Hunt',
   feast: 'Feast',
   survival: 'Survival',
-  automation: 'Automation',
+  momentum: 'Momentum',
   evolution: 'Evolution Gate',
 };
 
@@ -497,18 +503,18 @@ export function getStarterSkillNodesFromLegacy(upgrades: Record<string, number |
     hunt: (upgrades.speed || 0) + (upgrades.suction || 0) + (upgrades.suctionStrength || 0),
     feast: (upgrades.spawnValue || 0) + (upgrades.spawnSynergy || 0),
     survival: (upgrades.hungerDrain || 0) + (upgrades.hungerMax || 0) + (upgrades.hungerSynergy || 0),
-    automation: (upgrades.tapValue || 0) + (upgrades.tapCooldown || 0) + (upgrades.tapSynergy || 0) + (upgrades.spawnRate || 0) + (upgrades.boostSpawnRate || 0),
+    momentum: (upgrades.spawnRate || 0) + (upgrades.boostSpawnRate || 0),
   };
 
   if (oldTotals.hunt >= 4) branchSeeds.push('hunt_pathing');
   if (oldTotals.feast >= 4) branchSeeds.push('feast_combo_timer');
   if (oldTotals.survival >= 4) branchSeeds.push('survival_digestive');
-  if (oldTotals.automation >= 4) branchSeeds.push('auto_tap_drone');
+  if (oldTotals.momentum >= 4) branchSeeds.push('auto_tap_drone');
 
   if (oldTotals.hunt >= 14) branchSeeds.push('hunt_dash_on_star');
   if (oldTotals.feast >= 14) branchSeeds.push('feast_combo_floor');
   if (oldTotals.survival >= 14) branchSeeds.push('survival_shield');
-  if (oldTotals.automation >= 14) branchSeeds.push('auto_tap_optimizer');
+  if (oldTotals.momentum >= 14) branchSeeds.push('auto_tap_optimizer');
 
   return branchSeeds;
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
-import { useGameStore, Item, getCurrentWorld, computeTapCooldown } from '../store/gameStore';
-import { BASE_SUCTION, BLOB_SKINS, OVERSIZED_SIZE_MULT, OVERSIZED_VOMIT_STAGES, getOversizedConfig } from '../lib/constants';
+import { useGameStore, Item, getCurrentWorld } from '../store/gameStore';
+import { BASE_SUCTION, BLOB_SKINS, OVERSIZED_SIZE_MULT, OVERSIZED_VOMIT_STAGES, getOversizedConfig,
+  STEER_DEADZONE_PX, STEER_MAX_DIST_PX } from '../lib/constants';
 import { drawSpecialSkin, drawBlobItem, drawBlobFace, faceOverridesDefaultEyes, faceOverridesDefaultMouth } from '../lib/blobCosmetics';
 import { ITEM_LOOKUP } from '../lib/itemCatalog';
 import { getWorldForLevel, WORLD_LOOKUP, WORLDS } from '../lib/levels';
@@ -188,6 +189,12 @@ export function GameCanvas() {
   const blobFlashRef = useRef<{ color: string; birth: number } | null>(null);
   const lastHapticTimeRef = useRef(0);
   const lastFrameTimeRef = useRef(0);
+  const prevSwipeStreakRef = useRef(0);
+  const prevFrenzyDashRef = useRef(false);
+  const prevPerfectRef = useRef(false);
+  const slowMoEndRef = useRef(0);
+  const lowHungerSlowMoTriggeredRef = useRef(false);
+  const prevRamHitsRef = useRef<Map<string, number>>(new Map());
   const introRef = useRef({
     level: 0,
     startTime: 0,
@@ -200,113 +207,127 @@ export function GameCanvas() {
   const tutorialPosRef = useRef<{ x: number; y: number; r: number; itemId: string } | null>(null);
   const [tutorialVisible, setTutorialVisible] = useState(false);
 
+  // Per-finger session state (id, last touch screen-coords, last touch screen
+  // joystick visualization). Persists from pointerdown to pointerup so the
+  // visualization layer can read it from refs each render frame without a
+  // store round-trip.
+  const steerSessionRef = useRef<{
+    id: number;
+    startX: number;
+    startY: number;
+    lastX: number;
+    lastY: number;
+    startTime: number;
+    haptic: boolean;
+  } | null>(null);
+
   const handleTutorialTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const state = useGameStore.getState();
-    const osItem = state.items.find(i => i.isOversized && i.splitState !== 'splitting');
-    if (osItem) state.tapOversizedItem(osItem.id);
     state.dismissHint('oversized_food');
     setTutorialVisible(false);
   }, []);
 
-  const handleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  // Translate a touch point (canvas-local pixels) into a steer-input vector
+  // anchored at the blob's current screen position. Pushes the result into
+  // the store so the tick loop can read it next frame.
+  const updateSteerFromTouch = useCallback((screenX: number, screenY: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const state = useGameStore.getState();
-    if (state._introPlaying) return;
-    const rect = canvas.getBoundingClientRect();
-
-    let clientX: number, clientY: number;
-    if ('touches' in e) {
-      if (e.touches.length === 0) return;
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-
-    const screenX = clientX - rect.left;
-    const screenY = clientY - rect.top;
-
     const world = getWorldForLevel(state.currentLevel);
-    const blobVisScale = world.blobScale;
-    const zoom = 2.5 / blobVisScale;
+    const zoom = 2.5 / world.blobScale;
 
-    const worldX = camPosRef.current.x + (screenX - canvas.width / 2) / zoom;
-    const worldY = camPosRef.current.y + (screenY - canvas.height / 2) / zoom;
+    // Where the renderer is currently drawing the blob. Use the same camera
+    // math as the render loop so the joystick anchor is exactly where the
+    // player sees the blob.
+    const blobScreenX = (state.blobPosition.x - camPosRef.current.x) * zoom + canvas.width / 2;
+    const blobScreenY = (state.blobPosition.y - camPosRef.current.y) * zoom + canvas.height / 2;
 
-    const now = performance.now() / 1000;
-    const isTutorialActive = state.activeHint === 'oversized_food';
+    const dx = screenX - blobScreenX;
+    const dy = screenY - blobScreenY;
+    const dist = Math.hypot(dx, dy);
 
-    const worldForTap = getWorldForLevel(state.currentLevel);
-    const wIdx = WORLDS.indexOf(worldForTap);
-    const nextWorldForTap = wIdx < WORLDS.length - 1 ? WORLDS[wIdx + 1] : worldForTap;
-    for (const item of state.items) {
-      if (!item.isOversized || item.splitState === 'splitting' || item.splitState === 'swallowing') continue;
-      const catalogItem = ITEM_LOOKUP[item.type];
-      if (!catalogItem) continue;
-      const tapStage = item.oversizedStage || OVERSIZED_VOMIT_STAGES;
-      const tapStageFrac = tapStage / OVERSIZED_VOMIT_STAGES;
-      const tapSizeMult = 1 + (OVERSIZED_SIZE_MULT - 1) * tapStageFrac;
-      const itemSize = (6 + catalogItem.sizeTier * 4) * nextWorldForTap.blobScale * tapSizeMult;
-      const hitDist = Math.hypot(worldX - item.x, worldY - item.y);
-      if (hitDist < itemSize * (isTutorialActive ? 1.2 : 0.8)) {
-        ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'crack' });
-        const tapsAfter = (item.splitTapsReceived || 0) + 1;
-        const osCfg = getOversizedConfig(wIdx);
-        const total = item.splitTapsRequired || (osCfg?.tapsRequired ?? 3);
-        floatingTextsRef.current.push({
-          x: item.x, y: item.y - itemSize * 0.5,
-          text: tapsAfter >= total ? 'SPLIT!' : `${tapsAfter}/${total}`,
-          birth: now, value: -1,
-        });
-        state.tapOversizedItem(item.id);
-        if (isTutorialActive) {
-          state.dismissHint('oversized_food');
-        }
-        return;
-      }
-    }
-
-    if (isTutorialActive) return;
-
-    const bx = state.blobPosition.x;
-    const by = state.blobPosition.y;
-    const tapDist = Math.hypot(worldX - bx, worldY - by);
-    const MIN_SPAWN_DIST = 40;
-
-    if (tapDist < MIN_SPAWN_DIST) {
-      ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'blob' });
-
-      const nodes = nodesRef.current;
-      const angle = Math.atan2(worldY - by, worldX - bx);
-      for (let ni = 0; ni < NUM_NODES; ni++) {
-        const nodeAngle = (ni / NUM_NODES) * Math.PI * 2;
-        let diff = Math.abs(nodeAngle - angle);
-        if (diff > Math.PI) diff = 2 * Math.PI - diff;
-        if (diff < Math.PI / 2) {
-          const force = (Math.PI / 2 - diff) * 15 * world.blobScale;
-          nodes[ni].vx -= Math.cos(angle) * force;
-          nodes[ni].vy -= Math.sin(angle) * force;
-        }
-      }
-
-      const POKE_TEXTS = ['Hey!', 'That tickles!', 'Feed me!', 'Hehe!', 'Boop!'];
-      const text = POKE_TEXTS[Math.floor(Math.random() * POKE_TEXTS.length)];
-      floatingTextsRef.current.push({ x: bx, y: by - 20, text, birth: now, value: -1 });
+    if (dist < STEER_DEADZONE_PX) {
+      // Inside dead-zone — keep the session alive but stop moving.
+      state.setSteerInput(true, 0, 0, 0);
       return;
     }
 
-    const cooldown = computeTapCooldown(state.upgrades, state.unlockedSkillNodes);
-    if (now - state.lastTapTime < cooldown) {
-      ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'cooldown' });
-      return;
-    }
+    const dirX = dx / dist;
+    const dirY = dy / dist;
+    const span = Math.max(1, STEER_MAX_DIST_PX - STEER_DEADZONE_PX);
+    const magnitude = Math.min(1, (dist - STEER_DEADZONE_PX) / span);
+    state.setSteerInput(true, dirX, dirY, magnitude);
+  }, []);
 
-    ripplesRef.current.push({ x: worldX, y: worldY, birth: now, type: 'normal' });
-    state.tapFood(worldX, worldY);
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      const state = useGameStore.getState();
+      if (state._introPlaying) return;
+      if (state.levelComplete || state.levelFailed || state.reviveOffered) return;
+      if (state._openPanelCount > 0) return;
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* unsupported on some webviews */ }
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      steerSessionRef.current = {
+        id: e.pointerId,
+        startX: sx,
+        startY: sy,
+        lastX: sx,
+        lastY: sy,
+        startTime: performance.now(),
+        haptic: false,
+      };
+      updateSteerFromTouch(sx, sy);
+    } catch (err) {
+      console.error('[steer-down]', err);
+    }
+  }, [updateSteerFromTouch]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      const session = steerSessionRef.current;
+      if (!session || session.id !== e.pointerId) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      session.lastX = e.clientX - rect.left;
+      session.lastY = e.clientY - rect.top;
+      updateSteerFromTouch(session.lastX, session.lastY);
+      // Single subtle haptic the first time the player drags out of the
+      // dead-zone — confirms the analog-stick has engaged.
+      if (!session.haptic) {
+        const dx = session.lastX - session.startX;
+        const dy = session.lastY - session.startY;
+        if (Math.hypot(dx, dy) > STEER_DEADZONE_PX + 4) {
+          triggerHaptic(6);
+          session.haptic = true;
+        }
+      }
+    } catch (err) {
+      console.error('[steer-move]', err);
+    }
+  }, [updateSteerFromTouch]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      const session = steerSessionRef.current;
+      if (!session || session.id !== e.pointerId) return;
+      const canvas = canvasRef.current;
+      if (canvas) {
+        try { canvas.releasePointerCapture(e.pointerId); } catch { /* noop */ }
+      }
+      steerSessionRef.current = null;
+      useGameStore.getState().setSteerInput(false, 0, 0, 0);
+    } catch (err) {
+      console.error('[steer-up]', err);
+    }
   }, []);
 
   useEffect(() => {
@@ -316,18 +337,26 @@ export function GameCanvas() {
     if (!ctx) return;
 
     let animationFrameId: number;
+    let renderErrorCount = 0;
+    const RENDER_ERROR_LIMIT = 5;
 
-    const render = () => {
+    const renderInner = () => {
       if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
       }
 
       const frameNow = performance.now();
-      const delta = lastFrameTimeRef.current === 0
+      const rawDelta = lastFrameTimeRef.current === 0
         ? 0.016
         : Math.min(0.1, (frameNow - lastFrameTimeRef.current) / 1000);
       lastFrameTimeRef.current = frameNow;
+
+      // Slow-mo time-scale (perfect swipe / low-hunger comeback / etc).
+      const nowSec = frameNow / 1000;
+      const slowMoActive = nowSec < slowMoEndRef.current;
+      const timeScale = slowMoActive ? 0.7 : 1;
+      const delta = rawDelta * timeScale;
 
       // Drive the simulation FIRST, then render the freshly-updated state in
       // the same animation frame. Previously the tick lived on a separate
@@ -428,8 +457,15 @@ export function GameCanvas() {
           camPosRef.current.y = blobPosition.y;
         }
       } else {
-        const targetCamX = blobPosition.x;
-        const targetCamY = blobPosition.y;
+        // Velocity lead-in: nudge the camera toward the direction the blob is moving
+        // so that incoming food is visible a moment earlier — telegraphs motion.
+        const blobVel = state.blobVelocity || { x: 0, y: 0 };
+        const velMag = Math.hypot(blobVel.x, blobVel.y);
+        const leadFactor = velMag > 0 ? Math.min(0.18, velMag / 2400) : 0;
+        const leadX = blobVel.x * leadFactor;
+        const leadY = blobVel.y * leadFactor;
+        const targetCamX = blobPosition.x + leadX;
+        const targetCamY = blobPosition.y + leadY;
         if (Math.hypot(camPosRef.current.x - targetCamX, camPosRef.current.y - targetCamY) > 1000) {
           camPosRef.current.x = targetCamX;
           camPosRef.current.y = targetCamY;
@@ -874,6 +910,109 @@ export function GameCanvas() {
       }
       prevComboRef.current = comboCount;
 
+      // ── Swipe-streak milestone bursts (25/50/75/100%) ──
+      const prevStreak = prevSwipeStreakRef.current;
+      const curStreak = state.swipeStreak;
+      const streakMilestones = [25, 50, 75, 100];
+      for (const ms of streakMilestones) {
+        if (prevStreak < ms && curStreak >= ms) {
+          spawnMilestoneBurst(
+            particlesRef.current,
+            blobPosition.x,
+            blobPosition.y - radius * 0.4,
+            ms === 100 ? '#ec4899' : ms >= 50 ? '#f97316' : '#fbbf24',
+            radius,
+            now,
+          );
+          screenShakeRef.current = Math.min(14, screenShakeRef.current + 2.5);
+          if (state.hapticsEnabled) triggerHaptic([20, 40, 30]);
+        }
+      }
+      prevSwipeStreakRef.current = curStreak;
+
+      // ── Frenzy Dash trigger ──
+      if (state.frenzyDashActive && !prevFrenzyDashRef.current) {
+        floatingTextsRef.current.push({
+          x: blobPosition.x,
+          y: blobPosition.y - radius * 1.7,
+          text: 'FRENZY DASH!',
+          birth: now,
+          value: -3,
+          color: '#ec4899',
+          fontScale: 1.6,
+        });
+        screenShakeRef.current = Math.min(20, screenShakeRef.current + 6);
+        spawnMilestoneBurst(particlesRef.current, blobPosition.x, blobPosition.y, '#ec4899', radius * 1.4, now);
+        if (state.hapticsEnabled) triggerHaptic([60, 30, 60, 30, 80]);
+      }
+      prevFrenzyDashRef.current = state.frenzyDashActive;
+
+      // ── Perfect Swipe banner ──
+      if (state._perfectSwipeFired && !prevPerfectRef.current) {
+        floatingTextsRef.current.push({
+          x: blobPosition.x,
+          y: blobPosition.y - radius * 1.6,
+          text: 'PERFECT!',
+          birth: now,
+          value: -3,
+          color: '#fde047',
+          fontScale: 1.5,
+        });
+        screenShakeRef.current = Math.min(16, screenShakeRef.current + 3.5);
+        spawnMilestoneBurst(particlesRef.current, blobPosition.x, blobPosition.y - radius * 0.4, '#fde047', radius, now);
+        if (state.hapticsEnabled) triggerHaptic([35, 25, 60]);
+        slowMoEndRef.current = now + 0.18;
+      }
+      prevPerfectRef.current = state._perfectSwipeFired;
+
+      // ── Ram feedback for oversized food ──
+      const ramMap = prevRamHitsRef.current;
+      const seenIds = new Set<string>();
+      for (const it of currentItems) {
+        if (!it.isOversized) continue;
+        seenIds.add(it.id);
+        const prevHits = ramMap.get(it.id) || 0;
+        const curHits = it.ramHitsReceived ?? it.splitTapsReceived ?? 0;
+        if (curHits > prevHits) {
+          floatingTextsRef.current.push({
+            x: it.x,
+            y: it.y - 14,
+            text: 'CRACK!',
+            birth: now,
+            value: -3,
+            color: '#f59e0b',
+            fontScale: 1.2,
+          });
+          screenShakeRef.current = Math.min(15, screenShakeRef.current + 4);
+          for (let ni = 0; ni < NUM_NODES; ni++) {
+            const angle = Math.atan2(it.y - blobPosition.y, it.x - blobPosition.x);
+            const nodeAngle = (ni / NUM_NODES) * Math.PI * 2;
+            let diff = Math.abs(nodeAngle - angle);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            if (diff < Math.PI / 2) {
+              const force = (Math.PI / 2 - diff) * 30 * blobVisualScale;
+              nodes[ni].vx -= Math.cos(angle) * force;
+              nodes[ni].vy -= Math.sin(angle) * force;
+            }
+          }
+          if (state.hapticsEnabled) triggerHaptic([30, 20, 40]);
+        }
+        ramMap.set(it.id, curHits);
+      }
+      // Cleanup map for items that no longer exist
+      const ramIds: string[] = Array.from(ramMap.keys());
+      for (const id of ramIds) {
+        if (!seenIds.has(id)) ramMap.delete(id);
+      }
+
+      // ── Low-hunger slow-mo: arm once when hunger crosses 20%, fire 2s slow-mo ──
+      if (hungerPct < 0.20 && !lowHungerSlowMoTriggeredRef.current) {
+        lowHungerSlowMoTriggeredRef.current = true;
+        slowMoEndRef.current = Math.max(slowMoEndRef.current, now + 2);
+      } else if (hungerPct > 0.40) {
+        lowHungerSlowMoTriggeredRef.current = false;
+      }
+
       // Physics
       for (let i = 0; i < NUM_NODES; i++) {
         const node = nodes[i];
@@ -997,17 +1136,27 @@ export function GameCanvas() {
         }
       }
 
-      if (abState.speed.active || starBoostActive) {
-        const moveAngle = Math.atan2(
-          blobPosition.y - camPosRef.current.y,
-          blobPosition.x - camPosRef.current.x
-        );
+      // Velocity-aware speed trail: opacity ramps with blob's real velocity.
+      const blobVelForTrail = state.blobVelocity || { x: 0, y: 0 };
+      const blobSpeedMag = Math.hypot(blobVelForTrail.x, blobVelForTrail.y);
+      const TRAIL_VEL_FLOOR = 80;
+      const TRAIL_VEL_CEIL = 1200;
+      const velTrailIntensity = Math.max(0, Math.min(1, (blobSpeedMag - TRAIL_VEL_FLOOR) / (TRAIL_VEL_CEIL - TRAIL_VEL_FLOOR)));
+      const showVelTrail = velTrailIntensity > 0;
+
+      if (abState.speed.active || starBoostActive || showVelTrail) {
+        // Use real blob-velocity direction when available; fall back to camera-derived angle.
+        const moveAngle = (blobSpeedMag > 1)
+          ? Math.atan2(blobVelForTrail.y, blobVelForTrail.x)
+          : Math.atan2(blobPosition.y - camPosRef.current.y, blobPosition.x - camPosRef.current.x);
         const isSpeedAbility = abState.speed.active;
-        const trailCount = isSpeedAbility ? 6 : 4;
-        const trailR = isSpeedAbility ? 250 : 216;
-        const trailG = isSpeedAbility ? 204 : 180;
-        const trailB = isSpeedAbility ? 21 : 254;
+        const isFrenzyDash = state.frenzyDashActive;
+        const trailCount = isSpeedAbility ? 6 : (isFrenzyDash ? 7 : 4);
+        const trailR = isFrenzyDash ? 251 : (isSpeedAbility ? 250 : 216);
+        const trailG = isFrenzyDash ? 113 : (isSpeedAbility ? 204 : 180);
+        const trailB = isFrenzyDash ? 133 : (isSpeedAbility ? 21 : 254);
         const trailScale = isSpeedAbility ? 1.5 : 1.2;
+        const baseAlpha = isSpeedAbility || starBoostActive ? 0.30 : 0.30 * velTrailIntensity;
         for (let li = 0; li < trailCount; li++) {
           const spread = (li - (trailCount - 1) / 2) * 0.3;
           const trailAngle = moveAngle + Math.PI + spread;
@@ -1017,11 +1166,25 @@ export function GameCanvas() {
           ctx.beginPath();
           ctx.moveTo(blobPosition.x, blobPosition.y);
           ctx.lineTo(tx, ty);
-          ctx.strokeStyle = `rgba(${trailR}, ${trailG}, ${trailB}, ${0.3 - li * 0.04})`;
+          ctx.strokeStyle = `rgba(${trailR}, ${trailG}, ${trailB}, ${Math.max(0, baseAlpha - li * 0.04)})`;
           ctx.lineWidth = (3 - li * 0.3) / zoom;
           ctx.stroke();
         }
-        ctx.shadowBlur = 0;
+
+        // Motion ghost trail: cheap multi-circle past positions when speeding fast.
+        if (showVelTrail && blobSpeedMag > 250) {
+          const ghostCount = Math.min(5, Math.floor(velTrailIntensity * 6));
+          for (let gi = 1; gi <= ghostCount; gi++) {
+            const back = gi * 0.045;
+            const gx = blobPosition.x - blobVelForTrail.x * back;
+            const gy = blobPosition.y - blobVelForTrail.y * back;
+            const ga = (0.18 * velTrailIntensity) * (1 - gi / (ghostCount + 1));
+            ctx.beginPath();
+            ctx.arc(gx, gy, radius * (0.95 - gi * 0.06), 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${trailR}, ${trailG}, ${trailB}, ${ga})`;
+            ctx.fill();
+          }
+        }
       }
 
       if (abState.size.active) {
@@ -1240,6 +1403,71 @@ export function GameCanvas() {
 
       ctx.restore();
 
+      // ── Analog-stick joystick visualization ──
+      // While a finger is held, draw a faint ring around the blob's screen
+      // position and a glowing dot at the touch point. This communicates the
+      // joystick model: "drag away from the blob in the direction you want
+      // it to move, the further the faster".
+      const session = steerSessionRef.current;
+      if (session) {
+        const blobScreenX = (blobPosition.x - camPosRef.current.x) * zoom + canvas.width / 2;
+        const blobScreenY = (blobPosition.y - camPosRef.current.y) * zoom + canvas.height / 2;
+        const tx = session.lastX;
+        const ty = session.lastY;
+        const dx = tx - blobScreenX;
+        const dy = ty - blobScreenY;
+        const dist = Math.hypot(dx, dy);
+        const inDeadzone = dist < STEER_DEADZONE_PX;
+        const mag = Math.max(0, Math.min(1, (dist - STEER_DEADZONE_PX) / Math.max(1, STEER_MAX_DIST_PX - STEER_DEADZONE_PX)));
+
+        ctx.save();
+        // Outer "max travel" ring at STEER_MAX_DIST_PX from blob.
+        ctx.beginPath();
+        ctx.arc(blobScreenX, blobScreenY, STEER_MAX_DIST_PX, 0, Math.PI * 2);
+        ctx.strokeStyle = inDeadzone ? 'rgba(148, 163, 184, 0.35)' : 'rgba(59, 130, 246, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Inner dead-zone ring.
+        ctx.beginPath();
+        ctx.arc(blobScreenX, blobScreenY, STEER_DEADZONE_PX, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Connecting line: blob → touch.
+        if (!inDeadzone) {
+          const grad = ctx.createLinearGradient(blobScreenX, blobScreenY, tx, ty);
+          grad.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+          grad.addColorStop(1, `rgba(59, 130, 246, ${0.4 + mag * 0.4})`);
+          ctx.beginPath();
+          ctx.moveTo(blobScreenX, blobScreenY);
+          ctx.lineTo(tx, ty);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 3 + mag * 2;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+
+        // Touch knob.
+        const knobR = inDeadzone ? 14 : 16 + mag * 6;
+        ctx.shadowColor = 'rgba(59, 130, 246, 0.45)';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(tx, ty, knobR, 0, Math.PI * 2);
+        ctx.fillStyle = inDeadzone
+          ? 'rgba(148, 163, 184, 0.55)'
+          : `rgba(59, 130, 246, ${0.55 + mag * 0.35})`;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Screen-space floating text. Three flavors:
       //   value === -3 → milestone banner (NICE!/EPIC!/...)  — biggest, custom color, outlined
       //   value === -2 → combo counter (x3, x7, ...)         — gold, mid-size
@@ -1380,6 +1608,29 @@ export function GameCanvas() {
         }
       }
 
+      // ── Low-hunger red tint overlay ──
+      if (hungerPct < 0.20) {
+        const tintAlpha = 0.05 + 0.15 * (1 - hungerPct / 0.20) * (0.5 + 0.5 * Math.sin(now * 6));
+        ctx.fillStyle = `rgba(220, 38, 38, ${tintAlpha})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // ── Frenzy Dash full-screen tint ──
+      if (state.frenzyDashActive) {
+        const t = state.frenzyDashTimer;
+        const baseAlpha = 0.08 + 0.05 * Math.sin(now * 12);
+        ctx.fillStyle = `rgba(236, 72, 153, ${baseAlpha * Math.min(1, t)})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Top/bottom edge glow
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, 'rgba(236, 72, 153, 0.3)');
+        grad.addColorStop(0.15, 'rgba(236, 72, 153, 0)');
+        grad.addColorStop(0.85, 'rgba(236, 72, 153, 0)');
+        grad.addColorStop(1, 'rgba(236, 72, 153, 0.3)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
       // Oversized food tutorial: update position ref for HTML overlay
       if (state.activeHint === 'oversized_food') {
         const osItem = items.find(i => i.isOversized && i.splitState !== 'splitting');
@@ -1424,7 +1675,19 @@ export function GameCanvas() {
         ctx.fillText(label, px, py);
         ctx.restore();
       }
+    };
 
+    const render = () => {
+      try {
+        renderInner();
+      } catch (err) {
+        renderErrorCount++;
+        console.error(`[render-error #${renderErrorCount}]`, err);
+        if (renderErrorCount > RENDER_ERROR_LIMIT) {
+          console.error('[render] too many errors, halting render loop');
+          return;
+        }
+      }
       animationFrameId = requestAnimationFrame(render);
     };
 
@@ -1439,8 +1702,11 @@ export function GameCanvas() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
-        onClick={handleTap}
-        onTouchStart={handleTap}
+        style={{ touchAction: 'none' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
       />
       {tp && (
         <div

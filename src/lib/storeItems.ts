@@ -45,7 +45,6 @@ export interface IAPPackDef {
     essence?: number;
     skinId?: string;
     noInterstitialAds?: boolean;
-    offlineBoost24h?: boolean;
   };
 }
 
@@ -88,8 +87,8 @@ export const FEATURED_PACKS: IAPPackDef[] = [
     priceValue: 2.99,
     badge: 'BEST VALUE',
     oneTime: true,
-    contents: ['No Forced Ads', '50 Gems', '$5,000', '20 Essence', '"Golden Belly" Skin', '2x Offline (24h)'],
-    rewards: { gems: 50, money: 5000, essence: 20, skinId: 'golden_belly_vip', noInterstitialAds: true, offlineBoost24h: true },
+    contents: ['No Forced Ads', '50 Gems', '$5,000', '20 Essence', '"Golden Belly" Skin'],
+    rewards: { gems: 50, money: 5000, essence: 20, skinId: 'golden_belly_vip', noInterstitialAds: true },
   },
 ];
 
@@ -158,7 +157,6 @@ export const GEM_PACKS: GemPackDef[] = [
 
 export const PERMANENT_BOOSTS: PermanentBoostDef[] = [
   { id: 'double_digest',  name: 'Double Digest',  desc: 'Permanently double all money income',       cost: 50, currency: 'gems', priceLabel: '50', icon: 'coin' },
-  { id: 'sleep_eating',   name: 'Sleep Eating',   desc: 'Double offline & welcome-back earnings',    cost: 40, currency: 'gems', priceLabel: '40', icon: 'clock' },
   { id: 'sticky_tongue',  name: 'Sticky Tongue',  desc: 'Permanently increase suction radius +50%',  cost: 35, currency: 'gems', priceLabel: '35', icon: 'magnet' },
   { id: 'extra_stomach',  name: 'Extra Stomach',  desc: '+1 max charge on all abilities',             cost: 45, currency: 'gems', priceLabel: '45', icon: 'bolt' },
   { id: 'phoenix_belch',  name: 'Phoenix Belch',  desc: 'Revive without watching ads — just burp!',  cost: 60, currency: 'gems', priceLabel: '60', icon: 'fire' },
@@ -169,14 +167,12 @@ export const PERMANENT_BOOSTS: PermanentBoostDef[] = [
 export const IAP_BOOSTS: PermanentBoostDef[] = [
   { id: 'turbo_tummy',    name: 'Turbo Tummy',    desc: 'Permanent +25% blob speed',                         cost: 1.99, currency: 'real_money', priceLabel: '$1.99', icon: 'bolt' },
   { id: 'golden_gut',     name: 'Golden Gut',     desc: 'Permanent +30% money from all sources',             cost: 2.99, currency: 'real_money', priceLabel: '$2.99', icon: 'coin' },
-  { id: 'deep_food_coma', name: 'Deep Food Coma', desc: 'Offline cap raised from 8h to 16h',                 cost: 1.99, currency: 'real_money', priceLabel: '$1.99', icon: 'clock' },
-  { id: 'blob_vacuum',    name: 'Blob Vacuum',    desc: 'Items within range auto-collected (passive suction)', cost: 3.99, currency: 'real_money', priceLabel: '$3.99', icon: 'magnet' },
 ];
 
 // ── Consumable Items (Gem-priced) ──
 
 export const CONSUMABLES: ConsumableDef[] = [
-  { id: 'power_nap',       name: 'Power Nap',       desc: 'Earn 2 hours of offline income instantly', cost: 10, icon: 'clock' },
+  { id: 'power_nap',       name: 'Big Gulp',        desc: '+25% progress on the current level instantly', cost: 10, icon: 'bolt' },
   { id: 'gulp_and_go',     name: 'Gulp & Go',       desc: 'Skip current level (1-star rewards)',       cost: 15, icon: 'bolt' },
   { id: 'spicy_meal',      name: 'Spicy Meal',      desc: '2x essence on your next prestige',          cost: 20, icon: 'fire' },
   { id: 'feeding_frenzy',  name: 'Feeding Frenzy',  desc: '3x money for 30 minutes',                   cost: 8,  icon: 'star' },
@@ -195,25 +191,25 @@ export const GEM_BUNDLES: BundleDef[] = [
   {
     id: 'snack_pack',
     name: 'Snack Pack',
-    desc: '3x Power Nap + 2x Feeding Frenzy + $2,000',
+    desc: '3x Big Gulp + 2x Feeding Frenzy + $2,000',
     cost: 75,
     currency: 'gems',
     priceLabel: '75',
     savings: 'Save 25%',
     oneTime: false,
-    contents: ['3x Power Nap', '2x Feeding Frenzy', '$2,000'],
+    contents: ['3x Big Gulp', '2x Feeding Frenzy', '$2,000'],
     rewards: { money: 2000, consumables: { power_nap: 3, feeding_frenzy: 2 } },
   },
   {
     id: 'rebirth_feast',
     name: 'Rebirth Feast',
-    desc: '3x Spicy Meal + 2x Power Nap + $5,000',
+    desc: '3x Spicy Meal + 2x Big Gulp + $5,000',
     cost: 100,
     currency: 'gems',
     priceLabel: '100',
     savings: 'Save 30%',
     oneTime: false,
-    contents: ['3x Spicy Meal', '2x Power Nap', '$5,000'],
+    contents: ['3x Spicy Meal', '2x Big Gulp', '$5,000'],
     rewards: { money: 5000, consumables: { spicy_meal: 3, power_nap: 2 } },
   },
   {
@@ -234,14 +230,14 @@ export const IAP_BUNDLES: BundleDef[] = [
   {
     id: 'weekend_binge',
     name: 'Weekend Binge',
-    desc: '30 Gems + 2x Power Nap + $3,000',
+    desc: '30 Gems + 2x Big Gulp + $3,000',
     cost: 1.99,
     currency: 'real_money',
     priceLabel: '$1.99',
     savings: 'Save 35%',
     oneTime: false,
     weekendOnly: true,
-    contents: ['30 Gems', '2x Power Nap', '$3,000'],
+    contents: ['30 Gems', '2x Big Gulp', '$3,000'],
     rewards: { gems: 30, money: 3000, consumables: { power_nap: 2 } },
   },
   {
@@ -278,7 +274,7 @@ export const FREE_GIFT_POOL: FreeGiftReward[] = [
   { type: 'gems', amount: 1, label: '1 Gem' },
   { type: 'gems', amount: 2, label: '2 Gems' },
   { type: 'gems', amount: 3, label: '3 Gems' },
-  { type: 'consumable', amount: 1, label: 'Power Nap', consumableId: 'power_nap' },
+  { type: 'consumable', amount: 1, label: 'Big Gulp', consumableId: 'power_nap' },
   { type: 'consumable', amount: 1, label: 'Big Burp', consumableId: 'big_burp' },
 ];
 
@@ -294,7 +290,7 @@ export interface DailyDealDef {
 }
 
 export const DAILY_DEAL_POOL: DailyDealDef[] = [
-  { itemId: 'power_nap',      itemType: 'consumable',      originalCost: 10, dealCost: 5,  name: 'Power Nap',      desc: '2 hours of offline income' },
+  { itemId: 'power_nap',      itemType: 'consumable',      originalCost: 10, dealCost: 5,  name: 'Big Gulp',       desc: '+25% level progress' },
   { itemId: 'gulp_and_go',    itemType: 'consumable',      originalCost: 15, dealCost: 8,  name: 'Gulp & Go',      desc: 'Skip current level' },
   { itemId: 'feeding_frenzy', itemType: 'consumable',      originalCost: 8,  dealCost: 4,  name: 'Feeding Frenzy', desc: '3x money for 30 min' },
   { itemId: 'big_burp',       itemType: 'consumable',      originalCost: 5,  dealCost: 3,  name: 'Big Burp',       desc: 'Refill all abilities' },

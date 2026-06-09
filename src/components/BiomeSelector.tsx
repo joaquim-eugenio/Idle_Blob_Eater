@@ -53,12 +53,14 @@ export function WorldViewer() {
 
               <div className="p-3 space-y-1.5 flex-1 overflow-auto">
                 {[
-                  { label: 'Micro', worlds: WORLDS.slice(0, 3) },
-                  { label: 'Small', worlds: WORLDS.slice(3, 6) },
-                  { label: 'Medium', worlds: WORLDS.slice(6, 10) },
-                  { label: 'Large', worlds: WORLDS.slice(10, 14) },
-                  { label: 'Giant', worlds: WORLDS.slice(14, 19) },
-                  { label: 'Epic', worlds: WORLDS.slice(19) },
+                  { label: 'Micro', worlds: WORLDS.slice(0, 5) },
+                  { label: 'Small', worlds: WORLDS.slice(5, 10) },
+                  { label: 'Medium', worlds: WORLDS.slice(10, 16) },
+                  { label: 'Large', worlds: WORLDS.slice(16, 23) },
+                  { label: 'Giant', worlds: WORLDS.slice(23, 30) },
+                  { label: 'Epic', worlds: WORLDS.slice(30, 36) },
+                  { label: 'Cosmic', worlds: WORLDS.slice(36, 44) },
+                  { label: 'Universal', worlds: WORLDS.slice(44, 48) },
                 ].map(tier => (
                   <div key={tier.label}>
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 pt-2 pb-1">{tier.label}</div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CaretIcon, ArrowIcon, SadFaceIcon, BoltIcon, SpinnerIcon } from './icons';
+import { CaretIcon, ArrowIcon, SadFaceIcon, BoltIcon, SpinnerIcon, StarIcon } from './icons';
 import { useGameStore } from '../store/gameStore';
 import { getWorldForLevel } from '../lib/levels';
 import { getSuggestedUpgrade, getSuggestionReason, type RunContext } from '../lib/suggestUpgrade';
@@ -38,6 +38,7 @@ export function LevelCompleteModal() {
     highestLevelReached, interstitialLevelsSinceAd, interstitialSessionAdCount,
     interstitialLastTime, lastRewardedAdTime, recordInterstitialShown,
     setPendingWorldUnlock, noInterstitialAds,
+    newRecordFlag, clearNewRecordFlag,
   } = useGameStore();
   const [hasCollected, setHasCollected] = useState(false);
   const [justBought, setJustBought] = useState(false);
@@ -85,6 +86,7 @@ export function LevelCompleteModal() {
     }
 
     setHasCollected(false);
+    clearNewRecordFlag();
     if (worldChanged) {
       setPendingWorldUnlock(currentWorld, nextWorld);
     } else {
@@ -95,6 +97,7 @@ export function LevelCompleteModal() {
   const handleRetry = () => {
     if (advancingRef.current) return;
     advancingRef.current = true;
+    clearNewRecordFlag();
     retryLevel();
   };
 
@@ -245,6 +248,35 @@ export function LevelCompleteModal() {
             <div className="text-3xl font-black text-slate-800">
               {isBossLevel ? 'World Clear!' : 'Level Clear!'}
             </div>
+
+            {/* Stars row */}
+            <div className="flex gap-2 -mt-1">
+              {[1, 2, 3].map((s) => {
+                const filled = s <= levelStars;
+                return (
+                  <motion.div
+                    key={s}
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.15 + s * 0.12, type: 'spring', stiffness: 280 }}
+                  >
+                    <StarIcon size={36} className={filled ? 'text-amber-400 drop-shadow-md' : 'text-slate-200'} />
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            {/* New-record stinger */}
+            {newRecordFlag && (
+              <motion.div
+                initial={{ scale: 0.6, opacity: 0, y: -8 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ delay: 0.7, type: 'spring', stiffness: 320 }}
+                className="text-xs font-black uppercase tracking-widest bg-gradient-to-r from-amber-400 to-pink-500 text-white px-3 py-1 rounded-full shadow"
+              >
+                {newRecordFlag === 'both' ? 'New Record! Time + Stars' : newRecordFlag === 'time' ? 'New Best Time!' : 'New Star Record!'}
+              </motion.div>
+            )}
 
             <div className="text-sm italic text-slate-400 text-center font-body -mt-1">
               {hungerQuote}

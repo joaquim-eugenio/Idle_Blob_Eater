@@ -1,6 +1,7 @@
 import { itemGradient, itemLinearGradient, itemOutline, itemHighlight, darken } from './drawUtils';
+import * as N from './newItems';
 
-export type WorldId = 'crumbs' | 'desk_drawer' | 'pencil_case' | 'lunchbox' | 'toy_box' | 'backpack' | 'bedroom' | 'kitchen' | 'bathroom' | 'living_room' | 'garage' | 'garden' | 'playground' | 'school' | 'neighborhood' | 'shopping_mall' | 'city_park' | 'construction_site' | 'downtown' | 'junkyard' | 'space_station' | 'candy_world' | 'deep_ocean' | 'volcano';
+export type WorldId = 'crumbs' | 'desk_drawer' | 'sewing_kit' | 'pencil_case' | 'art_supplies' | 'lunchbox' | 'snack_drawer' | 'toy_box' | 'shoebox' | 'backpack' | 'bedroom' | 'pantry' | 'kitchen' | 'bathroom' | 'laundry_room' | 'living_room' | 'hallway' | 'garage' | 'driveway' | 'garden' | 'playground' | 'school' | 'bus_stop' | 'neighborhood' | 'shopping_mall' | 'city_park' | 'skatepark' | 'construction_site' | 'downtown' | 'junkyard' | 'train_yard' | 'space_station' | 'candy_world' | 'cloud_kingdom' | 'deep_ocean' | 'volcano' | 'glacier' | 'desert_dunes' | 'mountain_range' | 'stratosphere' | 'moon_surface' | 'red_planet' | 'asteroid_belt' | 'solar_system' | 'nebula' | 'galaxy' | 'universe_edge' | 'multiverse';
 
 export interface ItemDef {
   id: string;
@@ -2779,6 +2780,55 @@ export const ITEM_CATALOG: ItemDef[] = [
   fishItem, seashell, treasureChest, coralItem, jellyfish, anchorItem, starfish_item, octopus_item, submarine_item, diving_helmet,
   // Volcano
   lavaRock, obsidianShard, rubyItem, magmaDrop, ember, volcanicCrystal, fossil, geode, lava_lamp_item, dragon_egg,
+  // ─── NEW WORLDS (24) ───
+  // Sewing Kit
+  N.thread_spool, N.button_pack, N.sewing_needle, N.thimble, N.yarn_ball, N.pin_cushion, N.ribbon, N.sewing_scissors, N.fabric_scrap, N.zipper,
+  // Art Supplies
+  N.paint_tube, N.paint_brush, N.palette, N.marker, N.glue_stick, N.glitter_pot, N.watercolor_pan, N.charcoal_stick, N.eraser_putty, N.sketchbook,
+  // Snack Drawer
+  N.granola_bar, N.fruit_snack, N.mini_chocolate, N.gum_pack, N.raisin_box, N.beef_jerky, N.popcorn_bag, N.trail_mix, N.nut_packet, N.mints_tin,
+  // Shoebox
+  N.shoelace, N.sock, N.sneaker, N.baseball_cap, N.sunglass_case, N.wristwatch, N.beanie, N.mittens, N.cleat, N.slipper_pair,
+  // Pantry
+  N.cereal_box, N.soup_can, N.jam_jar, N.pasta_box, N.rice_bag, N.peanut_butter, N.ketchup_bottle, N.oil_can, N.sugar_bag, N.cookie_tin,
+  // Laundry Room
+  N.laundry_basket, N.detergent_jug, N.dryer_sheet_box, N.iron, N.ironing_board, N.hanger_rack, N.fabric_softener, N.lint_roller, N.clothes_pin, N.washing_bin,
+  // Hallway
+  N.umbrella_stand, N.coat_rack, N.throw_rug, N.hallway_mirror, N.side_table, N.hallway_lamp, N.doormat_indoor, N.key_dish, N.picture_frame, N.shoe_tray,
+  // Driveway
+  N.tricycle, N.recycling_bin, N.garbage_can, N.hose_reel, N.planter_box, N.motion_light, N.garden_tool_rack, N.mailbox_post, N.decorative_rock, N.sprinkler_head,
+  // Bus Stop
+  N.bus_stop_sign, N.bus_bench, N.ticket_machine, N.bike_rack_bs, N.recycling_station, N.ad_poster, N.bus_shelter_pillar, N.lamp_post_bs, N.traffic_sign_bs, N.water_fountain_bs,
+  // Skatepark
+  N.skate_ramp, N.half_pipe_section, N.bowl_rim, N.grind_rail, N.skate_helmet, N.knee_pad, N.trick_board, N.skate_vending, N.skate_bench, N.energy_drink_crate,
+  // Train Yard
+  N.rail_car, N.locomotive, N.signal_lamp, N.freight_container, N.coupling, N.water_tower, N.freight_crate, N.gantry_base, N.fuel_tank, N.switching_lever,
+  // Cloud Kingdom
+  N.cloud_puff, N.sky_castle, N.hot_air_balloon, N.weather_vane, N.lightning_bolt, N.rainbow_arc, N.wind_chime, N.sky_beacon, N.comet_tail, N.cloud_throne,
+  // Glacier
+  N.ice_block, N.glacial_peak, N.frozen_mammoth, N.igloo, N.polar_pole, N.ice_spire, N.frozen_lake, N.ice_cave, N.snow_drift, N.frozen_geyser,
+  // Desert Dunes
+  N.sand_dune, N.giant_cactus, N.oasis, N.pyramid, N.sphinx, N.giant_scorpion, N.camel, N.ancient_ruin, N.sandstone_arch, N.mirage_tent,
+  // Mountain Range
+  N.mountain_peak, N.avalanche, N.ski_lodge, N.giant_eagle, N.boulder_mr, N.mountain_tunnel, N.alpine_lake, N.cliff_face, N.glacier_tongue, N.observatory_mr,
+  // Stratosphere
+  N.jet_plane, N.weather_balloon, N.low_satellite, N.space_junk, N.ozone_wisp, N.aurora_veil, N.hot_air_pocket, N.strato_capsule, N.lightning_storm, N.contrails_knot,
+  // Moon Surface
+  N.lunar_crater, N.moon_rover, N.lunar_lander, N.moon_flag, N.lunar_boulder, N.lunar_base, N.regolith_pile, N.moon_dust_cloud, N.lunar_mining_rig, N.abandoned_suit,
+  // Red Planet
+  N.mars_rover, N.dust_storm, N.polar_ice_cap, N.olympus_mons, N.valles_marineris, N.mars_base, N.alien_fossil, N.terraform_tower, N.red_boulder, N.ancient_artifact,
+  // Asteroid Belt
+  N.asteroid_chunk, N.mining_drone, N.ice_comet, N.pirate_ship, N.debris_cloud, N.asteroid_beacon, N.mineral_chunk, N.hollow_rock, N.drifting_capsule, N.ore_vein,
+  // Solar System
+  N.planet_earth, N.planet_venus, N.planet_mars_ss, N.gas_giant, N.sun_spot, N.comet_ss, N.asteroid_cluster, N.dwarf_planet, N.planetary_ring, N.jupiter_storm,
+  // Nebula
+  N.star_birth, N.gas_cloud, N.pulsar, N.dying_star, N.supernova_fragment, N.dark_matter_wisp, N.ion_stream, N.light_wave, N.cosmic_dust, N.plasma_sphere,
+  // Galaxy
+  N.spiral_arm, N.star_cluster, N.small_black_hole, N.galactic_core, N.dark_nebula, N.neutron_star, N.quasar, N.galactic_dust, N.dyson_sphere, N.alien_megastructure,
+  // Universe Edge
+  N.cosmic_web, N.void_bubble, N.antimatter_cluster, N.big_bang_echo, N.cosmic_string, N.universe_filament, N.dark_energy, N.light_bend, N.primordial_atom, N.edge_wall,
+  // Multiverse
+  N.parallel_earth, N.mirror_universe, N.dimensional_shard, N.divergence_point, N.paradox_knot, N.lost_timeline, N.axis_of_reality, N.infinity_loop, N.omega_artifact, N.multiverse_seed,
 ].map(enhanceItem);
 
 export const ITEM_LOOKUP: Record<string, ItemDef> = Object.fromEntries(

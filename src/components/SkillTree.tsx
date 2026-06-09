@@ -44,24 +44,24 @@ const BRANCH_ANGLE: Record<string, number> = {
   hunt: -150 * Math.PI / 180,
   feast: -110 * Math.PI / 180,
   survival: -70 * Math.PI / 180,
-  automation: -30 * Math.PI / 180,
+  momentum: -30 * Math.PI / 180,
 };
 
 const BRANCH_HEX: Record<string, string> = {
   hunt: '#f59e0b', feast: '#10b981', survival: '#f43f5e',
-  automation: '#0ea5e9', evolution: '#6366f1',
+  momentum: '#0ea5e9', evolution: '#6366f1',
 };
 
 const BRANCH_CSS: Record<string, { ring: string; fill: string; text: string }> = {
   hunt:       { ring: 'border-amber-400',   fill: 'bg-amber-50',   text: 'text-amber-600'   },
   feast:      { ring: 'border-emerald-400', fill: 'bg-emerald-50', text: 'text-emerald-600' },
   survival:   { ring: 'border-rose-400',    fill: 'bg-rose-50',    text: 'text-rose-600'    },
-  automation: { ring: 'border-sky-400',     fill: 'bg-sky-50',     text: 'text-sky-600'     },
+  momentum:   { ring: 'border-sky-400',     fill: 'bg-sky-50',     text: 'text-sky-600'     },
   evolution:  { ring: 'border-indigo-400',  fill: 'bg-indigo-50',  text: 'text-indigo-600'  },
 };
 
 const BRANCH_ICON: Record<string, typeof BoltIcon> = {
-  hunt: BoltIcon, feast: CoinsStackIcon, survival: ShieldIcon, automation: RobotIcon,
+  hunt: BoltIcon, feast: CoinsStackIcon, survival: ShieldIcon, momentum: RobotIcon,
 };
 
 function fmt(n: number): string {

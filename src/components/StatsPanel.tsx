@@ -39,7 +39,7 @@ export function StatsPanel() {
     ['Boost Stars Collected', stats.totalStarsEaten.toString()],
     ['Best Combo', `x${stats.highestCombo}`],
     ['Top Speed', Math.floor(stats.highestSpeed).toString()],
-    ['Total Taps', stats.totalTaps.toString()],
+    ['Total Swipes', stats.totalTaps.toString()],
     ['Upgrades Bought', stats.totalUpgradesBought.toString()],
     ['Times Evolved', stats.totalPrestiges.toString()],
     ['Total Essence', essence.toString()],

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import {
   BASE_MAX_HUNGER, BASE_HUNGER_DRAIN, BASE_SPEED, BASE_SUCTION,
-  BASE_TAP_COOLDOWN, BASE_TAP_VALUE_MULT, UPGRADE_SOFT_CAP, softCap,
+  UPGRADE_SOFT_CAP, softCap,
   EVOLUTION_UPGRADES, ACHIEVEMENTS,
   DAILY_REWARDS, STREAK_MULTIPLIERS, BLOB_SKINS, SKILL_TREE_NODES,
   SKILL_NODE_LOOKUP, SkillNodeDef, SKILL_BRANCH_ORDER, getStarterSkillNodesFromLegacy, SKILL_GATES,
@@ -10,9 +10,10 @@ import {
   SPECIAL_SKINS, BLOB_ITEMS, BLOB_FACES,
   getOversizedConfig, OVERSIZED_MIN_LEVEL_IN_WORLD, OVERSIZED_PROACTIVE_VALUE_MULT,
   OVERSIZED_VOMIT_STAGES,
-  AUTOPILOT_BASE_CLEAR_RATE, AUTOPILOT_DEFAULT_MAX_HOURS,
-  AUTOPILOT_DIMINISHING_THRESHOLD_HOURS, AUTOPILOT_DIMINISHING_FACTOR,
-  AUTOPILOT_DRAIN_MULT,
+  SWIPE_FRICTION, SWIPE_MIN_VEL,
+  STEER_SPEED_MULT, STEER_ACCEL_LERP, STEER_PERFECT_WINDOW,
+  RAM_VEL_THRESHOLD, PERFECT_SWIPE_THRESHOLD,
+  FRENZY_DASH_THRESHOLD, FRENZY_DASH_DURATION,
 } from '../lib/constants';
 import { showRewardedAd, canShowAdForAbility } from '../lib/ads';
 import { getLevel, getWorldForLevel, WORLDS, type WorldDef } from '../lib/levels';
@@ -38,17 +39,25 @@ export interface Item {
   type: string;
   value: number;
   weight: number;
-  isTapFood?: boolean;
-  isAutoTap?: boolean;
   isLegacy?: boolean;
   isOversized?: boolean;
   isOversizedFragment?: boolean;
+  // Bonus / ability-spawned food (e.g. Food Rain). Bonus food does not count
+  // toward level progression and does not refill hunger; only its money value
+  // is granted. Kept under the legacy `isTapFood` name for compatibility.
+  isTapFood?: boolean;
+  // ramHitsRequired/Received replace the old tap-count system. The legacy
+  // splitTapsRequired/Received aliases are kept as optional properties for
+  // save migration compatibility but are no longer driven by the game loop.
+  ramHitsRequired?: number;
+  ramHitsReceived?: number;
   splitTapsRequired?: number;
   splitTapsReceived?: number;
   splitState?: 'whole' | 'cracking' | 'splitting' | 'swallowing';
   vomitAttempts?: number;
   lastVomitTime?: number;
   _ignoreUntil?: number;
+  _ramCooldown?: number;
   oversizedStage?: number;
   swallowTime?: number;
   _fragmentsRemaining?: number;
@@ -67,9 +76,6 @@ export interface Upgrades {
   spawnRate: number;
   spawnValue: number;
   spawnSynergy?: number;
-  tapValue: number;
-  tapCooldown: number;
-  tapSynergy?: number;
   [key: string]: number | undefined;
 }
 
@@ -79,10 +85,10 @@ export interface EvolutionUpgrades {
   globalSuction: number;
   hungerResist: number;
   spawnValueMult: number;
-  tapMastery: number;
-  offlineRate: number;
+  swipeMastery: number;
+  glideMastery: number;
   startingLevel: number;
-  autopilotRate: number;
+  dashRadius: number;
   [key: string]: number;
 }
 
@@ -120,10 +126,6 @@ export interface SkillEffects {
   hungerMaxFlat: number;
   comboWindow: number;
   comboCap: number;
-  tapValueMult: number;
-  tapCooldownMult: number;
-  offlineEfficiency: number;
-  autoTapRate: number;
   starSpawnRateMult: number;
   lowHungerFrenzyMult: number;
   lowHungerThreshold: number;
@@ -137,13 +139,16 @@ export interface SkillEffects {
   critEatChance: number;
   hungerOnEat: number;
   speedPerCombo: number;
-  passiveMoneyRate: number;
-  autoSplitRate: number;
-  splitTapReduction: number;
   oversizedValueMult: number;
-  autopilotEfficiency: number;
-  autopilotHungerResist: number;
-  autopilotMaxHours: number;
+  // Momentum branch — swipe-dash gameplay.
+  swipeImpulseMult: number;
+  frictionReduction: number;
+  dashEatRadius: number;
+  perfectSwipeMult: number;
+  magnetWhileDashing: number;
+  streakWindow: number;
+  streakBonusMult: number;
+  ramHitsReduction: number;
 }
 
 export interface SkillTelemetry {
@@ -157,15 +162,15 @@ export interface SkillTelemetry {
 const EMPTY_SKILL_EFFECTS: SkillEffects = {
   speedFlat: 0, speedMult: 0, suctionFlat: 0, suctionMult: 0,
   spawnRateMult: 0, valueMult: 0, hungerDrainMult: 0, hungerMaxFlat: 0,
-  comboWindow: 0, comboCap: 10, tapValueMult: 0, tapCooldownMult: 0,
-  offlineEfficiency: 0, autoTapRate: 0, starSpawnRateMult: 0,
+  comboWindow: 0, comboCap: 10, starSpawnRateMult: 0,
   lowHungerFrenzyMult: 0, lowHungerThreshold: 0.3,
   frenzyShieldSeconds: 0, chainVacuumRadius: 0, overkillCashRatio: 0,
   weightReduction: 0, magnetRadius: 0,
   comboValueScale: 0, multiEatRadius: 0, critEatChance: 0,
-  hungerOnEat: 0, speedPerCombo: 0, passiveMoneyRate: 0,
-  autoSplitRate: 0, splitTapReduction: 0, oversizedValueMult: 0,
-  autopilotEfficiency: 0, autopilotHungerResist: 0, autopilotMaxHours: 0,
+  hungerOnEat: 0, speedPerCombo: 0, oversizedValueMult: 0,
+  swipeImpulseMult: 0, frictionReduction: 0, dashEatRadius: 0,
+  perfectSwipeMult: 0, magnetWhileDashing: 0,
+  streakWindow: 0, streakBonusMult: 0, ramHitsReduction: 0,
 };
 
 const DEFAULT_UPGRADES: Upgrades = {
@@ -173,13 +178,12 @@ const DEFAULT_UPGRADES: Upgrades = {
   suction: 0, suctionStrength: 0,
   hungerDrain: 0, hungerMax: 0,
   spawnRate: 0, spawnValue: 0,
-  tapValue: 0, tapCooldown: 0,
 };
 
 const DEFAULT_EVOLUTION: EvolutionUpgrades = {
   startingMoney: 0, globalSpeed: 0, globalSuction: 0,
-  hungerResist: 0, spawnValueMult: 0, tapMastery: 0,
-  offlineRate: 0, startingLevel: 0, autopilotRate: 0,
+  hungerResist: 0, spawnValueMult: 0, swipeMastery: 0,
+  glideMastery: 0, startingLevel: 0, dashRadius: 0,
 };
 
 const DEFAULT_STATS: GameStats = {
@@ -258,42 +262,6 @@ function getSkillEffects(unlockedNodeIds: string[]): SkillEffects {
   return fx;
 }
 
-export function computeAutopilotClearRate(state: {
-  upgrades: Upgrades;
-  evolutionUpgrades: EvolutionUpgrades;
-  unlockedSkillNodes: string[];
-  achievements: string[];
-}): number {
-  const skillFx = getSkillEffects(state.unlockedSkillNodes);
-  const evo = state.evolutionUpgrades;
-
-  const speedSyn = 1 + ((state.upgrades.speedSynergy as number) || 0) * 0.5;
-  const evoSpeedMult = 1 + evo.globalSpeed * 0.1;
-  const effectiveSpeed = (BASE_SPEED + softCap(state.upgrades.speed || 0) * 25) * speedSyn * evoSpeedMult * (1 + skillFx.speedMult) + skillFx.speedFlat;
-
-  const suctionSyn = 1 + ((state.upgrades.suctionSynergy as number) || 0) * 0.5;
-  const evoSuctionMult = 1 + evo.globalSuction * 0.1;
-  const effectiveSuction = (BASE_SUCTION + softCap(state.upgrades.suction || 0) * 15) * suctionSyn * evoSuctionMult * (1 + skillFx.suctionMult) + skillFx.suctionFlat;
-
-  const speedBonus = effectiveSpeed / BASE_SPEED;
-  const suctionBonus = effectiveSuction / BASE_SUCTION;
-  const autoTapBonus = 1 + skillFx.autoTapRate * 0.5;
-  const autopilotSkillMult = 1 + skillFx.autopilotEfficiency;
-  const evoAutopilotMult = 1 + evo.autopilotRate * 0.15;
-
-  return AUTOPILOT_BASE_CLEAR_RATE * speedBonus * suctionBonus * autoTapBonus * autopilotSkillMult * evoAutopilotMult;
-}
-
-export function computeTapCooldown(
-  upgrades: { tapCooldown?: number; tapSynergy?: number },
-  unlockedSkillNodes: string[]
-): number {
-  const skillFx = getSkillEffects(unlockedSkillNodes);
-  const tapSyn = 1 + (upgrades.tapSynergy || 0) * 0.5;
-  return BASE_TAP_COOLDOWN * Math.pow(0.9, softCap(upgrades.tapCooldown || 0)) / tapSyn
-    * Math.max(0.3, 1 + skillFx.tapCooldownMult);
-}
-
 function hasChapterKeystone(unlockedNodeIds: string[], branch: string, chapter: number) {
   return unlockedNodeIds.some((id) => {
     const node = SKILL_NODE_LOOKUP[id];
@@ -347,7 +315,7 @@ const MASTERY_CHOICE_GROUPS = ['hunt_mastery', 'feast_mastery', 'survival_master
 const BRANCH_MASTERY_NODES = ['hunt_mastery_node', 'feast_mastery_node', 'survival_mastery_node', 'auto_mastery_node'];
 
 function hasMasteryChoice(unlockedNodeIds: string[], branch: string): boolean {
-  const groupMap: Record<string, string> = { hunt: 'hunt_mastery', feast: 'feast_mastery', survival: 'survival_mastery', automation: 'auto_mastery' };
+  const groupMap: Record<string, string> = { hunt: 'hunt_mastery', feast: 'feast_mastery', survival: 'survival_mastery', momentum: 'auto_mastery' };
   const group = groupMap[branch];
   if (!group) return false;
   return SKILL_TREE_NODES.some((n) => n.choiceGroup === group && unlockedNodeIds.includes(n.id));
@@ -536,8 +504,8 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
           value: pick.baseValue * (1 + (levelNum - 1) * 0.03) * 2,
           weight: pick.weight * 1.5,
           isOversized: true,
-          splitTapsRequired: oversizedConfig.tapsRequired,
-          splitTapsReceived: 0,
+          ramHitsRequired: oversizedConfig.tapsRequired,
+          ramHitsReceived: 0,
           splitState: 'whole',
           vomitAttempts: 0,
           oversizedStage: OVERSIZED_VOMIT_STAGES,
@@ -549,30 +517,6 @@ function buildLevelItems(levelNum: number, blobX: number, blobY: number): Item[]
   }
 
   return items;
-}
-
-export interface AutopilotSnapshot {
-  level: number;
-  itemsRemaining: number;
-  totalItems: number;
-  clearRate: number;
-  hungerAtDeploy: number;
-  maxHunger: number;
-  hungerDrainPerSec: number;
-  hungerRestorePerItem: number;
-  timestamp: number;
-}
-
-export type AutopilotOutcome = 'completed' | 'partial' | 'died';
-
-export interface AutopilotResult {
-  outcome: AutopilotOutcome;
-  itemsEaten: number;
-  totalItems: number;
-  hungerAtEnd: number;
-  timeAlive: number;
-  moneyEarned: number;
-  level: number;
 }
 
 interface GameState {
@@ -592,6 +536,17 @@ interface GameState {
   blobGrowth: number;
 
   blobPosition: { x: number; y: number };
+  blobVelocity: { x: number; y: number };
+  // Analog-stick steering: while a finger is held, dirX/dirY/magnitude describe
+  // the input vector from the blob's screen position to the touch. The tick
+  // loop uses this to drive blobVelocity directly. On release, active goes
+  // false and the friction model takes over.
+  steerInput: {
+    active: boolean;
+    dirX: number;
+    dirY: number;
+    magnitude: number;
+  };
   items: Item[];
   upgrades: Upgrades;
   starSpawnTimer: number;
@@ -599,8 +554,20 @@ interface GameState {
   boostTimer: number;
   starBoostActive: boolean;
   starBoostTimer: number;
-  wanderAngle: number;
   levelUpTime: number;
+
+  // Swipe-streak / Frenzy Dash dopamine layer
+  swipeStreak: number;
+  lastSwipeTime: number;
+  frenzyDashActive: boolean;
+  frenzyDashTimer: number;
+  perfectSwipePending: number;        // seconds remaining in current perfect-swipe window
+  _swipeItemCount: number;            // items eaten in the current swipe (resets per impulse)
+  _perfectSwipeFired: boolean;        // true once Perfect Swipe banner has been shown for this swipe
+  newRecordFlag: 'time' | 'stars' | 'both' | null;
+
+  bestTimes: Record<number, number>;
+  bestStars: Record<number, number>;
 
   essence: number;
   currentRunMoney: number;
@@ -666,12 +633,8 @@ interface GameState {
   dailyDealDate: string;
   dailyDealPurchased: boolean;
   spicyMealActive: boolean;
-  offlineBoost24hExpires: number;
 
-  lastSaveTimestamp: number;
   moneyPerSecond: number;
-
-  lastTapTime: number;
 
   _moneyBuffer: number;
   _moneyBufferTime: number;
@@ -680,13 +643,8 @@ interface GameState {
   _shieldCooldown: number;
   _minHungerPct: number;
   _introPlaying: boolean;
-  _autoTapAccum: number;
-  _autoSplitAccum: number;
   _oversizedVomitCount: number;
   _benchmarkActive: boolean;
-
-  autopilotActive: boolean;
-  autopilotSnapshot: AutopilotSnapshot | null;
 
   pendingWorldUnlock: { from: WorldDef; to: WorldDef } | null;
 
@@ -713,8 +671,7 @@ interface GameState {
   resetGame: () => void;
   prestige: () => void;
   buyEvolutionUpgrade: (id: string) => void;
-  tapFood: (worldX: number, worldY: number) => void;
-  tapOversizedItem: (itemId: string) => void;
+  setSteerInput: (active: boolean, dirX: number, dirY: number, magnitude: number) => void;
   claimDailyReward: () => void;
   buyPermanentBoost: (id: string) => void;
   buyConsumable: (id: string) => void;
@@ -749,11 +706,7 @@ interface GameState {
   closeCustomizer: () => void;
   panelOpened: () => void;
   panelClosed: () => void;
-  activateAutopilot: () => void;
-  deactivateAutopilot: () => void;
-  resolveAutopilot: () => AutopilotResult | null;
-  reviveFromAutopilot: (result: AutopilotResult) => void;
-  applyOfflineProgress: (earnings: number) => void;
+  clearNewRecordFlag: () => void;
   debugAddResources: (money: number, gems: number, essence: number) => void;
   debugFillHunger: () => void;
   debugUnlockAllCosmetics: () => void;
@@ -784,6 +737,8 @@ export const useGameStore = create<GameState>()(
       blobGrowth: 0,
 
       blobPosition: { x: 200, y: 300 },
+      blobVelocity: { x: 0, y: 0 },
+      steerInput: { active: false, dirX: 0, dirY: 0, magnitude: 0 },
       items: [],
       upgrades: { ...DEFAULT_UPGRADES },
       starSpawnTimer: 10,
@@ -791,8 +746,19 @@ export const useGameStore = create<GameState>()(
       boostTimer: 0,
       starBoostActive: false,
       starBoostTimer: 0,
-      wanderAngle: Math.random() * Math.PI * 2,
       levelUpTime: 0,
+
+      swipeStreak: 0,
+      lastSwipeTime: 0,
+      frenzyDashActive: false,
+      frenzyDashTimer: 0,
+      perfectSwipePending: 0,
+      _swipeItemCount: 0,
+      _perfectSwipeFired: false,
+      newRecordFlag: null,
+
+      bestTimes: {},
+      bestStars: {},
 
       essence: 0,
       currentRunMoney: 0,
@@ -857,12 +823,8 @@ export const useGameStore = create<GameState>()(
       dailyDealDate: '',
       dailyDealPurchased: false,
       spicyMealActive: false,
-      offlineBoost24hExpires: 0,
 
-      lastSaveTimestamp: Date.now(),
       moneyPerSecond: 0,
-
-      lastTapTime: 0,
 
       _moneyBuffer: 0,
       _moneyBufferTime: 0,
@@ -871,13 +833,8 @@ export const useGameStore = create<GameState>()(
       _shieldCooldown: 0,
       _minHungerPct: 1,
       _introPlaying: false,
-      _autoTapAccum: 0,
-      _autoSplitAccum: 0,
       _oversizedVomitCount: 0,
       _benchmarkActive: false,
-
-      autopilotActive: false,
-      autopilotSnapshot: null,
 
       pendingWorldUnlock: null,
 
@@ -907,9 +864,17 @@ export const useGameStore = create<GameState>()(
           levelStartTime: Date.now(),
           levelRewards: null,
           blobPosition: { x: 200, y: 300 },
-          wanderAngle: Math.random() * Math.PI * 2,
+          blobVelocity: { x: 0, y: 0 },
+          steerInput: { active: false, dirX: 0, dirY: 0, magnitude: 0 },
           comboCount: 0,
           comboTimer: 0,
+          swipeStreak: 0,
+          lastSwipeTime: 0,
+          frenzyDashActive: false,
+          frenzyDashTimer: 0,
+          perfectSwipePending: 0,
+          _swipeItemCount: 0,
+          _perfectSwipeFired: false,
           starSpawnTimer: 8,
           levelUpTime: 0,
           highestLevelReached: Math.max(state.highestLevelReached, levelNum),
@@ -918,7 +883,6 @@ export const useGameStore = create<GameState>()(
           _shieldCooldown: 0,
           _minHungerPct: 1,
           _introPlaying: true,
-          _autoSplitAccum: 0,
           _oversizedVomitCount: 0,
         };
       }),
@@ -942,6 +906,24 @@ export const useGameStore = create<GameState>()(
         const isWorldBoss = Number.isFinite(world.levelRange[1]) && world.levelRange[1] === state.currentLevel;
         const worldsInc = isWorldBoss ? 1 : 0;
 
+        const lvl = state.currentLevel;
+        const prevBestTime = state.bestTimes[lvl];
+        const prevBestStars = state.bestStars[lvl] || 0;
+        const beatTime = prevBestTime === undefined || elapsedSecs < prevBestTime;
+        const beatStars = stars > prevBestStars;
+        const newRecordFlag: GameState['newRecordFlag'] =
+          beatTime && beatStars ? 'both' :
+          beatTime ? 'time' :
+          beatStars ? 'stars' :
+          null;
+
+        const nextBestTimes = beatTime
+          ? { ...state.bestTimes, [lvl]: elapsedSecs }
+          : state.bestTimes;
+        const nextBestStars = beatStars
+          ? { ...state.bestStars, [lvl]: stars }
+          : state.bestStars;
+
         return {
           levelStars: stars,
           levelRewards: { ...rewards, money: finalMoney },
@@ -950,6 +932,9 @@ export const useGameStore = create<GameState>()(
           gems: state.gems + (rewards.gems || 0),
           currentRunMoney: state.currentRunMoney + finalMoney,
           interstitialLevelsSinceAd: state.interstitialLevelsSinceAd + 1,
+          bestTimes: nextBestTimes,
+          bestStars: nextBestStars,
+          newRecordFlag,
           stats: {
             ...state.stats,
             totalLevelsCompleted: state.stats.totalLevelsCompleted + 1,
@@ -960,6 +945,8 @@ export const useGameStore = create<GameState>()(
           },
         };
       }),
+
+      clearNewRecordFlag: () => set({ newRecordFlag: null }),
 
       endIntro: () => set({ _introPlaying: false, levelStartTime: Date.now(), _minHungerPct: 1 }),
 
@@ -1002,7 +989,6 @@ export const useGameStore = create<GameState>()(
           if (t === 'suction' || t === 'suctionStrength') return 'suctionSynergy';
           if (t === 'hungerDrain' || t === 'hungerMax') return 'hungerSynergy';
           if (t === 'spawnRate' || t === 'spawnValue') return 'spawnSynergy';
-          if (t === 'tapValue' || t === 'tapCooldown') return 'tapSynergy';
           return null;
         };
 
@@ -1020,7 +1006,6 @@ export const useGameStore = create<GameState>()(
           if (type === 'suctionSynergy') { branchA = 'suction'; branchB = 'suctionStrength'; }
           if (type === 'hungerSynergy') { branchA = 'hungerDrain'; branchB = 'hungerMax'; }
           if (type === 'spawnSynergy') { branchA = 'spawnRate'; branchB = 'spawnValue'; }
-          if (type === 'tapSynergy') { branchA = 'tapValue'; branchB = 'tapCooldown'; }
           if ((state.upgrades[branchA] || 0) < reqLevel || (state.upgrades[branchB] || 0) < reqLevel) {
             return state;
           }
@@ -1080,11 +1065,11 @@ export const useGameStore = create<GameState>()(
           case 'survival_keystone': nextUpgrades.hungerMax = (nextUpgrades.hungerMax || 0) + 1; break;
           case 'survival_adaptation': nextUpgrades.hungerDrain = (nextUpgrades.hungerDrain || 0) + 1; break;
           case 'survival_apex': nextUpgrades.hungerMax = (nextUpgrades.hungerMax || 0) + 1; break;
-          case 'auto_tap_drone': nextUpgrades.tapSynergy = (nextUpgrades.tapSynergy || 0) + 1; break;
-          case 'auto_tap_optimizer': nextUpgrades.tapValue = (nextUpgrades.tapValue || 0) + 1; break;
-          case 'auto_offline_core': nextUpgrades.tapCooldown = (nextUpgrades.tapCooldown || 0) + 1; break;
+          case 'auto_tap_drone': nextUpgrades.spawnSynergy = (nextUpgrades.spawnSynergy || 0) + 1; break;
+          case 'auto_tap_optimizer': nextUpgrades.boostSpawnRate = (nextUpgrades.boostSpawnRate || 0) + 1; break;
+          case 'auto_offline_core': nextUpgrades.spawnRate = (nextUpgrades.spawnRate || 0) + 1; break;
           case 'auto_keystone': nextUpgrades.spawnRate = (nextUpgrades.spawnRate || 0) + 1; break;
-          case 'auto_neural_net': nextUpgrades.tapValue = (nextUpgrades.tapValue || 0) + 1; break;
+          case 'auto_neural_net': nextUpgrades.spawnValue = (nextUpgrades.spawnValue || 0) + 1; break;
           case 'auto_apex': nextUpgrades.spawnRate = (nextUpgrades.spawnRate || 0) + 1; break;
           default: break;
         }
@@ -1243,6 +1228,8 @@ export const useGameStore = create<GameState>()(
           levelStartTime: Date.now(),
           levelRewards: null,
           blobPosition: { x: 200, y: 300 },
+          blobVelocity: { x: 0, y: 0 },
+          steerInput: { active: false, dirX: 0, dirY: 0, magnitude: 0 },
           items: [],
           upgrades: { ...DEFAULT_UPGRADES },
           starSpawnTimer: 10,
@@ -1250,21 +1237,24 @@ export const useGameStore = create<GameState>()(
           boostTimer: 0,
           starBoostActive: false,
           starBoostTimer: 0,
-          wanderAngle: Math.random() * Math.PI * 2,
           levelUpTime: 0,
           essence: state.essence + essenceGained,
           currentRunMoney: 0,
           spicyMealActive: false,
           comboCount: 0,
           comboTimer: 0,
-          lastTapTime: 0,
+          swipeStreak: 0,
+          lastSwipeTime: 0,
+          frenzyDashActive: false,
+          frenzyDashTimer: 0,
+          perfectSwipePending: 0,
+          _swipeItemCount: 0,
+          _perfectSwipeFired: false,
           abilities: { ...DEFAULT_ABILITIES },
           abilityCharges: { ...DEFAULT_ABILITY_CHARGES },
           _moneyBuffer: 0,
           _moneyBufferTime: 0,
           moneyPerSecond: 0,
-          autopilotActive: false,
-          autopilotSnapshot: null,
           unlockedSkillNodes: [],
           skillFlashEvents: [],
           skillTelemetry: {
@@ -1280,7 +1270,6 @@ export const useGameStore = create<GameState>()(
           _levelInitialized: false,
           _shieldCooldown: 0,
           _minHungerPct: 1,
-          _autoTapAccum: 0,
         };
       }),
 
@@ -1297,66 +1286,52 @@ export const useGameStore = create<GameState>()(
         };
       }),
 
-      tapFood: (worldX, worldY) => set((state) => {
-        if (state.levelComplete || state.levelFailed) return state;
-
-        const now = performance.now() / 1000;
-        const skillFx = getSkillEffects(state.unlockedSkillNodes);
-        const tapSyn = 1 + (state.upgrades.tapSynergy || 0) * 0.5;
-        const cooldown = BASE_TAP_COOLDOWN * Math.pow(0.9, softCap(state.upgrades.tapCooldown || 0)) / tapSyn
-          * Math.max(0.3, 1 + skillFx.tapCooldownMult);
-        if (now - state.lastTapTime < cooldown) return state;
-
-        const tapMasteryMult = 1 + (state.evolutionUpgrades.tapMastery || 0) * 0.2;
-        const baseVal = 1.5 * Math.sqrt(state.currentLevel);
-        const value = baseVal * BASE_TAP_VALUE_MULT
-          * (1 + softCap(state.upgrades.tapValue || 0) * 0.25 + skillFx.tapValueMult) * tapSyn * tapMasteryMult;
-
-        const bx = state.blobPosition.x;
-        const by = state.blobPosition.y;
-        const tapDist = Math.hypot(worldX - bx, worldY - by);
-        const minSpawnDist = 40;
-        if (tapDist < minSpawnDist) return state;
-
-        const newItem: Item = {
-          id: Math.random().toString(36).substr(2, 9),
-          x: worldX, y: worldY,
-          vx: 0, vy: 0,
-          rotation: 0, rotationSpeed: (Math.random() - 0.5) * 2,
-          type: 'square', value, weight: 1, isTapFood: true,
-        };
-
-        return {
-          items: [...state.items, newItem],
-          lastTapTime: now,
-          stats: { ...state.stats, totalTaps: state.stats.totalTaps + 1 },
-        };
-      }),
-
-      tapOversizedItem: (itemId) => set((state) => {
-        const item = state.items.find(i => i.id === itemId && i.isOversized);
-        if (!item || item.splitState === 'splitting') return state;
-
-        const skillFx = getSkillEffects(state.unlockedSkillNodes);
-        const effectiveTaps = Math.max(1, (item.splitTapsRequired || 3) - skillFx.splitTapReduction);
-        const newTaps = (item.splitTapsReceived || 0) + 1;
-
-        if (newTaps >= effectiveTaps) {
-          const world = getWorldForLevel(state.currentLevel);
-          const wIdx = WORLDS.indexOf(world);
-          const { newItems, fragmentCount } = splitOversizedItem(
-            item, state.items, wIdx,
-            OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
-          );
-          return { items: newItems, levelItemsTotal: state.levelItemsTotal + fragmentCount };
+      // Analog-stick steering. Called on every pointerdown / pointermove /
+      // pointerup from GameCanvas. While active, the tick loop uses dirX/dirY
+      // and magnitude to drive blobVelocity directly (see "Movement" block in
+      // tick). Magnitude is clamped to [0,1].
+      //
+      // Each pointerdown opens a new "input session": we refresh the perfect
+      // window and reset the per-session item counter so the player can earn
+      // a fresh PERFECT bonus per touch.
+      setSteerInput: (active, dirX, dirY, magnitude) => set((state) => {
+        if (!active) {
+          // Releasing the finger — clear input. The tick will then transition
+          // velocity via friction. We deliberately leave perfectSwipePending /
+          // streak alone so any in-flight bonuses still resolve naturally.
+          if (!state.steerInput.active) return state;
+          return {
+            steerInput: { active: false, dirX: 0, dirY: 0, magnitude: 0 },
+          };
         }
 
+        if (state.levelComplete || state.levelFailed || state.reviveOffered) return state;
+        if (state._introPlaying) return state;
+        if (state._openPanelCount > 0) return state;
+
+        const len = Math.hypot(dirX, dirY) || 1;
+        const nx = dirX / len;
+        const ny = dirY / len;
+        const mag = Math.max(0, Math.min(1, magnitude));
+        const wasActive = state.steerInput.active;
+        const now = performance.now() / 1000;
+
+        if (!wasActive) {
+          return {
+            steerInput: { active: true, dirX: nx, dirY: ny, magnitude: mag },
+            lastSwipeTime: now,
+            perfectSwipePending: STEER_PERFECT_WINDOW,
+            _swipeItemCount: 0,
+            _perfectSwipeFired: false,
+            stats: { ...state.stats, totalTaps: state.stats.totalTaps + 1 },
+          };
+        }
+
+        // Continuing session — keep the streak window alive so streak doesn't
+        // decay while the player is actively driving the blob.
         return {
-          items: state.items.map(i =>
-            i.id === itemId
-              ? { ...i, splitTapsReceived: newTaps, splitState: 'cracking' as const }
-              : i
-          ),
+          steerInput: { active: true, dirX: nx, dirY: ny, magnitude: mag },
+          lastSwipeTime: now,
         };
       }),
 
@@ -1419,7 +1394,14 @@ export const useGameStore = create<GameState>()(
         };
 
         if (id === 'power_nap') {
-          updates.money = state.money + state.moneyPerSecond * 7200;
+          // Big Gulp: jump 25% of remaining level items eaten instantly.
+          const remaining = Math.max(0, state.levelItemsTotal - state.levelItemsEaten);
+          const bonus = Math.ceil(remaining * 0.25);
+          updates.levelItemsEaten = state.levelItemsEaten + bonus;
+          updates.stats = {
+            ...state.stats,
+            totalFoodEaten: state.stats.totalFoodEaten + bonus,
+          };
         } else if (id === 'gulp_and_go') {
           updates.levelComplete = true;
           updates.levelItemsEaten = state.levelItemsTotal;
@@ -1489,7 +1471,6 @@ export const useGameStore = create<GameState>()(
             if (featuredPack.rewards.money) updates.money = (s.money || 0) + featuredPack.rewards.money;
             if (featuredPack.rewards.essence) updates.essence = (s.essence || 0) + featuredPack.rewards.essence;
             if (featuredPack.rewards.noInterstitialAds) updates.noInterstitialAds = true;
-            if (featuredPack.rewards.offlineBoost24h) updates.offlineBoost24hExpires = Date.now() + 24 * 60 * 60 * 1000;
             if (featuredPack.rewards.skinId) {
               updates.unlockedSpecialSkins = [...s.unlockedSpecialSkins, featuredPack.rewards.skinId];
             }
@@ -1683,182 +1664,6 @@ export const useGameStore = create<GameState>()(
       panelOpened: () => set((s) => ({ _openPanelCount: s._openPanelCount + 1 })),
       panelClosed: () => set((s) => ({ _openPanelCount: Math.max(0, s._openPanelCount - 1) })),
 
-      activateAutopilot: () => set((state) => {
-        const hasAutopilot = state.unlockedSkillNodes.includes('auto_autopilot_unlock');
-        if (!hasAutopilot) return state;
-        if (state.levelComplete || state.levelFailed || state.reviveOffered) return state;
-        if (state.autopilotActive) return state;
-
-        const skillFx = getSkillEffects(state.unlockedSkillNodes);
-        const clearRate = computeAutopilotClearRate(state);
-
-        const hungerSyn = 1 + ((state.upgrades.hungerSynergy as number) || 0) * 0.5;
-        const maxHunger = (BASE_MAX_HUNGER + softCap(state.upgrades.hungerMax || 0) * 20 + skillFx.hungerMaxFlat) * hungerSyn;
-
-        const evo = state.evolutionUpgrades;
-        const levelFactor = 1 + Math.pow(Math.max(0, state.currentLevel - 3), 1.4) * 0.065;
-        const rawDrain = BASE_HUNGER_DRAIN * levelFactor;
-        const evoHungerResist = Math.pow(0.95, evo.hungerResist);
-        const baseDrain = Math.max(0.5, rawDrain * Math.pow(0.95, softCap(state.upgrades.hungerDrain || 0)) * evoHungerResist) / hungerSyn;
-        const effectiveDrain = baseDrain * (1 + skillFx.hungerDrainMult);
-        const autopilotDrain = effectiveDrain * AUTOPILOT_DRAIN_MULT * Math.max(0, 1 - skillFx.autopilotHungerResist);
-
-        const itemsRemaining = state.levelItemsTotal - state.levelItemsEaten;
-        const avgItemValue = 1 + (state.currentLevel - 1) * 0.03;
-        const hungerRestorePerItem = avgItemValue * 0.20;
-
-        return {
-          autopilotActive: true,
-          autopilotSnapshot: {
-            level: state.currentLevel,
-            itemsRemaining,
-            totalItems: state.levelItemsTotal,
-            clearRate,
-            hungerAtDeploy: state.hunger,
-            maxHunger,
-            hungerDrainPerSec: autopilotDrain,
-            hungerRestorePerItem,
-            timestamp: Date.now(),
-          },
-        };
-      }),
-
-      deactivateAutopilot: () => set((state) => {
-        if (!state.autopilotActive) return state;
-        return {
-          autopilotActive: false,
-          autopilotSnapshot: null,
-        };
-      }),
-
-      resolveAutopilot: () => {
-        const state = get();
-        if (!state.autopilotActive || !state.autopilotSnapshot) return null;
-
-        const snapshot = state.autopilotSnapshot;
-        const now = Date.now();
-        const elapsed = (now - snapshot.timestamp) / 1000;
-
-        const skillFx = getSkillEffects(state.unlockedSkillNodes);
-        const maxAutopilotHours = AUTOPILOT_DEFAULT_MAX_HOURS + skillFx.autopilotMaxHours;
-        const maxSeconds = maxAutopilotHours * 3600;
-        const cappedElapsed = Math.min(elapsed, maxSeconds);
-
-        const hasPerpetualMotion = state.unlockedSkillNodes.includes('auto_perpetual_motion');
-        const diminishThresholdSec = AUTOPILOT_DIMINISHING_THRESHOLD_HOURS * 3600;
-
-        let hunger = snapshot.hungerAtDeploy;
-        let itemsEaten = 0;
-        let itemFractionAccum = 0;
-        let timeAlive = 0;
-        let died = false;
-
-        const achBonuses = getAchievementBonuses(state.achievements);
-        const hasDoubleMoney = state.purchasedPermanentBoosts.includes('double_digest');
-        const evo = state.evolutionUpgrades;
-        const evoValueMult = 1 + evo.spawnValueMult * 0.15;
-        const gemMoneyMult = hasDoubleMoney ? 2 : 1;
-        const skillValueMult = 1 + skillFx.valueMult;
-        const avgItemValue = 1 + (snapshot.level - 1) * 0.03;
-        const baseMoneyPerItem = avgItemValue * achBonuses.moneyMult * gemMoneyMult * evoValueMult * skillValueMult;
-
-        let moneyEarned = 0;
-        const simStepSec = 1;
-
-        for (let t = 0; t < cappedElapsed; t += simStepSec) {
-          if (itemsEaten >= snapshot.itemsRemaining) break;
-
-          let effectiveClearRate = snapshot.clearRate;
-          if (!hasPerpetualMotion && t > diminishThresholdSec) {
-            effectiveClearRate *= AUTOPILOT_DIMINISHING_FACTOR;
-          }
-
-          itemFractionAccum += effectiveClearRate * simStepSec;
-          const wholeItems = Math.floor(itemFractionAccum);
-          if (wholeItems > 0) {
-            const toEat = Math.min(wholeItems, snapshot.itemsRemaining - itemsEaten);
-            itemsEaten += toEat;
-            itemFractionAccum -= wholeItems;
-
-            hunger = Math.min(snapshot.maxHunger, hunger + toEat * snapshot.hungerRestorePerItem);
-            moneyEarned += toEat * baseMoneyPerItem;
-          }
-
-          hunger -= snapshot.hungerDrainPerSec * simStepSec;
-          timeAlive = t + simStepSec;
-
-          if (hunger <= 0) {
-            hunger = 0;
-            died = true;
-            break;
-          }
-        }
-
-        if (!died && timeAlive < cappedElapsed) {
-          timeAlive = cappedElapsed;
-        }
-
-        const outcome: AutopilotOutcome = died
-          ? 'died'
-          : itemsEaten >= snapshot.itemsRemaining
-            ? 'completed'
-            : 'partial';
-
-        moneyEarned = Math.floor(moneyEarned);
-
-        const result: AutopilotResult = {
-          outcome,
-          itemsEaten,
-          totalItems: snapshot.totalItems,
-          hungerAtEnd: Math.max(0, hunger),
-          timeAlive,
-          moneyEarned,
-          level: snapshot.level,
-        };
-
-        const newLevelItemsEaten = (snapshot.totalItems - snapshot.itemsRemaining) + itemsEaten;
-
-        set((s) => {
-          const updates: any = {
-            autopilotActive: false,
-            autopilotSnapshot: null,
-            money: s.money + moneyEarned,
-            currentRunMoney: s.currentRunMoney + moneyEarned,
-            stats: { ...s.stats, totalMoneyEarned: s.stats.totalMoneyEarned + moneyEarned, totalFoodEaten: s.stats.totalFoodEaten + itemsEaten },
-            levelItemsEaten: newLevelItemsEaten,
-            hunger: Math.max(0, hunger),
-          };
-
-          if (outcome === 'completed') {
-            updates.levelComplete = true;
-            updates.levelUpTime = Date.now();
-          } else if (outcome === 'died') {
-            updates.hunger = 0;
-          }
-
-          return updates;
-        });
-
-        return result;
-      },
-
-      reviveFromAutopilot: (result: AutopilotResult) => set((state) => {
-        const skillFx = getSkillEffects(state.unlockedSkillNodes);
-        const hungerSyn = 1 + ((state.upgrades.hungerSynergy as number) || 0) * 0.5;
-        const maxHunger = (BASE_MAX_HUNGER + softCap(state.upgrades.hungerMax || 0) * 20 + skillFx.hungerMaxFlat) * hungerSyn;
-        return {
-          hunger: maxHunger * 0.5,
-          levelFailed: false,
-          reviveOffered: false,
-        };
-      }),
-
-      applyOfflineProgress: (earnings) => set((state) => ({
-        money: state.money + earnings,
-        stats: { ...state.stats, totalMoneyEarned: state.stats.totalMoneyEarned + earnings },
-        currentRunMoney: state.currentRunMoney + earnings,
-      })),
-
       debugAddResources: (addMoney, addGems, addEssence) => set((state) => ({
         money: state.money + addMoney,
         gems: state.gems + addGems,
@@ -1921,18 +1726,24 @@ export const useGameStore = create<GameState>()(
         levelFailed: false, reviveOffered: false, reviveUsedThisAttempt: false,
         levelStars: 0, levelStartTime: Date.now(), levelRewards: null,
         highestLevelReached: 1, blobGrowth: 0,
-        blobPosition: { x: 200, y: 300 }, items: [],
+        blobPosition: { x: 200, y: 300 }, blobVelocity: { x: 0, y: 0 },
+        steerInput: { active: false, dirX: 0, dirY: 0, magnitude: 0 },
+        items: [],
         upgrades: { ...DEFAULT_UPGRADES },
         starSpawnTimer: 10,
         boostActive: false, boostTimer: 0,
         starBoostActive: false, starBoostTimer: 0,
-        wanderAngle: Math.random() * Math.PI * 2, levelUpTime: 0,
+        levelUpTime: 0,
         essence: 0, currentRunMoney: 0,
         evolutionUpgrades: { ...DEFAULT_EVOLUTION },
         gems: 0, unlockedSkins: ['default'], currentSkin: 'default',
         achievements: [], newAchievements: [],
         stats: { ...DEFAULT_STATS },
         comboCount: 0, comboTimer: 0,
+        swipeStreak: 0, lastSwipeTime: 0,
+        frenzyDashActive: false, frenzyDashTimer: 0, perfectSwipePending: 0,
+        _swipeItemCount: 0, _perfectSwipeFired: false,
+        newRecordFlag: null, bestTimes: {}, bestStars: {},
         dailyReward: { ...DEFAULT_DAILY },
         unlockedSkillNodes: [],
         skillFlashEvents: [],
@@ -1947,17 +1758,15 @@ export const useGameStore = create<GameState>()(
         lastDailyChargeRefill: '',
         interstitialLevelsSinceAd: 0, interstitialSessionAdCount: 0,
         interstitialLastTime: 0, lastRewardedAdTime: 0,
-        lastSaveTimestamp: Date.now(), moneyPerSecond: 0,
-        lastTapTime: 0,
-        autopilotActive: false, autopilotSnapshot: null,
+        moneyPerSecond: 0,
         purchasedPacks: [], purchasedPermanentBoosts: [], noInterstitialAds: false,
         consumableInventory: {}, activeTimedBoosts: [],
         freeGiftLastClaim: 0, freeGiftClaimsToday: 0, lastFreeGiftDate: '',
         dailyDealDate: '', dailyDealPurchased: false,
-        spicyMealActive: false, offlineBoost24hExpires: 0,
+        spicyMealActive: false,
         _moneyBuffer: 0, _moneyBufferTime: 0, _achievementTimer: 0,
         _levelInitialized: false, _shieldCooldown: 0, _minHungerPct: 1, _introPlaying: false,
-        _autoTapAccum: 0, _benchmarkActive: false,
+        _benchmarkActive: false,
       }),
 
       tick: (delta, width, height) => set((state) => {
@@ -2001,7 +1810,6 @@ export const useGameStore = create<GameState>()(
           return { levelStartTime: Date.now() };
         }
 
-        if (state.autopilotActive) return {};
         if (state.levelComplete || state.levelFailed || state.reviveOffered) return {};
 
         const evo = state.evolutionUpgrades;
@@ -2083,64 +1891,71 @@ export const useGameStore = create<GameState>()(
         const evoSuctionMult = 1 + evo.globalSuction * 0.1;
         const abilitySuctionMult = state.abilities.size.active ? 2 : 1;
         const stickyTongueMult = state.purchasedPermanentBoosts.includes('sticky_tongue') ? 1.5 : 1;
-        const suction = (BASE_SUCTION + softCap(state.upgrades.suction || 0) * 15)
+        const suctionBase = (BASE_SUCTION + softCap(state.upgrades.suction || 0) * 15)
           * suctionSyn * Math.sqrt(blobScale) * evoSuctionMult
           * (1 + skillFx.suctionMult) * abilitySuctionMult * stickyTongueMult + skillFx.suctionFlat;
+        // dashEatRadiusBonus and frenzyDashSuctionMult are computed below in the movement block
+
         const suctionStrength = (1 + softCap(state.upgrades.suctionStrength || 0) * 0.18) * suctionSyn;
 
-        // --- Movement ---
+        // --- Movement (analog-stick: direct velocity while held + friction on release) ---
+        // Model:
+        //   • While `steerInput.active`, the blob's target velocity is
+        //     direction × max-speed × magnitude. We lerp current velocity
+        //     toward that target so direction changes feel snappy but not
+        //     jarring (no instant teleporting between vectors).
+        //   • When inactive, friction decays the velocity exponentially —
+        //     this is the "coast" feel after the player lets go.
         let { x, y } = state.blobPosition;
-        let targetItem: Item | null = null;
-        const hasTargetLock = state.unlockedSkillNodes.includes('hunt_target_lock');
+        let { x: vx, y: vy } = state.blobVelocity;
+
+        const evoGlideMult = Math.max(0.2, 1 - (evo.glideMastery || 0) * 0.05);
+        const baseFriction = SWIPE_FRICTION * Math.max(0, 1 - skillFx.frictionReduction) * evoGlideMult;
+        const swipeMastery = 1 + (evo.swipeMastery || 0) * 0.08;
+        const swipeImpulse = 1 + skillFx.swipeImpulseMult;
+        const steerFrenzyMult = state.frenzyDashActive ? 1.4 : 1;
+        const steerMaxSpeed = speed * STEER_SPEED_MULT * swipeMastery * swipeImpulse * steerFrenzyMult;
+
+        if (state.steerInput.active && state.steerInput.magnitude > 0) {
+          const targetVx = state.steerInput.dirX * steerMaxSpeed * state.steerInput.magnitude;
+          const targetVy = state.steerInput.dirY * steerMaxSpeed * state.steerInput.magnitude;
+          // Frame-rate-independent lerp: same convergence speed at any FPS.
+          // STEER_ACCEL_LERP is calibrated for 60 FPS; scale by delta×60.
+          const t = Math.min(1, STEER_ACCEL_LERP * delta * 60);
+          vx += (targetVx - vx) * t;
+          vy += (targetVy - vy) * t;
+        } else {
+          const decay = Math.exp(-baseFriction * delta);
+          vx *= decay;
+          vy *= decay;
+          const restMag = Math.hypot(vx, vy);
+          if (restMag < SWIPE_MIN_VEL) {
+            vx = 0;
+            vy = 0;
+          }
+        }
+
+        x += vx * delta;
+        y += vy * delta;
+
+        const speedMag = Math.hypot(vx, vy);
+        const newBlobVelocity = { x: vx, y: vy };
         const targetNow = performance.now() / 1000;
 
-        if (hasTargetLock) {
-          let bestScore = -Infinity;
-          for (const item of state.items) {
-            if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
-            if (item.type === 'star' || !item.isTapFood) {
-              const dist = Math.max(1, Math.hypot(item.x - x, item.y - y));
-              const score = (item.value || 1) / (dist * 0.5);
-              if (score > bestScore) { bestScore = score; targetItem = item; }
-            }
-          }
-          if (!targetItem) {
-            for (const item of state.items) {
-              if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
-              const dist = Math.max(1, Math.hypot(item.x - x, item.y - y));
-              const score = (item.value || 1) / (dist * 0.5);
-              if (score > bestScore) { bestScore = score; targetItem = item; }
-            }
-          }
-        } else {
-          let minDist = Infinity;
-          for (const item of state.items) {
-            if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
-            if (item.type === 'star' || !item.isTapFood) {
-              const dist = Math.hypot(item.x - x, item.y - y);
-              if (dist < minDist) { minDist = dist; targetItem = item; }
-            }
-          }
-          if (!targetItem) {
-            for (const item of state.items) {
-              if (item._ignoreUntil && targetNow < item._ignoreUntil) continue;
-              const dist = Math.hypot(item.x - x, item.y - y);
-              if (dist < minDist) { minDist = dist; targetItem = item; }
-            }
-          }
+        // --- Frenzy Dash timer + bonuses ---
+        let newFrenzyDashActive = state.frenzyDashActive;
+        let newFrenzyDashTimer = state.frenzyDashTimer;
+        if (newFrenzyDashActive) {
+          newFrenzyDashTimer = Math.max(0, newFrenzyDashTimer - delta);
+          if (newFrenzyDashTimer <= 0) newFrenzyDashActive = false;
         }
-
-        let newWanderAngle = state.wanderAngle;
-        if (targetItem) {
-          const angle = Math.atan2(targetItem.y - y, targetItem.x - x);
-          x += Math.cos(angle) * speed * delta;
-          y += Math.sin(angle) * speed * delta;
-          newWanderAngle = angle;
-        } else {
-          newWanderAngle += (Math.random() - 0.5) * delta * 2;
-          x += Math.cos(newWanderAngle) * (speed * 0.5) * delta;
-          y += Math.sin(newWanderAngle) * (speed * 0.5) * delta;
-        }
+        const frenzyDashSuctionMult = newFrenzyDashActive ? 2 : 1;
+        const dashSpeed = speedMag;
+        const isDashing = dashSpeed > RAM_VEL_THRESHOLD;
+        const evoDashRadius = (evo.dashRadius || 0) * 4;
+        const dashEatRadiusBonus = isDashing ? (skillFx.dashEatRadius + evoDashRadius) : 0;
+        const magnetWhileDashingMult = (isDashing && skillFx.magnetWhileDashing > 0) ? skillFx.magnetWhileDashing : 1;
+        const suction = suctionBase * frenzyDashSuctionMult + dashEatRadiusBonus;
 
         // --- Collisions ---
         const remainingItems: Item[] = [];
@@ -2184,7 +1999,8 @@ export const useGameStore = create<GameState>()(
                 const totalFrags = item._fragmentsRemaining || osCfg.fragmentCount;
                 const fragsA = Math.ceil(totalFrags / 2);
                 const fragsB = Math.floor(totalFrags / 2);
-                const reducedTaps = Math.max(1, Math.ceil((item.splitTapsRequired || 3) * newStage / OVERSIZED_VOMIT_STAGES));
+                const baseTaps = item.ramHitsRequired ?? item.splitTapsRequired ?? 3;
+                const reducedTaps = Math.max(1, Math.ceil(baseTaps * newStage / OVERSIZED_VOMIT_STAGES));
                 for (let vi = 0; vi < 2; vi++) {
                   const vAngle = (vi === 0 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.0;
                   remainingItems.push({
@@ -2199,6 +2015,8 @@ export const useGameStore = create<GameState>()(
                     weight: item.weight * 0.7,
                     isOversized: true,
                     oversizedStage: newStage,
+                    ramHitsRequired: reducedTaps,
+                    ramHitsReceived: 0,
                     splitTapsRequired: reducedTaps,
                     splitTapsReceived: 0,
                     splitState: 'whole',
@@ -2245,11 +2063,7 @@ export const useGameStore = create<GameState>()(
 
           const weightFactor = 1 / Math.max(1, item.weight * 0.45 * (1 - skillFx.weightReduction));
 
-          if (item.isAutoTap && dist > suction) {
-            const homeAngle = Math.atan2(y - item.y, x - item.x);
-            item.vx = Math.cos(homeAngle) * dist * 3;
-            item.vy = Math.sin(homeAngle) * dist * 3;
-          } else if (state.abilities.magnet.active && dist > suction) {
+          if (state.abilities.magnet.active && dist > suction) {
             const magnetAngle = Math.atan2(y - item.y, x - item.x);
             item.vx += Math.cos(magnetAngle) * 200 * delta;
             item.vy += Math.sin(magnetAngle) * 200 * delta;
@@ -2264,7 +2078,7 @@ export const useGameStore = create<GameState>()(
             item.rotationSpeed += (Math.random() - 0.5) * pullSpeed * 0.01;
             item.vx *= 0.95;
             item.vy *= 0.95;
-          } else if (skillFx.magnetRadius > 0 && dist < Math.max(width, height) * skillFx.magnetRadius * blobScale) {
+          } else if (skillFx.magnetRadius > 0 && dist < Math.max(width, height) * skillFx.magnetRadius * blobScale * magnetWhileDashingMult) {
             const magnetAngle = Math.atan2(y - item.y, x - item.x);
             item.vx += Math.cos(magnetAngle) * 8 * delta;
             item.vy += Math.sin(magnetAngle) * 8 * delta;
@@ -2281,9 +2095,44 @@ export const useGameStore = create<GameState>()(
                 remainingItems.push(item);
                 continue;
               }
-              item.splitState = 'swallowing';
-              item.swallowTime = tickNow;
-              remainingItems.push(item);
+              // Ram-to-crack: only register a hit when the blob is moving
+              // fast enough and the per-item cooldown has elapsed.
+              const ramReady = !item._ramCooldown || tickNow >= item._ramCooldown;
+              if (dashSpeed >= RAM_VEL_THRESHOLD && ramReady) {
+                const required = Math.max(1,
+                  (item.ramHitsRequired ?? item.splitTapsRequired ?? 3) - skillFx.ramHitsReduction
+                );
+                const received = (item.ramHitsReceived ?? item.splitTapsReceived ?? 0) + 1;
+                item.ramHitsReceived = received;
+                item.splitTapsReceived = received;
+                item.splitState = 'cracking';
+                item._ramCooldown = tickNow + 0.18;
+
+                // Knockback the blob and the item
+                const ramAngle = Math.atan2(y - item.y, x - item.x);
+                vx += Math.cos(ramAngle) * dashSpeed * 0.6;
+                vy += Math.sin(ramAngle) * dashSpeed * 0.6;
+                newBlobVelocity.x = vx;
+                newBlobVelocity.y = vy;
+                item.vx -= Math.cos(ramAngle) * dashSpeed * 0.4;
+                item.vy -= Math.sin(ramAngle) * dashSpeed * 0.4;
+
+                if (received >= required) {
+                  const wIdx = WORLDS.indexOf(getWorldForLevel(state.currentLevel));
+                  const { newItems, fragmentCount } = splitOversizedItem(
+                    item, [item], wIdx,
+                    OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
+                  );
+                  for (const f of newItems) {
+                    if (f.id !== item.id) remainingItems.push(f);
+                  }
+                  fragmentsCreated += fragmentCount;
+                } else {
+                  remainingItems.push(item);
+                }
+              } else {
+                remainingItems.push(item);
+              }
               continue;
             }
             eatenSet.add(item.id);
@@ -2344,9 +2193,16 @@ export const useGameStore = create<GameState>()(
         const comboScaleMult = skillFx.comboValueScale > 0 ? 1 + skillFx.comboValueScale * Math.min(newComboCount, comboCap) : 1;
 
         const frenzyValueMult = frenzyActive ? 1 + skillFx.lowHungerFrenzyMult * 0.5 : 1;
+        // Apply Perfect Swipe value bonus when player collects 3+ items in a single swipe window
+        const swipeWindowActive = state.perfectSwipePending > 0;
+        const willBePerfect = swipeWindowActive
+          && (state._swipeItemCount + itemsEaten) >= PERFECT_SWIPE_THRESHOLD;
+        const perfectSwipeBonus = willBePerfect ? 1 + (skillFx.perfectSwipeMult || 0) + 0.25 : 1;
+        const frenzyDashValueMult = newFrenzyDashActive ? 2 : 1;
+        const streakBonus = 1 + (skillFx.streakBonusMult || 0) * (state.swipeStreak / 100);
         moneyGained *= adBoostMultiplier * achBonuses.moneyMult * gemMoneyMult
           * evoValueMult * comboMult * comboScaleMult * (1 + skillFx.valueMult) * frenzyValueMult
-          * storeFrenzyMult * goldenGutMult;
+          * storeFrenzyMult * goldenGutMult * perfectSwipeBonus * frenzyDashValueMult * streakBonus;
 
         let newMoney = state.money + moneyGained;
         let newRunMoney = state.currentRunMoney + moneyGained;
@@ -2433,13 +2289,6 @@ export const useGameStore = create<GameState>()(
           newAbilities[aid] = ab;
         }
 
-        if (skillFx.passiveMoneyRate > 0) {
-          const passiveIncome = skillFx.passiveMoneyRate * delta;
-          newMoney += passiveIncome;
-          newRunMoney += passiveIncome;
-          moneyGained += passiveIncome;
-        }
-
         // --- $/sec tracking ---
         let newMoneyBuffer = state._moneyBuffer + moneyGained;
         let newMoneyBufferTime = state._moneyBufferTime + delta;
@@ -2492,65 +2341,38 @@ export const useGameStore = create<GameState>()(
         //   }
         // }
 
-        // --- Auto-tap: spawn visible food that homes toward the blob ---
-        let newAutoTapAccum = state._autoTapAccum;
-        if (skillFx.autoTapRate > 0) {
-          newAutoTapAccum += skillFx.autoTapRate * delta;
-          const tapMasteryMult = 1 + (evo.tapMastery || 0) * 0.2;
-          const tapSyn = 1 + (state.upgrades.tapSynergy || 0) * 0.5;
-          const baseVal = 1.5 * Math.sqrt(state.currentLevel);
-          const tapValue = baseVal * BASE_TAP_VALUE_MULT
-            * (1 + softCap(state.upgrades.tapValue || 0) * 0.25 + skillFx.tapValueMult) * tapSyn * tapMasteryMult;
-
-          while (newAutoTapAccum >= 1) {
-            newAutoTapAccum -= 1;
-            const spawnDist = suction * 2.5;
-            remainingItems.push({
-              id: Math.random().toString(36).substr(2, 9),
-              x: x + Math.cos(newWanderAngle) * spawnDist,
-              y: y + Math.sin(newWanderAngle) * spawnDist,
-              vx: 0, vy: 0,
-              rotation: 0, rotationSpeed: (Math.random() - 0.5) * 2,
-              type: 'square', value: tapValue, weight: 1, isTapFood: true, isAutoTap: true,
-            });
+        // --- Swipe streak / Frenzy Dash trigger ---
+        let newSwipeStreak = state.swipeStreak;
+        let newPerfectSwipePending = state.perfectSwipePending;
+        let newSwipeItemCount = state._swipeItemCount;
+        let newPerfectSwipeFired = state._perfectSwipeFired;
+        const streakWindow = 1.2 + (skillFx.streakWindow || 0);
+        if (itemsEaten > 0 && (tickNow - state.lastSwipeTime) <= streakWindow) {
+          newSwipeStreak = Math.min(100, newSwipeStreak + itemsEaten);
+        } else if (tickNow - state.lastSwipeTime > streakWindow) {
+          newSwipeStreak = Math.max(0, newSwipeStreak - delta * 8);
+        }
+        if (newSwipeStreak >= FRENZY_DASH_THRESHOLD && !newFrenzyDashActive) {
+          newFrenzyDashActive = true;
+          newFrenzyDashTimer = FRENZY_DASH_DURATION;
+          newSwipeStreak = 0;
+        }
+        if (newPerfectSwipePending > 0) {
+          newSwipeItemCount += itemsEaten;
+          if (!newPerfectSwipeFired && newSwipeItemCount >= PERFECT_SWIPE_THRESHOLD) {
+            newPerfectSwipeFired = true;
+          }
+          newPerfectSwipePending = Math.max(0, newPerfectSwipePending - delta);
+          if (newPerfectSwipePending === 0) {
+            newSwipeItemCount = 0;
+            newPerfectSwipeFired = false;
           }
         }
-
-        let newAutoSplitAccum = state._autoSplitAccum;
-        if (skillFx.autoSplitRate > 0) {
-          newAutoSplitAccum += skillFx.autoSplitRate * delta;
-          while (newAutoSplitAccum >= 1) {
-            newAutoSplitAccum -= 1;
-            let closestDist = Infinity;
-            let target: Item | null = null;
-            for (const item of remainingItems) {
-              if (!item.isOversized || item.splitState === 'splitting') continue;
-              const d = Math.hypot(item.x - x, item.y - y);
-              if (d < closestDist) { closestDist = d; target = item; }
-            }
-            if (target) {
-              const effectiveTaps = Math.max(1, (target.splitTapsRequired || 3) - skillFx.splitTapReduction);
-              target.splitTapsReceived = (target.splitTapsReceived || 0) + 1;
-              target.splitState = 'cracking';
-              if (target.splitTapsReceived >= effectiveTaps) {
-                const wIdx = WORLDS.indexOf(getWorldForLevel(state.currentLevel));
-                const { newItems, fragmentCount } = splitOversizedItem(
-                  target, remainingItems, wIdx,
-                  OVERSIZED_PROACTIVE_VALUE_MULT, skillFx.oversizedValueMult,
-                );
-                remainingItems.length = 0;
-                remainingItems.push(...newItems);
-                fragmentsCreated += fragmentCount;
-              }
-            }
-          }
-        }
-
-        const newSaveTimestamp = Date.now();
 
         return {
           hunger: newHunger,
           blobPosition: { x, y },
+          blobVelocity: newBlobVelocity,
           items: remainingItems,
           money: newMoney,
           currentRunMoney: newRunMoney,
@@ -2563,15 +2385,19 @@ export const useGameStore = create<GameState>()(
           boostTimer: newBoostTimer,
           starBoostActive: newStarBoostActive,
           starBoostTimer: newStarBoostTimer,
-          wanderAngle: newWanderAngle,
           levelUpTime: newLevelUpTime,
           comboCount: newComboCount,
           comboTimer: newComboTimer,
+          swipeStreak: newSwipeStreak,
+          frenzyDashActive: newFrenzyDashActive,
+          frenzyDashTimer: newFrenzyDashTimer,
+          perfectSwipePending: newPerfectSwipePending,
+          _swipeItemCount: newSwipeItemCount,
+          _perfectSwipeFired: newPerfectSwipeFired,
           moneyPerSecond: newMoneyPerSecond,
           stats: newStats,
           achievements: newAchievementsList,
           gems: newGems,
-          lastSaveTimestamp: newSaveTimestamp,
           _moneyBuffer: newMoneyBuffer,
           _moneyBufferTime: newMoneyBufferTime,
           _achievementTimer: achTimer,
@@ -2580,8 +2406,6 @@ export const useGameStore = create<GameState>()(
           completedHints: newCompletedHints,
           _shieldCooldown: newShieldCooldown,
           _minHungerPct: newMinHungerPct,
-          _autoTapAccum: newAutoTapAccum,
-          _autoSplitAccum: newAutoSplitAccum,
           _oversizedVomitCount: newOversizedVomitCount,
           activeTimedBoosts: newTimedBoosts,
         };
@@ -2619,16 +2443,12 @@ export const useGameStore = create<GameState>()(
         tutorialComplete: state.tutorialComplete,
         sessionCount: state.sessionCount,
         completedHints: state.completedHints,
-        lastSaveTimestamp: state.lastSaveTimestamp,
-        moneyPerSecond: state.moneyPerSecond,
         sfxEnabled: state.sfxEnabled,
         musicEnabled: state.musicEnabled,
         hapticsEnabled: state.hapticsEnabled,
         abilityCharges: state.abilityCharges,
         lastDailyChargeRefill: state.lastDailyChargeRefill,
         interstitialLevelsSinceAd: state.interstitialLevelsSinceAd,
-        autopilotActive: state.autopilotActive,
-        autopilotSnapshot: state.autopilotSnapshot,
         purchasedPacks: state.purchasedPacks,
         purchasedPermanentBoosts: state.purchasedPermanentBoosts,
         noInterstitialAds: state.noInterstitialAds,
@@ -2640,16 +2460,75 @@ export const useGameStore = create<GameState>()(
         dailyDealDate: state.dailyDealDate,
         dailyDealPurchased: state.dailyDealPurchased,
         spicyMealActive: state.spicyMealActive,
-        offlineBoost24hExpires: state.offlineBoost24hExpires,
+        bestTimes: state.bestTimes,
+        bestStars: state.bestStars,
+        schemaVersion: 3,
       }),
       merge: (persisted: any, current) => {
+        // ─── Save migration for 24→48 worlds expansion ───
+        const OLD_TO_NEW_WORLD_START: Record<number, number> = {
+          1: 1, 6: 6, 11: 16, 16: 26, 21: 36, 26: 46, 31: 51, 36: 61, 41: 66, 46: 76,
+          51: 86, 56: 96, 61: 101, 66: 106, 71: 116, 77: 122, 83: 128, 89: 139,
+          95: 145, 101: 151, 106: 161, 111: 166, 116: 176, 121: 181,
+        };
+        const oldStarts = Object.keys(OLD_TO_NEW_WORLD_START).map(Number).sort((a, b) => a - b);
+        function migrateLevel(oldLevel: number): number {
+          if (!oldLevel || oldLevel <= 0) return 1;
+          let oldStart = oldStarts[0];
+          for (const startLvl of oldStarts) {
+            if (oldLevel >= startLvl) oldStart = startLvl;
+          }
+          return OLD_TO_NEW_WORLD_START[oldStart] + (oldLevel - oldStart);
+        }
+        const needsMigration = persisted && (!persisted.schemaVersion || persisted.schemaVersion < 2);
+        if (needsMigration && persisted) {
+          if (typeof persisted.currentLevel === 'number') persisted.currentLevel = migrateLevel(persisted.currentLevel);
+          if (typeof persisted.highestLevelReached === 'number') persisted.highestLevelReached = migrateLevel(persisted.highestLevelReached);
+          if (persisted.stats && typeof persisted.stats.highestLevel === 'number') {
+            persisted.stats.highestLevel = migrateLevel(persisted.stats.highestLevel);
+          }
+          persisted.schemaVersion = 2;
+        }
+
+        // ─── Idle→Active rework: refund obsolete tap upgrades & strip dead persisted fields ───
+        let refundMoney = 0;
+        const cleanedUpgrades = { ...(persisted?.upgrades || {}) };
+        const obsoleteTapUpgrades: string[] = ['tapValue', 'tapCooldown', 'tapSynergy'];
+        for (const key of obsoleteTapUpgrades) {
+          if (typeof (cleanedUpgrades as any)[key] === 'number') {
+            const lvl = (cleanedUpgrades as any)[key] as number;
+            refundMoney += Math.round(10 * Math.pow(1.5, lvl));
+            delete (cleanedUpgrades as any)[key];
+          }
+        }
+        const cleanedEvolution = { ...(persisted?.evolutionUpgrades || {}) };
+        for (const key of ['tapMastery', 'offlineRate', 'autopilotRate']) {
+          if (typeof (cleanedEvolution as any)[key] === 'number') {
+            delete (cleanedEvolution as any)[key];
+          }
+        }
+
+        const persistedSchema = persisted?.schemaVersion || 0;
+        if (persistedSchema < 3 && persisted) {
+          delete persisted.lastSaveTimestamp;
+          delete persisted.moneyPerSecond;
+          delete persisted.autopilotActive;
+          delete persisted.autopilotSnapshot;
+          delete persisted.lastTapTime;
+          delete persisted.offlineBoost24hExpires;
+          delete persisted.wanderAngle;
+          delete persisted._autoTapAccum;
+          delete persisted._autoSplitAccum;
+          persisted.schemaVersion = 3;
+        }
+
         const migratedLevel = persisted?.currentLevel || persisted?.level || 1;
         return {
           ...current,
           ...(persisted || {}),
           currentLevel: migratedLevel,
-          upgrades: { ...DEFAULT_UPGRADES, ...(persisted?.upgrades || {}) },
-          evolutionUpgrades: { ...DEFAULT_EVOLUTION, ...(persisted?.evolutionUpgrades || {}) },
+          upgrades: { ...DEFAULT_UPGRADES, ...cleanedUpgrades },
+          evolutionUpgrades: { ...DEFAULT_EVOLUTION, ...cleanedEvolution },
           stats: { ...DEFAULT_STATS, ...(persisted?.stats || {}) },
           dailyReward: { ...DEFAULT_DAILY, ...(persisted?.dailyReward || {}) },
           unlockedSkillNodes: persisted?.unlockedSkillNodes || getStarterSkillNodesFromLegacy(persisted?.upgrades || {}),
@@ -2659,6 +2538,7 @@ export const useGameStore = create<GameState>()(
             ...(persisted?.skillTelemetry || {}),
             runStartTimestamp: Date.now(),
           },
+          money: (persisted?.money || 0) + refundMoney,
           sessionCount: (persisted?.sessionCount || 0) + 1,
           completedHints: persisted?.tutorialComplete
             ? ['blob_intro', 'tap_hint', 'money_hint', 'skill_tree_hint', 'worlds_hint']
@@ -2682,11 +2562,11 @@ export const useGameStore = create<GameState>()(
           interstitialSessionAdCount: 0,
           interstitialLastTime: 0,
           lastRewardedAdTime: 0,
-          autopilotActive: persisted?.autopilotActive || false,
-          autopilotSnapshot: persisted?.autopilotSnapshot || null,
           purchasedPacks: persisted?.purchasedPacks || [],
           purchasedPermanentBoosts: (() => {
-            const boosts = persisted?.purchasedPermanentBoosts || [];
+            const boosts: string[] = (persisted?.purchasedPermanentBoosts || []).filter(
+              (b: string) => b !== 'sleep_eating'
+            );
             const legacyGemItems: string[] = (persisted as any)?.purchasedGemItems || [];
             if (legacyGemItems.includes('double_money') && !boosts.includes('double_digest')) {
               return [...boosts, 'double_digest'];
@@ -2702,7 +2582,18 @@ export const useGameStore = create<GameState>()(
           dailyDealDate: persisted?.dailyDealDate || '',
           dailyDealPurchased: persisted?.dailyDealPurchased || false,
           spicyMealActive: persisted?.spicyMealActive || false,
-          offlineBoost24hExpires: persisted?.offlineBoost24hExpires || 0,
+          bestTimes: persisted?.bestTimes || {},
+          bestStars: persisted?.bestStars || {},
+          blobVelocity: { x: 0, y: 0 },
+          steerInput: { active: false, dirX: 0, dirY: 0, magnitude: 0 },
+          swipeStreak: 0,
+          lastSwipeTime: 0,
+          frenzyDashActive: false,
+          frenzyDashTimer: 0,
+          perfectSwipePending: 0,
+          _swipeItemCount: 0,
+          _perfectSwipeFired: false,
+          newRecordFlag: null,
           _levelInitialized: false,
         };
       },
